@@ -18,14 +18,30 @@
 2. **`last_success_at` 只由新鲜观测推进**：一次 `Read` 若返回的全部样本都超龄，不推进在线判定。A 级 `txack`（网关已发射）只表示「下发链路可用」，不作为设备在线证据。
 3. **调度器相位锁定**：`next = start + k*period`，不使用 `Sleep(period)`。迟到超过一个周期的 tick 记 `missed_tick` 并**跳过**，不补跑（补跑会让后续 tick 连续拥挤，抖动放大）。
 4. **单设备独立 deadline**：链路内串行遍历设备，每台设备有自己的读超时；超时即把该设备全部点位标 `bad` 并立刻处理下一台，不进入重试链阻塞总线。单 tick 最坏耗时被 `设备数 × read_deadline` 封顶。
-5. **时钟注入**：所有时间取自注入的 `Clock`；排序与窗口计算用单调时钟，上报 `ts` 用墙钟。二者分离，墙钟跳变不污染超时判定。
+5. **时间只从注入的 `Clock` 进入内核**。`Clock` 是完整时间抽象，不只是 `Now()`：
+
+   ```go
+   type Clock interface {
+       Now() time.Time
+       NewTicker(d time.Duration) Ticker   // 内核不得直接 time.NewTicker
+       NewTimer(d time.Duration) Timer     // 内核不得直接 time.After/context.WithTimeout 做业务超时
+       Sleep(d time.Duration)
+   }
+   type Ticker interface{ C() <-chan time.Time; Stop() }
+   type Timer  interface{ C() <-chan time.Time; Stop() }
+   ```
+
+   **硬规则**：`internal/core/*` 与 `internal/drivers/*` 不得直接调用 `time.Now/NewTicker/NewTimer/After/AfterFunc/Sleep`（`time.Duration` 类型本身照常用）。所有等待与截止走 `Clock`。业务超时**不用** `context.WithTimeout`，因为它的截止由运行时真实定时器驱动，假时钟无法快进；context 只用于取消传播。
+
+   排序与窗口计算用 `Clock`（单调语义），上报 `ts` 用 `Clock.Now()` 的墙钟值。测试中 `Sample.At` 必须由同一个假时钟产出，否则 `Sub` 会跨时钟源、边界断言差一纳秒翻车。
 
 ## 后果
 
 - 驱动实现变简单：不需要判断「数据算不算新鲜」，只报 `At` 与观测结果。
 - LoRa 驱动的 `Read` 允许返回空结果（`OutcomeUnsupported`），内核据此不刷新任何属性，也不推进在线判定。
-- 抖动验收可测：`|实际 tick - 计划 tick| ≤ 10% period` 且不累积。
+- **周期不累积**可用假时钟验证（算术性质）；**真实抖动 ≤ ±10%** 只能在真实时钟的短 soak 里验证——两者分开，别把前者当后者。
 - 内核可用假驱动 + 注入式假时钟做确定性单测，不需要 `time.Sleep`，也不需要任何真实协议。
+- 代价：内核必须显式接收 `Clock`，不能写成包级全局；驱动层同样接收，避免串口/TCP 超时绕过假时钟。真实网络 I/O 的超时由驱动底层库控制，测试时用内存对端而不是 mock 时间。
 
 ## 被否决的方案
 

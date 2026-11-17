@@ -19,5 +19,7 @@ Single-context: `GLOSSARY.md` at the root plus `docs/adr/`. See `docs/agents/dom
 
 - Go，交叉编译 `linux/arm64`，同时保留 `linux/amd64` 用于本机联调；单二进制 + YAML 配置 + systemd；`CGO_ENABLED=0` 静态编译。**不引入外部/网络数据库，不引入 Web 后台**；允许嵌入式 KV（`go.etcd.io/bbolt`）承载幂等与状态（决策 4=B，见 `docs/缺口台账.md` E6）。sqlite 的 cgo 绑定与静态编译冲突，故不用。
 - 南向驱动、北向通道、物模型适配器都必须经接口注入，不允许在引擎内核里直接 import 具体实现。
+- **时间只能从注入的 `Clock` 进入内核**。`internal/core/*` 与 `internal/drivers/*` 禁止直接调用 `time.Now/NewTicker/NewTimer/After/AfterFunc/Sleep`；业务超时不用 `context.WithTimeout`（真实定时器无法被假时钟快进）。见 ADR-0003 决策 5。
+- 持久化只经 `Store` 接口进入内核；bbolt 是唯一生产实现，测试用内存实现（ADR-0004 §4a）。
 - ChirpStack 是既有系统：本服务只经其 API 做上下行，绝不改动或抢占其端口/会话。
 - 当前无实物：所有硬件相关数值一律标记为 `ASSUMED`，集中登记在 `docs/缺口台账.md`，不得散落在代码里当常量口口相传。

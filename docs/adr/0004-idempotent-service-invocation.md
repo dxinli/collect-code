@@ -26,6 +26,23 @@
    - 崩溃窗口仍落在「`accepted` 已提交、副作用未发生」或「副作用已发生、`final` 未提交」两侧。**前者是安全的**（少执行）；后者导致终态未知——重启后对该 `seq` 回 **`4004`（终态未知，请换新 `seq`）**，而不是猜测性重放。
    - 说明：bbolt 让「写这条记录」本身成为原子、崩溃安全的单次事务，消除了 journal 的 append/replay/压缩机制，**但它无法消除上面这个窗口**——因为副作用发生在外部（网线/射频上），存储事务性不覆盖它。所以 `accepted/final` 两阶段语义保留，只是落地形式从「两行日志」变成「一条记录的状态字段」。
 4. **过期清理**：后台周期扫描 `phase=final` 且 `ts` 早于 `idempotency_ttl`（默认 7 天）的记录并删除，同时物化每设备 `last_seq` 水位。设备在线状态与属性快照存同一 bbolt 文件的不同 bucket。
+
+4a. **存储是内核的第二条缝隙**：`core/store` 暴露窄接口，bbolt 是唯一生产实现，测试另提供内存实现。
+
+   ```go
+   type Store interface {
+       BeginAccepted(ctx context.Context, rec AcceptedRecord) error
+       Finish(ctx context.Context, rec FinalRecord) error
+       Lookup(ctx context.Context, device string, seq uint64) (Record, bool, error)
+       LastSeq(ctx context.Context, device string) (uint64, error)
+       LoadDevices(ctx context.Context) ([]DeviceState, error)
+       SaveDevices(ctx context.Context, states []DeviceState) error
+       Close() error
+   }
+   ```
+
+   内核对 bbolt 无直接依赖；`internal/core/store` 的 bbolt 实现自己测两阶段与重开，其余内核用内存实现。**因此「内核只有一条缝隙」的说法不再成立——是两条：`interfaces`（协议与传输）与 `store`（持久化）。**
+
 5. **云端契约**（必须写进对接文档）：
    - 重试**必须换新 `seq`**；同 `seq` 只用于「同一条请求的重发」，边缘不会重复执行。
    - 重试窗口必须 **小于幂等 TTL**（7 天），否则过期后同 `seq` 会被当成新请求再执行一次。
