@@ -28,7 +28,7 @@
 1. **上行只用 MQTT integration**（引擎作为只读 MQTT 客户端订阅 `application/+/device/+/event/+`）。它是官方对外集成路径、无丢帧历史限制、断线重连语义简单。
 2. **下行用 gRPC 客户端直接调 `DeviceService/Enqueue`**，不使用 REST。理由：不要求现场额外安装 `chirpstack-rest-api`；官方 Go 客户端开箱即用；`FlushQueue`、`GetQueue` 同一客户端可达。
 3. **不采用 `InternalService.StreamDeviceEvents` 作为上行主通道**：其历史深度默认 10 条，重启或断线期间的帧会丢，不足以承载采集数据。
-4. **队列治理用 `FlushQueue` + `GetQueue` 实现 D22**：同一设备的 pending 下行按「同 service 合并、保留最新」，超限淘汰最旧并发 `cmd_dropped`。
+4. **队列治理用 `GetQueue` + 逐条精确操作实现 D22，不使用 `FlushQueue` 做合并**：合并同一设备的同 service pending 下行时，先 `GetQueue` 读出条目，只撤销我方已标识且尚未被取走的条目，再 Enqueue 新值。理由与竞态分析见 ADR-0005；`FlushQueue` 仅保留给运维显式子命令（`queue flush --device`），且需二次确认。
 5. **`confirmed` 字段按需设置**：默认 `false`。confirmed 下行会占用设备接收窗口并影响功耗，只在确有必要的服务上开启。
 6. ChirpStack 配置只允许**增量启用 integration**（属需求允许的「配置、集成」范围），不修改其源码、不占用 8080/1700。
 
@@ -42,6 +42,7 @@
 ## 被否决的方案
 
 - **REST-only 下行**：依赖现场额外安装 `chirpstack-rest-api`（默认 8090），多一个组件与故障点。
+- **`FlushQueue` 式合并**：整队清空与「设备上行触发取队列」存在不可消除的竞态，最坏导致「设备已收到却记为丢弃」后云端重发（ADR-0005）。
 - **`InternalService.StreamDeviceEvents` 作上行**：默认仅保留 10 条事件，重启/断线必丢帧。
 - **直连 Redis Streams 作主上行**：需 Redis 凭据与网络可达，耦合 ChirpStack 内部实现细节，版本升级易断。
 - **依赖 `state_topic`（retained 状态）**：文档模板里有该配置，但 `config.rs`/`integration/mqtt.rs` 在 master 与各 v4 tag 均无此字段，**代码未实现**，不可依赖。
