@@ -1,12 +1,12 @@
-# 20: 实物联调与缺陷修复
+# 20: 实物联调与缺陷修复（epic）
 
-**What to build:** 真实硬件与厂商资料到位后，只替换配置与夹具即可完成上下行闭环，联调发现的问题修复并回归。
+**What to build:** 真实硬件与厂商资料到位后完成闭环，并把 ASSUMED 变成 CONFIRMED。
 
-**Blocked by:** 19
+**Blocked by:** 19b + 外部 P0 资料
 
-**Status:** ready-for-agent
+**Status:** needs-info
 
-- [ ] 按台账 P0 清单拿到真实资料后，只替换配置与测试夹具即可接入
-- [ ] 真实寄存器表、payload 编码、ChirpStack 凭据接入后，上下行闭环通过
-- [ ] 实物联调发现的缺陷修复并回归
-- [ ] ASSUMED 项逐条更新为 CONFIRMED 或修正
+- [ ] 台账 P0 资料逐项到位并标记 CONFIRMED
+- [ ] 每项资料对应一个联调夹具与验收用例
+- [ ] 联调发现的缺陷按条单独开 ticket，不并入本 epic
+- [ ] 变更范围仅触及 config/testdata（可检查的 diff 约束）

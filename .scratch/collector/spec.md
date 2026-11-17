@@ -141,6 +141,10 @@ timing:
 cache:
   event_queue_max: 1000
   event_max_bytes: 2048
+  event_dropped_reserve: 1         # 预留槽，保证 event_dropped 自己不被丢
+
+queue:
+  pending_max: 4                   # 每设备 pending 下行上限（D22）
 
 state:
   db_path: /var/lib/collect-code/state.db
@@ -254,7 +258,6 @@ payload:
     - {key: state_word,     offset: 2, length: 1, type: uint8}
     - {key: fault_code,     offset: 3, length: 1, type: uint8}
     - {key: battery,        offset: 4, length: 1, type: uint8, unit: "%"}
-    - {key: target_opening, offset: 5, length: 2, type: uint16, scale: 0.1, unit: "%"}
   encode:
     - {key: target_opening, offset: 0, length: 2, type: uint16, scale: 0.1}
 services:
@@ -268,6 +271,18 @@ services:
 events:
   - {event_id: valve_fault, trigger: {type: point_changed, point: fault_code, op: ne, value: 0}, level: error}
 ```
+
+#### 热重载矩阵（SIGHUP 的唯一口径）
+
+| 配置块 | 可热重载 | 说明 |
+|---|---|---|
+| `devices.yaml` | 是 | 增删设备、改站号、改周期；移除设备发一次 `device_removed` |
+| `profiles/*.yaml` | 是 | 点位/服务/事件变更；正在执行的调用按旧快照走完 |
+| `links.yaml` | **否** | 链路增删/传输参数变更需重启 |
+| `timing.*` | 是 | 采集/上报/新鲜度/离线参数，下一次 tick 生效 |
+| `northbound.mqtt.*` | **否** | 需重启（连接与凭据重建） |
+| `adapter.topics` | **否** | 需重启（订阅过滤器变化） |
+| `node.*` / `state.db_path` / `health.addr` | **否** | 需重启 |
 
 #### `devices.yaml`（实例）
 
@@ -345,6 +360,9 @@ type Store interface {
     LastSeq(ctx context.Context, device string) (uint64, error)
     LoadDevices(ctx context.Context) ([]DeviceState, error)
     SaveDevices(ctx context.Context, states []DeviceState) error
+    LoadSnapshot(ctx context.Context, device string) ([]Property, bool, error)
+    SaveSnapshot(ctx context.Context, device string, props []Property) error
+    DeleteExpired(ctx context.Context, before time.Time) (int, error)
     Close() error
 }
 
@@ -360,7 +378,8 @@ type Clock interface {
 - `Channel`：`Publish/Subscribe/Status`；`Message{Topic, Payload, QoS, Retain, DedupKey}`。
 - `UplinkAdapter`：`PropertyReport/EventReport/DecodePayload`。
 - `DownlinkAdapter`：`ParseInvocation/ServiceReply`。
-- 装配只在 `cmd/collect-code`；`internal/core/*` 不 import 任何具体驱动/通道/适配器/bbolt。
+- 装配只在 `cmd/collect-code`；`internal/core/*` 不 import 任何具体驱动/通道/适配器。
+- bbolt 实现放在 `internal/store/bbolt`，**不在** `internal/core/*` 下；core 只 import `interfaces.Store`。
 
 ### 4. 报文契约（内联，ticket 直接引用）
 
@@ -412,16 +431,35 @@ type Clock interface {
 | 4041 | 点位未映射 / 只读 |
 | 5040 | 下发失败（链路/驱动不可用；链路 down 期间一律此码） |
 | 5041 | 已发射/已送达但未获业务确认；`data.stage` 标明 `gateway_tx` 或 `device_mac` |
-| 5042 | 重发耗尽仍无业务确认 |
+| 5042 | 重发耗尽仍无业务确认（仅允许重发的驱动） |
+| 5043 | 写入已执行但回读值超出容差（`data.expected`/`data.actual`） |
+| 5044 | 帧已发出但设备在 deadline 内无响应（设备不理我们，链路本身正常） |
+
+**失败码判定矩阵**（实现与验收的唯一口径）：
+
+| 驱动 | 场景 | code | 是否重发 | 事件 |
+|---|---|---|---|---|
+| Modbus | 链路 down / 端口不可用 | 5040 | 否 | `link_down` |
+| Modbus | 帧已发、无响应（超时） | 5044 | 否（D23） | 无（计入链路失败计数） |
+| Modbus | 写响应正常、回读超差 | 5043 | 否 | 无 |
+| Modbus | 设备异常码（0x83+code） | 4001（参数）/5044（设备内部错） | 否 | 无 |
+| LoRa | 链路/ChirpStack 不可用 | 5040 | 否 | `link_down` |
+| LoRa | 仅 txack | 5041（`stage=gateway_tx`） | 是，至 `cmd_retry_max` | `cmd_timeout`（耗尽后） |
+| LoRa | txack+ack，无业务确认 | 5041（`stage=device_mac`） | 是，至 `cmd_retry_max` | `cmd_timeout`（耗尽后） |
+| LoRa | 重发耗尽 | 5042 | — | `cmd_timeout(reason=window_exhausted)` |
+| LoRa | 业务确认到但回读超差 | 5043 | 否 | 无 |
 
 **`data.stage`**：`gateway_tx`（A 级）｜`device_mac`（B 级）｜`business`（C 级）。
+
+**C 级（业务确认）判定算法**（唯一口径）：在收到 A 或 B 级后，后续 uplink 解码出的 `opening` 与引擎受理时记录的 `target_opening` 满足 `abs(opening - target_opening) <= verify.tolerance`，且 `state_word` 表示「非运行中」，才置 `completed`。`txack`/`ack` 本身**永不**回 `code=0`。`target_opening` 只由引擎在受理时写入 state，**不从设备 payload 解码**。
 
 **事件枚举**：
 
 | event_id | 触发 |
 |---|---|
 | `device_offline` / `device_online` | 状态翻转 |
-| `valve_fault` | 故障码位图变化且非 0 |
+| `valve_fault` | `fault_code` 由 0 变非 0，或非 0 变为另一个非 0（`data.old/new`） |
+| `valve_fault_clear` | `fault_code` 由非 0 变 0 |
 | `cmd_timeout` | 回执窗口耗尽（`reason=window_exhausted`） |
 | `cmd_rejected` | 设备侧拒绝 |
 | `cmd_dropped` | 队列超限（`reason=queue_full`）或同 service 合并取代（`reason=superseded`） |
@@ -431,6 +469,26 @@ type Clock interface {
 | `device_removed` | 配置重载移除（一次性） |
 | `driver_error` | 驱动异常（状态倒退、协议错） |
 | `config_rejected` | SIGHUP 解析失败 |
+
+**事件去重与标识**：一个「事件实例」由 `{device_sn}:{event_id}:{episode}` 标识，`episode` 在每次状态翻转时递增；同一实例的重发复用同一 `msg_id` 与 `dedup_key`。状态再次翻转即新实例，不会被永久抑制。云端按 `dedup_key` 去重，文档写明这一责任。
+
+### 5.1 质量、新鲜度与在线判定（唯一真值表）
+
+| 输入 | `last_success_at` 推进？ | 最终 quality |
+|---|---|---|
+| `OutcomeOK` 且至少一个样本 `At` 在窗内且驱动未给 bad | 是 | 该样本按 `now-At > effective_stale_after` 判 good/stale |
+| `OutcomePartial` 且其中至少一个样本满足上式 | 是（仅按新鲜样本） | 新鲜样本 good/stale；失败点 bad |
+| 全部样本 `At` 超窗 | **否** | stale（`ts` 不前移） |
+| `OutcomeFailed` | 否 | 全部 bad |
+| `OutcomeUnsupported`（推送型无新观测） | 否 | 保持原值与原 quality |
+| 非法 payload / 解码失败 | 否 | bad |
+| A 级 txack / B 级 ack | 否 | 不改变属性 |
+| 业务 uplink 且解码成功 | 是（按 uplink 的 `At`） | 同第一行 |
+
+- `effective_stale_after = point.stale_after_s`，未配置时取 `timing.freshness_window_s`。
+- 最终 quality **只由内核计算**；Channel 只序列化，Adapter 不得改写。
+- 离线：连续 `offline_after_intervals` 个「设备周期」内没有推进过 `last_success_at` → offline；恢复即发 online + 全量快照。
+- 边界判定统一用 `>`（严格大于），测试覆盖 `window-1ns` / `window` / `window+1ns`。
 
 ### 5. 可靠性语义（参数化）
 
@@ -446,7 +504,19 @@ type Clock interface {
 | 队列合并 | 同 device+service **始终**只留最新 | `pending_max=4` |
 | 缓存 | 事件 1000 条×≤2 KB；属性仅最新快照；恢复先事件后快照 | `event_queue_max=1000` |
 | 离线判定 | 连续 `offline_after_intervals` 个周期无新鲜观测 | `3` |
-| 新鲜度 | `now - Sample.At > freshness_window_s` → `stale` | `180` |
+| 新鲜度 | `now - Sample.At > effective_stale_after` → `stale` | `point.stale_after_s ?? 180` |
+| 上行去重 | 用 ChirpStack `deduplicationId`；缺失时用 `devEui+fCnt`；仅内存窗口，重启不保证 | 窗口 1024 |
+
+### 5.2 健康与可观测接口
+
+| 端点 | 语义 | 验收 |
+|---|---|---|
+| `/healthz` | 仅表示进程存活，恒 200 | 进程在即 200；不反映下游状态 |
+| `/status` | JSON：store 可用性、MQTT 连接状态、各链路状态、每设备在线状态、队列深度、计数器 | schema 固定；与内部状态一致 |
+| `/metrics` | Prometheus 文本：`collector_link_ok{link}`、`collector_poll_total{link,result}`、`collector_queue_depth{device}`、`collector_event_dropped_total`、`collector_missed_ticks_total{link}` | 指标名/类型/标签固定，测试断言取值 |
+
+- 默认不监听；开启仅绑 `health.addr`（默认 `127.0.0.1:9100`）。
+- 启动时**只 connect 不 bind** 8080/1700；`config-check` 拒绝 `health.addr` 与之相同。
 
 ### 6. 子命令
 
@@ -468,6 +538,13 @@ type Clock interface {
 - **ChirpStack 桩**：gRPC `Enqueue/GetQueue/FlushQueue` + 按 `expected_uplink_interval_s` 产生 `up` 事件 + 按队列 FIFO 产生 `txack`/`ack`；队列项 `isPending` 可查询。
 - **MQTT broker + 云端桩**：进程内嵌纯 Go broker（`mochi-mqtt`，决策 6=A），监听 `127.0.0.1:0`；云端桩订阅上行、按脚本或 CLI 发下行 `service.invoke`。
 - 所有模拟值来自同一份 profile/台账数据，保证「模拟的就是被测的」。
+- **对端可观测接口**（验收的一部分，不是调试附属）：
+  - 启动时输出 `manifest.json`（`--manifest <path>`），含各端点实际地址与随机端口。
+  - `GET /_sim/captured`：收到的上行报文 `{topic,payload,qos,retain,received_at}`。
+  - `GET /_sim/requests`：Modbus 请求日志 `{unit_id,function,address,quantity,raw_bytes,at}`。
+  - `POST /_sim/control`：`unit_offline`/`unit_slow`/`unit_bad_crc`/`link_stop`/`broker_disconnect`/`queue_full`，支持按 unit 粒度。
+  - `POST /_sim/invoke`：注入完整下行报文。
+- 从站必须独立实现寄存器语义（站号路由、功能码、地址、数量、CRC、异常码），测试用**独立 Modbus 客户端**验证，不复用被测驱动。
 
 ## Testing Decisions
 
@@ -485,6 +562,7 @@ type Clock interface {
 ### 假 Clock 的可行性
 
 - 内核构造时注入 `Clock`；`internal/core/*` 与 `internal/drivers/*` 禁止直接调用 `time.Now/NewTicker/NewTimer/After/AfterFunc/Sleep`；业务超时不用 `context.WithTimeout`（运行时定时器不可快进），context 只做取消传播。
+- 该规则由 **CI 静态检查**执行（`scripts/check-time.sh`：`grep -rn` 或自定义 `go/ast` 分析器），**不接受 code review 清单**。
 - 测试提供 `FakeClock`（`Now` 可设、`Advance` 推进、触发所有到期 ticker/timer）。所有 `Sample.At` 由同一 FakeClock 产出。
 - 可确定性验证：相位不累积、missed_tick 跳过、单设备 deadline 放弃、服务超时窗口、缓存 TTL。
 
@@ -527,4 +605,5 @@ type Clock interface {
 
 - 版本路线：v0.1 485→MQTT；v0.2 Modbus TCP 阀门 + 服务调用 + 幂等；v0.3 LoRa 上下行 + 分级确认 + 队列治理；v0.4 可靠性/运维；v1.0 实物联调 + 文档交付。
 - `docs/缺口台账.md` 中 `ASSUMED` 项在真实资料到位后只替换配置与测试夹具，不改内核。
-- 交付文档五章：部署（含 systemd/端口/日志）、Topic 与字段（含 `seq` 契约与分级确认）、Modbus 映射表、测试说明（含模拟器）、排障（含 `config-check`/`queue flush`/`event_dropped`）。
+- 交付文档五章：部署（含 systemd/端口/日志）、Topic 与字段（含 `seq` 契约与分级确认）、Modbus 映射表、测试说明（含模拟器）、排障（含 `config-check`/`queue flush`/`event_dropped`）。**各 ticket 增量维护自己的章节**；19 只做索引、doc contract 与可执行 smoke。
+- 验收的通用判据：每条 ticket 的验收项必须能被一个确定的测试或可复现脚本判定；否定句（「不重发」「不调用」「不丢」）必须有可观测载体（计数器/调用日志/capture API）。
