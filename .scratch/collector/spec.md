@@ -22,7 +22,7 @@
 
 一个部署在边缘的**采集引擎**，南向北向正交：
 
-- **南向**：三个 `Driver` 实现——`modbus-tcp`、`modbus-rtu`、`lorawan`（上行走 ChirpStack MQTT integration，下行走 gRPC `DeviceService/Enqueue`）。
+- **南向**：两个 `Driver` 实现、四种链路类型——`modbus`（传输可为 `modbus-tcp` / `modbus-rtu` 串口 / `modbus-rtu-tcp` 串口服务器）与 `lorawan`（上行走 ChirpStack MQTT integration，下行走 gRPC `DeviceService/Enqueue`）。
 - **内核**：链路相位调度、设备状态机、服务调用生命周期（至多一次受理 + 幂等 + 分级确认 + 队列治理）、北向断线缓存。
 - **北向**：一个 `Channel` 实现 `mqtt`。
 - **物模型**：`UplinkAdapter` / `DownlinkAdapter` 实现 `irrigation-v1`，Topic、点位、服务全部配置化。
@@ -35,7 +35,7 @@
 
 v0.1–v1.0 全量：
 
-- 三个南向驱动、一个北向 MQTT 通道、一套物模型适配器。
+- 两个南向驱动、四种链路类型（modbus-tcp / modbus-rtu / modbus-rtu-tcp / lorawan）、一个北向 MQTT 通道、一套物模型适配器。
 - 配置化点位/服务/事件/Topic，`config-check` 校验，SIGHUP 差别重载。
 - 设备状态机、质量与新鲜度、离线/恢复事件。
 - 服务调用：幂等、分级确认、队列治理、写后回读、按窗口超时。
@@ -171,6 +171,12 @@ links:
     driver: modbus-tcp
     tcp: {host: 192.168.1.50, port: 502}
     read_deadline_ms: 500
+    retry: {max: 2, backoff_ms: 100}
+
+  - id: sensors-485-tcp        # 串口服务器：RTU 帧 over TCP（决策 5=A）
+    driver: modbus-rtu-tcp
+    tcp: {host: 192.168.1.60, port: 4001}
+    read_deadline_ms: 300
     retry: {max: 2, backoff_ms: 100}
 
   - id: lora-gw
@@ -458,9 +464,9 @@ type Clock interface {
 一个进程内同时起：
 
 - **Modbus TCP 从站**：多 unit_id，寄存器内存来自 profile 的 `ASSUMED` 映射（台账 B 段）。
-- **Modbus RTU 从站**：通过 **RTU-over-TCP** 传输暴露（见「待你拍板」；驱动共用 PDU 编解码，测试传输仅替换 `io.ReadWriter`）。
+- **Modbus RTU 从站**：通过 **RTU-over-TCP** 传输暴露（决策 5=A）。它与生产链路 `modbus-rtu-tcp` 是同一条路径，因此 CI 测的就是现场可能用的接法；串口 `modbus-rtu` 的 termios/波特率留实物联调。
 - **ChirpStack 桩**：gRPC `Enqueue/GetQueue/FlushQueue` + 按 `expected_uplink_interval_s` 产生 `up` 事件 + 按队列 FIFO 产生 `txack`/`ack`；队列项 `isPending` 可查询。
-- **MQTT broker + 云端桩**：进程内嵌 broker，云端桩订阅上行、按脚本或 CLI 发下行 `service.invoke`。
+- **MQTT broker + 云端桩**：进程内嵌纯 Go broker（`mochi-mqtt`，决策 6=A），监听 `127.0.0.1:0`；云端桩订阅上行、按脚本或 CLI 发下行 `service.invoke`。
 - 所有模拟值来自同一份 profile/台账数据，保证「模拟的就是被测的」。
 
 ## Testing Decisions
@@ -474,7 +480,7 @@ type Clock interface {
 | L3 端到端 | 真实二进制 + `simulate` + 内嵌 broker | **真实时钟** | 进程/端口 | nightly 30–60 min |
 | L4 发布门禁 | 真实二进制 + 真实时钟 | 真实 24 h | 专用 runner | v1.0 发布前人工 |
 
-> **修正**：假 Clock 无法注入独立进程，所以 L3/L4 用真实时钟；「24h 稳定性」不在 ticket 级验收里，它是 v1.0 发布门禁。
+> **修正**：假 Clock 无法注入独立进程，所以 L3/L4 用真实时钟；「24h 稳定性」不在 ticket 级验收里，它是 v1.0 发布门禁（决策 7=A）。
 
 ### 假 Clock 的可行性
 
@@ -490,8 +496,8 @@ type Clock interface {
 
 ### 模拟器与 CI
 
-- RTU 从站默认走 RTU-over-TCP，零外部依赖。
-- 内嵌 MQTT broker（纯 Go）。
+- RTU 从站走 RTU-over-TCP，零外部依赖；与生产 `modbus-rtu-tcp` 链路共用实现。
+- 内嵌 MQTT broker（纯 Go，`mochi-mqtt`）；`simulate` 自包含，不依赖 docker/apt。
 - ChirpStack 桩是「迷你队列模拟器」，不是空壳：必须模拟 FIFO、`isPending`、`txack`/`ack` 的时序，否则 F10 的三种回执组合测不出来。
 
 ### 稳定性验收的数值判据
