@@ -143,3 +143,21 @@ func TestParseOptions(t *testing.T) {
 		t.Fatal("invalid format accepted")
 	}
 }
+
+func TestStringValueRedactionIsExact(t *testing.T) {
+	logger, buf := newTestLogger(t, Options{RedactValues: []string{"s3cr3t"}})
+	logger.Info("m", "foo", "s3cr3t-extra")
+	m := decodeOne(t, buf)
+	if m["foo"] != "s3cr3t-extra" {
+		t.Fatalf("benign substring over-redacted: %v", m["foo"])
+	}
+}
+
+func TestUnparseableURLIsFullyRedacted(t *testing.T) {
+	logger, buf := newTestLogger(t, Options{})
+	logger.Info("broker", "url", "mqtt://user:pass@[bad")
+	m := decodeOne(t, buf)
+	if m["url"] != redacted {
+		t.Fatalf("unparseable URL leaked: %v", m["url"])
+	}
+}

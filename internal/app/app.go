@@ -8,10 +8,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"os/signal"
 	"runtime"
+	"sync"
 	"syscall"
 
 	"github.com/dxinli/collect-code/internal/config"
@@ -48,7 +48,7 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer, lookupEnv
 		return runConfigCheck(args[1:], stdout, stderr, lookupEnv)
 	case "run":
 		return runService(ctx, args[1:], stderr, lookupEnv)
-	case "help", "-h", "--help":
+	case "-h", "--help":
 		usage(stdout)
 		return ExitOK
 	default:
@@ -73,16 +73,8 @@ func runConfigCheck(args []string, stdout, stderr io.Writer, lookupEnv func(stri
 	if !ok {
 		return code
 	}
-	bundle, err := config.Load(dir, config.WithEnv(lookupEnv))
+	bundle, _, err := loadAndValidate(dir, lookupEnv)
 	if err != nil {
-		fmt.Fprintln(stderr, err)
-		return ExitError
-	}
-	if _, err := logging.ParseOptions(
-		bundle.Config.Log.Level,
-		bundle.Config.Log.Format,
-		bundle.Config.Log.RedactFields,
-	); err != nil {
 		fmt.Fprintln(stderr, err)
 		return ExitError
 	}
@@ -90,21 +82,30 @@ func runConfigCheck(args []string, stdout, stderr io.Writer, lookupEnv func(stri
 	return ExitOK
 }
 
-func runService(ctx context.Context, args []string, stderr io.Writer, lookupEnv func(string) (string, bool)) int {
-	dir, code, ok := parseConfigFlag("run", args, stderr)
-	if !ok {
-		return code
-	}
+// loadAndValidate is the single place that combines loading with the shared
+// logging option validation, so config-check and run cannot disagree.
+func loadAndValidate(dir string, lookupEnv func(string) (string, bool)) (*config.Bundle, logging.Options, error) {
 	bundle, err := config.Load(dir, config.WithEnv(lookupEnv))
 	if err != nil {
-		fmt.Fprintln(stderr, err)
-		return ExitError
+		return nil, logging.Options{}, err
 	}
 	opts, err := logging.ParseOptions(
 		bundle.Config.Log.Level,
 		bundle.Config.Log.Format,
 		bundle.Config.Log.RedactFields,
 	)
+	if err != nil {
+		return nil, logging.Options{}, err
+	}
+	return bundle, opts, nil
+}
+
+func runService(ctx context.Context, args []string, stderr io.Writer, lookupEnv func(string) (string, bool)) int {
+	dir, code, ok := parseConfigFlag("run", args, stderr)
+	if !ok {
+		return code
+	}
+	bundle, opts, err := loadAndValidate(dir, lookupEnv)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return ExitError
@@ -131,29 +132,40 @@ func runService(ctx context.Context, args []string, stderr io.Writer, lookupEnv 
 	)
 	logger.Warn("skeleton mode: no drivers or channels wired", "reason", "skeleton")
 
-	runEngine(ctx, sigCh, logger)
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var shutdownOnce sync.Once
+	logShutdown := func(reason string, extra ...any) {
+		shutdownOnce.Do(func() {
+			attrs := []any{"event", "shutdown", "component", "app", "reason", reason}
+			attrs = append(attrs, extra...)
+			logger.Info("shutdown", attrs...)
+		})
+	}
+
+	go func() {
+		select {
+		case sig := <-sigCh:
+			// Restore the default action so a second signal can terminate a
+			// shutdown that is taking too long.
+			signal.Stop(sigCh)
+			logShutdown("signal", "signal", sig.String())
+			cancel()
+		case <-runCtx.Done():
+		}
+	}()
+
+	runEngine(runCtx)
+	// Reached on parent-context cancellation; a signal path already logged.
+	logShutdown("context")
 	return ExitOK
 }
 
 // runEngine is the future home of the scheduler/collector. In 01a it only
-// waits for cancellation or a termination signal, so that later components
-// inherit the same context and shutdown path.
-func runEngine(ctx context.Context, sigCh <-chan os.Signal, logger *slog.Logger) {
-	select {
-	case sig := <-sigCh:
-		logger.Info("shutdown",
-			"event", "shutdown",
-			"component", "app",
-			"reason", "signal",
-			"signal", sig.String(),
-		)
-	case <-ctx.Done():
-		logger.Info("shutdown",
-			"event", "shutdown",
-			"component", "app",
-			"reason", "context",
-		)
-	}
+// waits for cancellation so later components inherit one shutdown path.
+func runEngine(ctx context.Context) {
+	<-ctx.Done()
 }
 
 func parseConfigFlag(name string, args []string, stderr io.Writer) (string, int, bool) {

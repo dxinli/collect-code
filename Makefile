@@ -5,7 +5,7 @@ BINARY := collect-code
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
-BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+BUILD_DATE ?= $(shell if [ -n "$${SOURCE_DATE_EPOCH:-}" ]; then date -u -d "@$${SOURCE_DATE_EPOCH}" +%Y-%m-%dT%H:%M:%SZ; else date -u +%Y-%m-%dT%H:%M:%SZ; fi)
 
 LDFLAGS := -s -w \
 	-X $(MODULE)/internal/version.Version=$(VERSION) \
@@ -14,7 +14,7 @@ LDFLAGS := -s -w \
 
 GOBUILD := GOFLAGS= CGO_ENABLED=0 go build -trimpath -buildvcs=false -buildmode=exe -ldflags "$(LDFLAGS)"
 
-.PHONY: build build-linux-amd64 build-linux-arm64 build-all verify-static test test-race vet fmt-check check clean
+.PHONY: build build-linux-amd64 build-linux-arm64 build-all verify-static test test-race vet fmt-check print-check check clean
 
 build:
 	@mkdir -p $(DIST)
@@ -47,7 +47,10 @@ fmt-check:
 	@files="$$(gofmt -l cmd internal)"; \
 	if [ -n "$$files" ]; then echo "gofmt needed:"; echo "$$files"; exit 1; fi
 
-check: fmt-check vet test build-all verify-static
+print-check:
+	./scripts/check-print.sh
+
+check: fmt-check print-check vet test build-all verify-static
 	GOFLAGS= go run ./cmd/collect-code config-check --config configs/example
 
 clean:

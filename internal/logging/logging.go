@@ -84,11 +84,16 @@ func redactor(fields, values []string) func([]string, slog.Attr) slog.Attr {
 		switch v.Kind() {
 		case slog.KindString:
 			s := v.String()
-			if containsSecret(s, values) {
+			if containsSecretExact(s, values) {
 				return slog.String(a.Key, redacted)
 			}
 			if strings.Contains(s, "://") {
-				if u, err := url.Parse(s); err == nil && u.User != nil {
+				u, err := url.Parse(s)
+				if err != nil {
+					// An unparseable URL may embed credentials; never print it.
+					return slog.String(a.Key, redacted)
+				}
+				if u.User != nil {
 					u.User = url.User(redacted)
 					return slog.String(a.Key, u.String())
 				}
@@ -110,6 +115,15 @@ func matchesField(key string, fields []string) bool {
 			continue
 		}
 		if k == f || strings.HasSuffix(k, "_"+f) || strings.HasSuffix(k, "."+f) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsSecretExact(s string, secrets []string) bool {
+	for _, secret := range secrets {
+		if secret != "" && s == secret {
 			return true
 		}
 	}

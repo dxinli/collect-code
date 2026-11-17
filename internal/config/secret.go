@@ -88,12 +88,12 @@ func (s *Secret) resolve(lookup func(string) (string, bool)) error {
 		return nil
 	}
 	if s.envName == "" {
-		return fmt.Errorf("secret: env: requires a variable name")
+		return fmt.Errorf("env: requires a variable name")
 	}
 	if !envNamePattern.MatchString(s.envName) {
 		// Deliberately do not echo the name: a user may have pasted a
 		// literal token into the variable-name position.
-		return fmt.Errorf("secret: invalid environment variable name")
+		return fmt.Errorf("invalid environment variable name")
 	}
 	v, ok := lookup(s.envName)
 	if !ok {
@@ -107,39 +107,22 @@ func (s *Secret) resolve(lookup func(string) (string, bool)) error {
 	return nil
 }
 
-// resolveToken resolves chirpstack.api_token_env into the private token.
+// resolveToken resolves chirpstack.api_token_env into the private token by
+// reusing the same Secret resolution rules as every other credential.
 func (c *ChirpstackConfig) resolveToken(lookup func(string) (string, bool)) error {
 	if c.APITokenEnv == "" {
 		c.apiToken = Secret{}
 		return nil
 	}
-	if !envNamePattern.MatchString(c.APITokenEnv) {
-		return fmt.Errorf("api_token_env: invalid environment variable name")
+	s := Secret{source: secretEnv, envName: c.APITokenEnv}
+	if err := s.resolve(lookup); err != nil {
+		return err
 	}
-	v, ok := lookup(c.APITokenEnv)
-	if !ok {
-		return fmt.Errorf("api_token_env %s is not set", c.APITokenEnv)
-	}
-	if v == "" {
-		c.apiToken = Secret{}
-		return nil
-	}
-	c.apiToken = Secret{value: v, source: secretLiteral}
+	c.apiToken = s
 	return nil
 }
 
 // TokenMasked reports the token state for summaries.
-func (c ChirpstackConfig) TokenMasked() string {
-	if c.APITokenEnv == "" {
-		return "[unset]"
-	}
-	if c.apiToken.value == "" {
-		return "[unset]"
-	}
-	return "[set via env " + c.APITokenEnv + "]"
-}
-
-// Token returns the resolved token for the future ChirpStack client.
-func (c ChirpstackConfig) Token() string { return c.apiToken.value }
+func (c ChirpstackConfig) TokenMasked() string { return c.apiToken.Masked() }
 
 var defaultLookupEnv = os.LookupEnv

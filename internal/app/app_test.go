@@ -79,9 +79,9 @@ func TestUsageErrors(t *testing.T) {
 		}
 	}
 
-	code, stdout, _ := run(t, []string{"help"}, nil)
+	code, stdout, _ := run(t, []string{"--help"}, nil)
 	if code != ExitOK || !strings.Contains(stdout, "Usage:") {
-		t.Errorf("help: code=%d out=%q", code, stdout)
+		t.Errorf("--help: code=%d out=%q", code, stdout)
 	}
 }
 
@@ -189,9 +189,15 @@ func TestRunGracefulShutdown(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("signal test requires linux")
 	}
-	dir := writeConfig(t, nil)
+	const sentinel = "SENTINEL-run-secret"
+	dir := writeConfig(t, map[string]string{
+		"config.yaml": "node:\n  id: node-1\n  product_key: irrigation\n" +
+			"northbound:\n  mqtt:\n    broker: mqtt://localhost:1883\n" +
+			"    password: env:MQTT_PASS\n",
+	})
 
 	cmd := exec.Command(testBinary, "run", "--config", dir)
+	cmd.Env = append(os.Environ(), "MQTT_PASS="+sentinel)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		t.Fatalf("stderr pipe: %v", err)
@@ -269,5 +275,45 @@ func TestRunGracefulShutdown(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "state.db")); !os.IsNotExist(err) {
 		t.Fatalf("state.db should not be created in 01a")
+	}
+	for _, line := range tail {
+		if strings.Contains(line, sentinel) {
+			t.Fatalf("secret leaked in run logs: %s", line)
+		}
+	}
+}
+
+func TestVersionOutputOrder(t *testing.T) {
+	code, stdout, _ := run(t, []string{"version"}, nil)
+	if code != ExitOK {
+		t.Fatalf("code = %d", code)
+	}
+	lines := strings.Split(strings.TrimSpace(stdout), "\n")
+	want := []string{"binary:", "version:", "commit:", "build_date:", "go:", "platform:"}
+	if len(lines) != len(want) {
+		t.Fatalf("lines = %d, want %d: %q", len(lines), len(want), stdout)
+	}
+	for i, prefix := range want {
+		if !strings.HasPrefix(lines[i], prefix) {
+			t.Fatalf("line %d = %q, want prefix %q", i, lines[i], prefix)
+		}
+	}
+}
+
+func TestConfigCheckParseFailureDoesNotLeakSentinel(t *testing.T) {
+	const sentinel = "SENTINEL-parse-secret"
+	dir := writeConfig(t, map[string]string{
+		"config.yaml": "node:\n  id: n\n  product_key: p\n" +
+			"northbound:\n  mqtt:\n    broker: mqtt://x\n" +
+			"    password: {value: " + sentinel + "}\n",
+	})
+	code, stdout, stderr := run(t, []string{"config-check", "--config", dir}, func(string) (string, bool) {
+		return "", false
+	})
+	if code != ExitError {
+		t.Fatalf("code = %d, want %d", code, ExitError)
+	}
+	if strings.Contains(stdout+stderr, sentinel) {
+		t.Fatalf("sentinel leaked: %s%s", stdout, stderr)
 	}
 }

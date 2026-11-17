@@ -292,3 +292,102 @@ func TestChirpstackTokenEnv(t *testing.T) {
 		t.Errorf("masked = %q", got)
 	}
 }
+
+func TestLoadTestdataFixture(t *testing.T) {
+	b, err := Load("testdata/valid")
+	if err != nil {
+		t.Fatalf("load fixture: %v", err)
+	}
+	if len(b.Profiles) != 3 {
+		t.Fatalf("profiles = %d, want 3", len(b.Profiles))
+	}
+}
+
+func TestPointWriteParsed(t *testing.T) {
+	files := validTree()
+	files["profiles/sensor-soil.yaml"] = "profile: sensor-soil\ndevice_type: sensor\n" +
+		"points:\n  - key: target\n    access: rw\n" +
+		"    modbus: {func: 3, address: 2}\n    write: {func: 6, address: 2}\n"
+	b, err := loadTree(t, files)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	p := b.Profiles["sensor-soil"].Points[0]
+	if p.Write == nil || p.Write.Func == nil || *p.Write.Func != 6 {
+		t.Fatalf("write not parsed: %+v", p.Write)
+	}
+}
+
+func TestRedactFieldsNullKeepsDefaultAndEmptyDisables(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body string
+		want int
+	}{
+		{"null", "log:\n  redact_fields: null\n", 4},
+		{"empty", "log:\n  redact_fields: []\n", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			files := validTree()
+			files["config.yaml"] = "node:\n  id: n\n  product_key: p\n" +
+				"northbound:\n  mqtt:\n    broker: mqtt://x\n" + tc.body
+			b, err := loadTree(t, files)
+			if err != nil {
+				t.Fatalf("load: %v", err)
+			}
+			if got := len(b.Config.Log.RedactFields); got != tc.want {
+				t.Fatalf("redact fields = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestTypeErrorIsDiagnostic(t *testing.T) {
+	files := validTree()
+	files["config.yaml"] = "node:\n  id: n\n  product_key: p\n" +
+		"northbound:\n  mqtt:\n    broker: mqtt://x\n    qos: [1]\n"
+	_, err := loadTree(t, files)
+	if err == nil {
+		t.Fatal("expected type error")
+	}
+	if !strings.Contains(err.Error(), "config.yaml") {
+		t.Fatalf("error lacks file: %v", err)
+	}
+}
+
+func TestMissingFile(t *testing.T) {
+	files := validTree()
+	delete(files, "links.yaml")
+	_, err := loadTree(t, files)
+	if err == nil || !strings.Contains(err.Error(), "links.yaml") {
+		t.Fatalf("want missing links error, got %v", err)
+	}
+}
+
+func TestUnknownKeyReportsLine(t *testing.T) {
+	files := validTree()
+	files["config.yaml"] = "node:\n  id: n\n  product_key: p\nnodex: 1\n"
+	_, err := loadTree(t, files)
+	if err == nil || !strings.Contains(err.Error(), "config.yaml:4:") {
+		t.Fatalf("want config.yaml:4, got %v", err)
+	}
+}
+
+func TestRequiredAggregatedInOrder(t *testing.T) {
+	files := validTree()
+	files["config.yaml"] = "node:\n  product_key: p\nnorthbound:\n  mqtt:\n    broker: mqtt://x\n"
+	files["profiles/sensor-soil.yaml"] = "device_type: sensor\n"
+	_, err := loadTree(t, files)
+	if err == nil {
+		t.Fatal("expected required errors")
+	}
+	msg := err.Error()
+	configIdx := strings.Index(msg, "config.yaml: node.id: required")
+	profileIdx := strings.Index(msg, "sensor-soil.yaml: profile: required")
+	if configIdx < 0 || profileIdx < 0 {
+		t.Fatalf("both required errors expected, got %v", err)
+	}
+	if configIdx > profileIdx {
+		t.Fatalf("config error should come first: %v", err)
+	}
+}

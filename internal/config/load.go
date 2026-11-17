@@ -42,30 +42,41 @@ func Load(dir string, opts ...Option) (*Bundle, error) {
 	cfg := Default()
 	b.Config = &cfg
 
-	var parseDiags Diagnostics
+	// Parse errors stop at the first offending file (01b adds full
+	// diagnostics); required-field errors are aggregated below instead.
 	if err := loadFile(filepath.Join(dir, "config.yaml"), b.Config); err != nil {
-		parseDiags = append(parseDiags, flatten("config.yaml", err)...)
+		return nil, err
 	}
 	var links LinksFile
 	if err := loadFile(filepath.Join(dir, "links.yaml"), &links); err != nil {
-		parseDiags = append(parseDiags, flatten("links.yaml", err)...)
+		return nil, err
 	}
 	var devices DevicesFile
 	if err := loadFile(filepath.Join(dir, "devices.yaml"), &devices); err != nil {
-		parseDiags = append(parseDiags, flatten("devices.yaml", err)...)
+		return nil, err
 	}
-	profileDiags, profiles, sources := loadProfiles(filepath.Join(dir, "profiles"))
-	parseDiags = append(parseDiags, profileDiags...)
-	if len(parseDiags) > 0 {
-		return nil, parseDiags
+	loaded, sources, err := loadProfiles(filepath.Join(dir, "profiles"))
+	if err != nil {
+		return nil, err
 	}
 
 	b.Links = links.Links
 	b.Devices = devices.Devices
-	b.Profiles = profiles
 	b.ProfileSources = sources
+	for _, lp := range loaded {
+		if lp.profile.Profile != "" {
+			b.Profiles[lp.profile.Profile] = lp.profile
+		}
+	}
 
-	if ds := requiredDiagnostics(b); len(ds) > 0 {
+	// v4 skips a null struct/scalar but sets a null slice to nil. Normalise
+	// nil back to the default list so "null" consistently means "unset";
+	// an explicit empty list stays empty and disables key-name redaction.
+	if b.Config.Log.RedactFields == nil {
+		b.Config.Log.RedactFields = defaultRedactFields()
+	}
+
+	if ds := requiredDiagnostics(b, loaded); len(ds) > 0 {
 		return nil, ds
 	}
 	if ds := resolveSecrets(b, o.lookup); len(ds) > 0 {
@@ -74,13 +85,17 @@ func Load(dir string, opts ...Option) (*Bundle, error) {
 	return b, nil
 }
 
-func loadProfiles(dir string) (Diagnostics, map[string]*Profile, map[string]string) {
-	profiles := map[string]*Profile{}
+type loadedProfile struct {
+	file    string
+	profile *Profile
+}
+
+func loadProfiles(dir string) ([]loadedProfile, map[string]string, error) {
 	sources := map[string]string{}
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return Diagnostics{{File: "profiles", Message: err.Error()}}, profiles, sources
+		return nil, nil, Diagnostic{File: "profiles", Message: err.Error()}
 	}
 	var names []string
 	for _, e := range entries {
@@ -94,28 +109,24 @@ func loadProfiles(dir string) (Diagnostics, map[string]*Profile, map[string]stri
 	}
 	sort.Strings(names)
 
-	var ds Diagnostics
+	var loaded []loadedProfile
 	for _, name := range names {
 		var p Profile
 		if err := loadFile(filepath.Join(dir, name), &p); err != nil {
-			ds = append(ds, flatten(name, err)...)
-			continue
+			return nil, nil, err
 		}
-		if p.Profile == "" {
-			ds = append(ds, Diagnostic{File: name, Message: "profile: required"})
-			continue
+		if p.Profile != "" {
+			if prev, ok := sources[p.Profile]; ok {
+				return nil, nil, Diagnostic{
+					File:    name,
+					Message: fmt.Sprintf("duplicate profile %q (also defined in %s)", p.Profile, prev),
+				}
+			}
+			sources[p.Profile] = name
 		}
-		if prev, ok := sources[p.Profile]; ok {
-			ds = append(ds, Diagnostic{
-				File:    name,
-				Message: fmt.Sprintf("duplicate profile %q (also defined in %s)", p.Profile, prev),
-			})
-			continue
-		}
-		profiles[p.Profile] = &p
-		sources[p.Profile] = name
+		loaded = append(loaded, loadedProfile{file: name, profile: &p})
 	}
-	return ds, profiles, sources
+	return loaded, sources, nil
 }
 
 func loadFile(path string, out any) error {
@@ -185,20 +196,7 @@ func yamlError(file string, err error) error {
 	return Diagnostic{File: file, Message: msg}
 }
 
-func flatten(file string, err error) Diagnostics {
-	if ds, ok := err.(Diagnostics); ok {
-		return ds
-	}
-	if d, ok := err.(Diagnostic); ok {
-		if d.File == "" {
-			d.File = file
-		}
-		return Diagnostics{d}
-	}
-	return Diagnostics{{File: file, Message: err.Error()}}
-}
-
-func requiredDiagnostics(b *Bundle) Diagnostics {
+func requiredDiagnostics(b *Bundle, loaded []loadedProfile) Diagnostics {
 	var ds Diagnostics
 	add := func(file, path string) {
 		ds = append(ds, Diagnostic{File: file, Message: path + ": required"})
@@ -245,6 +243,12 @@ func requiredDiagnostics(b *Bundle) Diagnostics {
 			add("devices.yaml", p+".address")
 		}
 	}
+
+	for _, lp := range loaded {
+		if lp.profile.Profile == "" {
+			add(lp.file, "profile")
+		}
+	}
 	return ds
 }
 
@@ -265,7 +269,7 @@ func resolveSecrets(b *Bundle, lookup func(string) (string, bool)) Diagnostics {
 		if err := link.Chirpstack.resolveToken(lookup); err != nil {
 			ds = append(ds, Diagnostic{
 				File:    "links.yaml",
-				Message: fmt.Sprintf("link %s: %v", link.ID, err),
+				Message: fmt.Sprintf("link %s: api_token_env: %v", link.ID, err),
 			})
 		}
 	}

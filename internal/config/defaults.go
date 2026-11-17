@@ -1,5 +1,9 @@
 package config
 
+func defaultRedactFields() []string {
+	return []string{"password", "token", "authorization", "data"}
+}
+
 // Default returns a fully populated config. It must return fresh slices on
 // every call: the YAML decoder replaces slices wholesale, so sharing a
 // package-level slice would let one loaded file mutate another's defaults.
@@ -49,7 +53,7 @@ func Default() Config {
 		Log: LogConfig{
 			Level:        "info",
 			Format:       "json",
-			RedactFields: []string{"password", "token", "authorization", "data"},
+			RedactFields: defaultRedactFields(),
 		},
 		Health: Health{
 			Enabled: false,

@@ -192,7 +192,14 @@ type Point struct {
 	Key         string       `yaml:"key"`
 	Access      string       `yaml:"access"`
 	Modbus      *ModbusPoint `yaml:"modbus"`
+	Write       *ModbusWrite `yaml:"write"`
 	StaleAfterS *int         `yaml:"stale_after_s"`
+}
+
+// ModbusWrite is the write-side function code and address for a point.
+type ModbusWrite struct {
+	Func    *int `yaml:"func"`
+	Address *int `yaml:"address"`
 }
 
 type ModbusPoint struct {

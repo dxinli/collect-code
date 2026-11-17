@@ -9,6 +9,7 @@ points:
   - key: target_opening
     access: rw
     modbus: {func: 3, address: 2, type: uint16, scale: 0.1, unit: "%", min: 0, max: 100}
+    write: {func: 6, address: 2}
     stale_after_s: 30
   - key: state_word
     access: r
