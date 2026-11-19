@@ -1,0 +1,24 @@
+devices:
+  - sn: SENSOR-0001
+    device_type: sensor
+    profile: valve-modbus
+    link: sensors-485
+    address: {unit_id: 1}
+
+  - sn: SENSOR-0002
+    device_type: sensor
+    profile: sensor-soil
+    link: sensors-485
+    address: {unit_id: 2}
+
+  - sn: VALVE-0001
+    device_type: valve
+    profile: valve-modbus
+    link: valves-net
+    address: {unit_id: 1}
+
+  - sn: VALVE-LORA-0001
+    device_type: valve
+    profile: valve-lora
+    link: lora-gw
+    address: {dev_eui: "0000000000000001", f_port: 10}

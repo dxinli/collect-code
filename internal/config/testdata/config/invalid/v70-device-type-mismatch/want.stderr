@@ -1,0 +1,1 @@
+devices.yaml:3:5: V70: device_type "sensor" does not match profile "valve-modbus" (profile declares "valve")

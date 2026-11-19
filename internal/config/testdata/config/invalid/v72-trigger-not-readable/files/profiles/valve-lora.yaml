@@ -1,0 +1,29 @@
+profile: valve-lora
+device_type: valve
+poll_interval_s: 300
+payload:
+  f_port: 10
+  decode:
+    - {key: opening, offset: 0, length: 2, type: uint16, scale: 0.1, unit: "%"}
+    - {key: state_word, offset: 2, length: 1, type: uint8}
+    - {key: fault_code, offset: 3, length: 1, type: uint8}
+    - {key: battery, offset: 4, length: 1, type: uint8, unit: "%"}
+  encode:
+    - {key: target_opening, offset: 0, length: 2, type: uint16, scale: 0.1}
+
+services:
+  - service_id: set_opening
+    confirmed: true
+    params:
+      opening: {type: number, min: 0, max: 100, unit: "%"}
+    writes:
+      - point: target_opening
+        from: params.opening
+    verify: {type: business_ack, point: opening, tolerance: 1.0}
+    timeout_ms: 600000
+    retry_max: 3
+
+events:
+  - event_id: valve_fault
+    trigger: {type: point_changed, point: target_opening, op: ne, value: 0}
+    level: error

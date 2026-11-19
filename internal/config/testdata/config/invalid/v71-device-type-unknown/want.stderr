@@ -1,0 +1,1 @@
+devices.yaml:3:5: V71: unknown device_type "pump" (want valve/sensor/gateway)
