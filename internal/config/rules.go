@@ -44,6 +44,10 @@ const (
 	RuleCredential            = "V61"
 	RuleLogLevel              = "V62"
 	RuleLogFormat             = "V63"
+	RuleDeviceTypeMismatch    = "V70" // device/profile device_type consistency
+	RuleDeviceTypeEnum        = "V71" // device/profile device_type enum
+	RuleEventTriggerPoint     = "V72" // point_changed trigger point exists and is readable
+	RuleWriteFromParam        = "V73" // writes[].from references a declared service param
 )
 
 // ruleNumber extracts the numeric part of a rule ID for deterministic

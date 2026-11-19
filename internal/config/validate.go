@@ -16,8 +16,9 @@ var (
 		"modbus-rtu-tcp": true,
 		"lorawan":        true,
 	}
-	knownParity = map[string]bool{"none": true, "even": true, "odd": true}
-	knownAccess = map[string]bool{"r": true, "rw": true}
+	knownParity      = map[string]bool{"none": true, "even": true, "odd": true}
+	knownAccess      = map[string]bool{"r": true, "rw": true}
+	knownDeviceTypes = map[string]bool{"valve": true, "sensor": true, "gateway": true}
 )
 
 type validator struct {
@@ -34,6 +35,7 @@ func validate(b *Bundle, loaded []loadedProfile, positions map[string]*positionI
 	v.references()
 	v.numeric()
 	v.enums()
+	v.deviceTypeConsistency()
 	v.ports()
 	v.logOptions()
 	return v.ds
@@ -309,11 +311,36 @@ func (v *validator) references() {
 					verifyPath := fieldPath(fieldPath(indexPath(fieldPath(servicePath(i), "writes"), j), "verify"), "point")
 					v.checkCapability(lp.file, verifyPath, p.Profile, caps, w.Verify.Point, false)
 				}
+				fromPath := fieldPath(indexPath(fieldPath(servicePath(i), "writes"), j), "from")
+				name, ok := strings.CutPrefix(w.From, "params.")
+				switch {
+				case !ok || name == "":
+					v.add(lp.file, fromPath, RuleWriteFromParam,
+						"from must be params.<name> (got %q)", w.From)
+				default:
+					if _, declared := svc.Params[name]; !declared {
+						v.add(lp.file, fromPath, RuleWriteFromParam,
+							"from param %q is not declared in service params", name)
+					}
+				}
 			}
 			if svc.Verify != nil {
 				verifyPath := fieldPath(fieldPath(servicePath(i), "verify"), "point")
 				v.checkCapability(lp.file, verifyPath, p.Profile, caps, svc.Verify.Point, false)
 			}
+		}
+
+		for i, ev := range p.Events {
+			if ev.Trigger.Type != "point_changed" {
+				continue
+			}
+			triggerPath := fieldPath(fieldPath(eventPath(i), "trigger"), "point")
+			if ev.Trigger.Point == "" {
+				v.add(lp.file, triggerPath, RuleEventTriggerPoint,
+					"trigger point is required when trigger.type is \"point_changed\"")
+				continue
+			}
+			v.checkPointUse(lp.file, triggerPath, p.Profile, caps, ev.Trigger.Point, triggerUse)
 		}
 	}
 }
@@ -336,6 +363,11 @@ var (
 		noun:           "verify point",
 		missingRule:    RuleVerifyPointMissing,
 		capabilityRule: RuleVerifyPointUnreadable,
+	}
+	triggerUse = pointUse{
+		noun:           "trigger point",
+		missingRule:    RuleEventTriggerPoint,
+		capabilityRule: RuleEventTriggerPoint,
 	}
 )
 
@@ -514,6 +546,40 @@ func (v *validator) enums() {
 				v.add(lp.file, fieldPath(pointPath(i), "access"), RuleAccess,
 					"unknown access %q (want r/rw)", point.Access)
 			}
+		}
+	}
+
+	for i, d := range v.b.Devices {
+		if d.DeviceType != "" && !knownDeviceTypes[d.DeviceType] {
+			v.add("devices.yaml", fieldPath(devicePath(i), "device_type"), RuleDeviceTypeEnum,
+				"unknown device_type %q (want valve/sensor/gateway)", d.DeviceType)
+		}
+	}
+
+	for _, lp := range v.loaded {
+		if dt := lp.profile.DeviceType; dt != "" && !knownDeviceTypes[dt] {
+			v.add(lp.file, fieldPath(nil, "device_type"), RuleDeviceTypeEnum,
+				"unknown device_type %q (want valve/sensor/gateway)", dt)
+		}
+	}
+}
+
+func (v *validator) deviceTypeConsistency() {
+	for i, d := range v.b.Devices {
+		if d.DeviceType == "" || d.Profile == "" {
+			continue
+		}
+		profile, ok := v.b.Profiles[d.Profile]
+		if !ok || profile.DeviceType == "" {
+			continue
+		}
+		if !knownDeviceTypes[d.DeviceType] || !knownDeviceTypes[profile.DeviceType] {
+			continue
+		}
+		if d.DeviceType != profile.DeviceType {
+			v.add("devices.yaml", fieldPath(devicePath(i), "device_type"), RuleDeviceTypeMismatch,
+				"device_type %q does not match profile %q (profile declares %q)",
+				d.DeviceType, d.Profile, profile.DeviceType)
 		}
 	}
 }
