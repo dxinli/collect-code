@@ -27,3 +27,6 @@
 - 验证：`make check` 全绿；`go test -race -count=1 ./...` 全绿；
   `git archive HEAD` 干净检出后 golden/coverage/format 测试全绿。
 - `01c` 未实现，保持 `backlog`。
+- 2026-11-19 修复 ptrtoerror：`Diagnostic`/`Diagnostics` 的 `Error` 改为指针接收者，
+  值类型改用 `String` 保持 `%v` 可读；`Load` 通过 `asError` 返回 `*Diagnostics`。
+  提交 `6c7df52`；`golangci-lint run ./internal/config/...` 0 issues。
