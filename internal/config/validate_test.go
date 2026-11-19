@@ -2,6 +2,7 @@ package config
 
 import (
 	"io/fs"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
@@ -34,9 +35,7 @@ func baseParts(t *testing.T) (*Bundle, []loadedProfile, map[string]*positionInde
 	ds = append(ds, d...)
 	loaded, sources, ppos, d := parseProfiles(dir)
 	ds = append(ds, d...)
-	for f, p := range ppos {
-		positions[f] = p
-	}
+	maps.Copy(positions, ppos)
 	if len(ds) > 0 {
 		t.Fatalf("base fixture is invalid: %v", ds)
 	}

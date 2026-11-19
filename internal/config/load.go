@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -64,9 +65,7 @@ func Load(dir string, opts ...Option) (*Bundle, error) {
 	ds = append(ds, d...)
 
 	loaded, sources, profilePositions, d := parseProfiles(dir)
-	for file, p := range profilePositions {
-		positions[file] = p
-	}
+	maps.Copy(positions, profilePositions)
 	ds = append(ds, d...)
 
 	b.Links = links.Links
