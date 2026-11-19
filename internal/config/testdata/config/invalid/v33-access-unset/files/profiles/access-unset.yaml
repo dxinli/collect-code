@@ -4,5 +4,7 @@ points:
   - {key: x}
 services:
   - service_id: s
+    params:
+      x: {type: number}
     writes:
-      - {point: x}
+      - {point: x, from: params.x}
