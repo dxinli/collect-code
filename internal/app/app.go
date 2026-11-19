@@ -52,19 +52,19 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer, lookupEnv
 		usage(stdout)
 		return ExitOK
 	default:
-		fmt.Fprintf(stderr, "unknown command %q\n", args[0])
+		_, _ = fmt.Fprintf(stderr, "unknown command %q\n", args[0])
 		usage(stderr)
 		return ExitUsage
 	}
 }
 
 func runVersion(w io.Writer) int {
-	fmt.Fprintf(w, "binary: collect-code\n")
-	fmt.Fprintf(w, "version: %s\n", version.Version)
-	fmt.Fprintf(w, "commit: %s\n", version.Commit)
-	fmt.Fprintf(w, "build_date: %s\n", version.BuildDate)
-	fmt.Fprintf(w, "go: %s\n", runtime.Version())
-	fmt.Fprintf(w, "platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+	_, _ = fmt.Fprintf(w, "binary: collect-code\n")
+	_, _ = fmt.Fprintf(w, "version: %s\n", version.Version)
+	_, _ = fmt.Fprintf(w, "commit: %s\n", version.Commit)
+	_, _ = fmt.Fprintf(w, "build_date: %s\n", version.BuildDate)
+	_, _ = fmt.Fprintf(w, "go: %s\n", runtime.Version())
+	_, _ = fmt.Fprintf(w, "platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 	return ExitOK
 }
 
@@ -75,10 +75,10 @@ func runConfigCheck(args []string, stdout, stderr io.Writer, lookupEnv func(stri
 	}
 	bundle, _, err := loadAndValidate(dir, lookupEnv)
 	if err != nil {
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return ExitError
 	}
-	fmt.Fprintln(stdout, bundle.Summary())
+	_, _ = fmt.Fprintln(stdout, bundle.Summary())
 	return ExitOK
 }
 
@@ -107,7 +107,7 @@ func runService(ctx context.Context, args []string, stderr io.Writer, lookupEnv 
 	}
 	bundle, opts, err := loadAndValidate(dir, lookupEnv)
 	if err != nil {
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return ExitError
 	}
 	opts.Output = stderr
@@ -179,18 +179,18 @@ func parseConfigFlag(name string, args []string, stderr io.Writer) (string, int,
 		return "", ExitUsage, false
 	}
 	if fs.NArg() > 0 {
-		fmt.Fprintf(stderr, "unexpected arguments: %v\n", fs.Args())
+		_, _ = fmt.Fprintf(stderr, "unexpected arguments: %v\n", fs.Args())
 		return "", ExitUsage, false
 	}
 	if *dir == "" {
-		fmt.Fprintln(stderr, "--config must not be empty")
+		_, _ = fmt.Fprintln(stderr, "--config must not be empty")
 		return "", ExitUsage, false
 	}
 	return *dir, ExitOK, true
 }
 
 func usage(w io.Writer) {
-	fmt.Fprint(w, `collect-code — intelligent edge collector
+	_, _ = fmt.Fprint(w, `collect-code — intelligent edge collector
 
 Usage:
   collect-code <command> [flags]
