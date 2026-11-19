@@ -86,14 +86,14 @@ func Load(dir string, opts ...Option) (*Bundle, error) {
 	}
 
 	if hasStructuralDiagnostics(ds) {
-		return nil, finalizeDiagnostics(ds)
+		return nil, finalizeDiagnostics(ds).asError()
 	}
 
 	if ds = validate(b, loaded, positions); len(ds) > 0 {
-		return nil, finalizeDiagnostics(ds)
+		return nil, finalizeDiagnostics(ds).asError()
 	}
 	if ds = resolveSecrets(b, o.lookup, positions); len(ds) > 0 {
-		return nil, finalizeDiagnostics(ds)
+		return nil, finalizeDiagnostics(ds).asError()
 	}
 	return b, nil
 }

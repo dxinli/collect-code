@@ -16,7 +16,10 @@ type Diagnostic struct {
 	Message string
 }
 
-func (d Diagnostic) Error() string {
+// Error is defined on the pointer receiver so only *Diagnostic implements
+// error. Diagnostic values are data; String still gives them the same
+// human-readable form for %v and test messages.
+func (d *Diagnostic) Error() string {
 	var b strings.Builder
 	if d.File != "" {
 		b.WriteString(d.File)
@@ -44,18 +47,33 @@ func (d Diagnostic) Error() string {
 	return b.String()
 }
 
+func (d Diagnostic) String() string { return (&d).Error() }
+
 // Diagnostics is an ordered collection of problems.
 type Diagnostics []Diagnostic
 
-func (ds Diagnostics) Error() string {
-	if len(ds) == 0 {
+// Error is on the pointer receiver for the same reason as Diagnostic.Error:
+// only *Diagnostics is an error, while the slice value is data.
+func (ds *Diagnostics) Error() string {
+	if len(*ds) == 0 {
 		return ""
 	}
-	parts := make([]string, 0, len(ds))
-	for _, d := range ds {
+	parts := make([]string, 0, len(*ds))
+	for _, d := range *ds {
 		parts = append(parts, d.Error())
 	}
 	return strings.Join(parts, "\n")
+}
+
+func (ds Diagnostics) String() string { return (&ds).Error() }
+
+// asError converts a non-empty collection to the single error value that Load
+// returns. A nil/empty collection becomes a nil error.
+func (ds Diagnostics) asError() error {
+	if len(ds) == 0 {
+		return nil
+	}
+	return &ds
 }
 
 // fileRank gives the fixed layer order config -> links -> devices -> profiles.

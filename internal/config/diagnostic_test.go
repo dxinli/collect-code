@@ -1,9 +1,35 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
+
+func TestOnlyPointersAreErrors(t *testing.T) {
+	var _ error = (*Diagnostic)(nil)
+	var _ error = (*Diagnostics)(nil)
+	if _, ok := any(Diagnostic{}).(error); ok {
+		t.Fatal("Diagnostic value must not implement error; use *Diagnostic")
+	}
+	if _, ok := any(Diagnostics{}).(error); ok {
+		t.Fatal("Diagnostics value must not implement error; use *Diagnostics")
+	}
+}
+
+func TestDiagnosticStringStillHumanReadable(t *testing.T) {
+	d := Diagnostic{File: "config.yaml", Line: 2, Col: 3, RuleID: RuleQoS, Message: "qos"}
+	if got := fmt.Sprint(d); got != "config.yaml:2:3: V45: qos" {
+		t.Fatalf("Diagnostic String = %q", got)
+	}
+	ds := Diagnostics{d}
+	if got := fmt.Sprint(ds); got != "config.yaml:2:3: V45: qos" {
+		t.Fatalf("Diagnostics String = %q", got)
+	}
+	if got := (&ds).Error(); got != "config.yaml:2:3: V45: qos" {
+		t.Fatalf("Diagnostics Error = %q", got)
+	}
+}
 
 func TestDiagnosticOrdering(t *testing.T) {
 	ds := Diagnostics{
