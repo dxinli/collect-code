@@ -252,6 +252,85 @@ func requiredDiagnostics(b *Bundle, loaded []loadedProfile) Diagnostics {
 	return ds
 }
 
+// classifyYAMLError turns yaml v4 errors into stable rule-coded diagnostics.
+// LoadErrors unwraps to its first LoadError, so it MUST be checked first;
+// otherwise a file with several decode errors would collapse to one.
+func classifyYAMLError(file string, err error, pi *positionIndex) Diagnostics {
+	if err == nil {
+		return nil
+	}
+	if loadErrs, ok := errors.AsType[*yaml.LoadErrors](err); ok {
+		ds := make(Diagnostics, 0, len(loadErrs.Errors))
+		for _, le := range loadErrs.Errors {
+			line, col := markPosition(le.Mark)
+			msg := sanitizeYAMLMessage(le.Message)
+			switch {
+			case strings.Contains(msg, "no documents in stream"):
+				ds = append(ds, Diagnostic{File: file, Line: 1, Col: 1, RuleID: RuleEmptyDocument, Message: "empty document"})
+			case strings.Contains(msg, "expected single document"):
+				ds = append(ds, Diagnostic{File: file, Line: 1, Col: 1, RuleID: RuleSyntax,
+					Message: "syntax error: expected single document, found multiple"})
+			case strings.Contains(msg, "not found in type"):
+				key, ok := keyAtError(pi, le.Message, line, col)
+				text := "unknown key"
+				if ok {
+					text = fmt.Sprintf("unknown key %q", key)
+				} else if msg != "" {
+					text = "unknown key: " + msg
+				}
+				ds = append(ds, Diagnostic{File: file, Line: line, Col: col, RuleID: RuleUnknownKey, Message: text})
+			case strings.Contains(msg, "already defined"):
+				ds = append(ds, Diagnostic{File: file, Line: line, Col: col, RuleID: RuleDuplicateKey, Message: msg})
+			case strings.Contains(msg, "secret must be a scalar"):
+				ds = append(ds, Diagnostic{File: file, Line: line, Col: col, RuleID: RuleCredential,
+					Message: "secret must be a scalar"})
+			default:
+				ds = append(ds, Diagnostic{File: file, Line: line, Col: col, RuleID: RuleTypeMismatch, Message: msg})
+			}
+		}
+		if len(ds) == 0 {
+			ds = append(ds, Diagnostic{File: file, Line: 1, Col: 1, RuleID: RuleSyntax,
+				Message: "syntax error: " + sanitizeYAMLMessage(err.Error())})
+		}
+		return ds
+	}
+
+	if le, ok := errors.AsType[*yaml.LoadError](err); ok {
+		line, col := markPosition(le.Mark)
+		if le.Mark.Line == 0 && le.Mark.Column == 0 && le.ContextMark.Line > 0 {
+			line, col = markPosition(le.ContextMark)
+		}
+		msg := "syntax error: " + sanitizeYAMLMessage(le.Message)
+		if le.ContextMsg != "" {
+			msg += " (" + sanitizeYAMLMessage(le.ContextMsg) + ")"
+		}
+		return Diagnostics{{File: file, Line: line, Col: col, RuleID: RuleSyntax, Message: msg}}
+	}
+
+	return Diagnostics{{
+		File: file, Line: 1, Col: 1, RuleID: RuleSyntax,
+		Message: "syntax error: " + sanitizeYAMLMessage(err.Error()),
+	}}
+}
+
+func markPosition(m yaml.Mark) (line, col int) {
+	return nonZero(m.Line, m.Column)
+}
+
+var unknownFieldPattern = regexp.MustCompile(`field ([^ ]+) not found`)
+
+func keyAtError(pi *positionIndex, message string, line, col int) (string, bool) {
+	if pi != nil {
+		if key, ok := pi.keyAt(line, col); ok {
+			return key, true
+		}
+	}
+	if m := unknownFieldPattern.FindStringSubmatch(message); len(m) == 2 {
+		return m[1], true
+	}
+	return "", false
+}
+
 func resolveSecrets(b *Bundle, lookup func(string) (string, bool)) Diagnostics {
 	var ds Diagnostics
 
