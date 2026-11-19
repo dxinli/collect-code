@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -28,7 +29,10 @@ func WithEnv(lookup func(string) (string, bool)) Option {
 	}
 }
 
-// Load reads and strictly parses the four configuration layers.
+// Load reads and strictly parses the four configuration layers, then applies
+// the V01..V63 validation rules. Structural errors (syntax, unknown keys,
+// missing files) suppress semantic checks because the decoded model cannot be
+// trusted; the returned diagnostics are always sorted and de-duplicated.
 func Load(dir string, opts ...Option) (*Bundle, error) {
 	o := loadOptions{lookup: defaultLookupEnv}
 	for _, opt := range opts {
@@ -42,23 +46,28 @@ func Load(dir string, opts ...Option) (*Bundle, error) {
 	cfg := Default()
 	b.Config = &cfg
 
-	// Parse errors stop at the first offending file (01b adds full
-	// diagnostics); required-field errors are aggregated below instead.
-	if err := loadFile(filepath.Join(dir, "config.yaml"), b.Config); err != nil {
-		return nil, err
-	}
+	var ds Diagnostics
+	positions := map[string]*positionIndex{}
+
+	pi, d := parseFile(dir, "config.yaml", b.Config)
+	positions["config.yaml"] = pi
+	ds = append(ds, d...)
+
 	var links LinksFile
-	if err := loadFile(filepath.Join(dir, "links.yaml"), &links); err != nil {
-		return nil, err
-	}
+	pi, d = parseFile(dir, "links.yaml", &links)
+	positions["links.yaml"] = pi
+	ds = append(ds, d...)
+
 	var devices DevicesFile
-	if err := loadFile(filepath.Join(dir, "devices.yaml"), &devices); err != nil {
-		return nil, err
+	pi, d = parseFile(dir, "devices.yaml", &devices)
+	positions["devices.yaml"] = pi
+	ds = append(ds, d...)
+
+	loaded, sources, profilePositions, d := parseProfiles(dir)
+	for file, p := range profilePositions {
+		positions[file] = p
 	}
-	loaded, sources, err := loadProfiles(filepath.Join(dir, "profiles"))
-	if err != nil {
-		return nil, err
-	}
+	ds = append(ds, d...)
 
 	b.Links = links.Links
 	b.Devices = devices.Devices
@@ -76,11 +85,15 @@ func Load(dir string, opts ...Option) (*Bundle, error) {
 		b.Config.Log.RedactFields = defaultRedactFields()
 	}
 
-	if ds := requiredDiagnostics(b, loaded); len(ds) > 0 {
-		return nil, ds
+	if hasStructuralDiagnostics(ds) {
+		return nil, finalizeDiagnostics(ds)
 	}
-	if ds := resolveSecrets(b, o.lookup); len(ds) > 0 {
-		return nil, ds
+
+	if ds = validate(b, loaded, positions); len(ds) > 0 {
+		return nil, finalizeDiagnostics(ds)
+	}
+	if ds = resolveSecrets(b, o.lookup, positions); len(ds) > 0 {
+		return nil, finalizeDiagnostics(ds)
 	}
 	return b, nil
 }
@@ -90,12 +103,39 @@ type loadedProfile struct {
 	profile *Profile
 }
 
-func loadProfiles(dir string) ([]loadedProfile, map[string]string, error) {
-	sources := map[string]string{}
-
-	entries, err := os.ReadDir(dir)
+// parseFile reads one layer. It keeps the first-pass node tree so later
+// semantic diagnostics can point at the exact key that is wrong.
+func parseFile(dir, rel string, out any) (*positionIndex, Diagnostics) {
+	path := filepath.Join(dir, filepath.FromSlash(rel))
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, nil, Diagnostic{File: "profiles", Message: err.Error()}
+		return nil, Diagnostics{pathDiagnostic(rel, false, err)}
+	}
+
+	var node yaml.Node
+	if err := yaml.Load(data, &node); err != nil {
+		return nil, classifyYAMLError(rel, err, nil)
+	}
+	if emptyNode(&node) {
+		return nil, Diagnostics{{
+			File: rel, Line: 1, Col: 1, RuleID: RuleEmptyDocument, Message: "empty document",
+		}}
+	}
+
+	pi := buildPositionIndex(&node)
+	if err := yaml.Load(data, out, yaml.WithKnownFields(), yaml.WithUniqueKeys()); err != nil {
+		return pi, classifyYAMLError(rel, err, pi)
+	}
+	return pi, nil
+}
+
+func parseProfiles(dir string) ([]loadedProfile, map[string]string, map[string]*positionIndex, Diagnostics) {
+	sources := map[string]string{}
+	positions := map[string]*positionIndex{}
+
+	entries, err := os.ReadDir(filepath.Join(dir, "profiles"))
+	if err != nil {
+		return nil, sources, positions, Diagnostics{pathDiagnostic("profiles", true, err)}
 	}
 	var names []string
 	for _, e := range entries {
@@ -110,46 +150,42 @@ func loadProfiles(dir string) ([]loadedProfile, map[string]string, error) {
 	sort.Strings(names)
 
 	var loaded []loadedProfile
+	var ds Diagnostics
 	for _, name := range names {
+		rel := "profiles/" + name
 		var p Profile
-		if err := loadFile(filepath.Join(dir, name), &p); err != nil {
-			return nil, nil, err
+		pi, d := parseFile(dir, rel, &p)
+		if pi != nil {
+			positions[rel] = pi
 		}
-		if p.Profile != "" {
-			if prev, ok := sources[p.Profile]; ok {
-				return nil, nil, Diagnostic{
-					File:    name,
-					Message: fmt.Sprintf("duplicate profile %q (also defined in %s)", p.Profile, prev),
-				}
+		if len(d) > 0 {
+			ds = append(ds, d...)
+			continue
+		}
+		loaded = append(loaded, loadedProfile{file: rel, profile: &p})
+	}
+
+	first := map[string]string{}
+	for _, lp := range loaded {
+		name := lp.profile.Profile
+		if name == "" {
+			continue
+		}
+		if prev, ok := first[name]; ok {
+			line, col := 1, 1
+			if pi := positions[lp.file]; pi != nil {
+				line, col = pi.at(fieldPath(nil, "profile"))
 			}
-			sources[p.Profile] = name
+			ds = append(ds, Diagnostic{
+				File: lp.file, Line: line, Col: col, RuleID: RuleDuplicateProfile,
+				Message: fmt.Sprintf("duplicate profile %q (also defined in %s)", name, prev),
+			})
+			continue
 		}
-		loaded = append(loaded, loadedProfile{file: name, profile: &p})
+		first[name] = lp.file
+		sources[name] = lp.file
 	}
-	return loaded, sources, nil
-}
-
-func loadFile(path string, out any) error {
-	name := filepath.Base(path)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return Diagnostic{File: name, Message: err.Error()}
-	}
-
-	// First pass only checks for an empty document; strict decoding is done
-	// against the original bytes so reported line/column numbers stay true.
-	var node yaml.Node
-	if err := yaml.Load(data, &node); err != nil {
-		return yamlError(name, err)
-	}
-	if emptyNode(&node) {
-		return Diagnostic{File: name, Message: "empty document"}
-	}
-
-	if err := yaml.Load(data, out, yaml.WithKnownFields(), yaml.WithUniqueKeys()); err != nil {
-		return yamlError(name, err)
-	}
-	return nil
+	return loaded, sources, positions, ds
 }
 
 func emptyNode(n *yaml.Node) bool {
@@ -172,84 +208,22 @@ func sanitizeYAMLMessage(s string) string {
 	return backtickValue.ReplaceAllString(s, "<value>")
 }
 
-func yamlError(file string, err error) error {
-	if loadErrs, ok := errors.AsType[*yaml.LoadErrors](err); ok {
-		ds := make(Diagnostics, 0, len(loadErrs.Errors))
-		for _, le := range loadErrs.Errors {
-			msg := sanitizeYAMLMessage(le.Message)
-			if strings.Contains(msg, "no documents in stream") {
-				msg = "empty document"
-			}
-			ds = append(ds, Diagnostic{
-				File:    file,
-				Line:    le.Mark.Line,
-				Col:     le.Mark.Column,
-				Message: msg,
-			})
-		}
-		return ds
+func pathDiagnostic(file string, directory bool, err error) Diagnostic {
+	msg := "file cannot be read"
+	if directory {
+		msg = "directory cannot be read"
 	}
-	msg := sanitizeYAMLMessage(err.Error())
-	if strings.Contains(msg, "no documents in stream") {
-		msg = "empty document"
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		if directory {
+			msg = "directory not found"
+		} else {
+			msg = "file not found"
+		}
+	case errors.Is(err, fs.ErrPermission):
+		msg = "permission denied"
 	}
-	return Diagnostic{File: file, Message: msg}
-}
-
-func requiredDiagnostics(b *Bundle, loaded []loadedProfile) Diagnostics {
-	var ds Diagnostics
-	add := func(file, path string) {
-		ds = append(ds, Diagnostic{File: file, Message: path + ": required"})
-	}
-
-	if b.Config.Node.ID == "" {
-		add("config.yaml", "node.id")
-	}
-	if b.Config.Node.ProductKey == "" {
-		add("config.yaml", "node.product_key")
-	}
-	if b.Config.Northbound.MQTT.Broker == "" {
-		add("config.yaml", "northbound.mqtt.broker")
-	}
-
-	for i, l := range b.Links {
-		p := fmt.Sprintf("links[%d]", i)
-		if l.ID == "" {
-			add("links.yaml", p+".id")
-		}
-		if l.Driver == "" {
-			add("links.yaml", p+".driver")
-		}
-		if l.Serial == nil && l.TCP == nil && l.Chirpstack == nil {
-			add("links.yaml", p+": one of serial/tcp/chirpstack")
-		}
-	}
-
-	for i, d := range b.Devices {
-		p := fmt.Sprintf("devices[%d]", i)
-		if d.SN == "" {
-			add("devices.yaml", p+".sn")
-		}
-		if d.DeviceType == "" {
-			add("devices.yaml", p+".device_type")
-		}
-		if d.Profile == "" {
-			add("devices.yaml", p+".profile")
-		}
-		if d.Link == "" {
-			add("devices.yaml", p+".link")
-		}
-		if d.Address == nil {
-			add("devices.yaml", p+".address")
-		}
-	}
-
-	for _, lp := range loaded {
-		if lp.profile.Profile == "" {
-			add(lp.file, "profile")
-		}
-	}
-	return ds
+	return Diagnostic{File: file, Line: 1, Col: 1, RuleID: RuleFile, Message: msg}
 }
 
 // classifyYAMLError turns yaml v4 errors into stable rule-coded diagnostics.
@@ -331,14 +305,32 @@ func keyAtError(pi *positionIndex, message string, line, col int) (string, bool)
 	return "", false
 }
 
-func resolveSecrets(b *Bundle, lookup func(string) (string, bool)) Diagnostics {
+func hasStructuralDiagnostics(ds Diagnostics) bool {
+	for _, d := range ds {
+		n := ruleNumber(d.RuleID)
+		if (n >= 1 && n <= 7) || d.RuleID == RuleCredential {
+			return true
+		}
+	}
+	return false
+}
+
+func resolveSecrets(b *Bundle, lookup func(string) (string, bool), positions map[string]*positionIndex) Diagnostics {
 	var ds Diagnostics
+	add := func(file string, p nodePath, format string, args ...any) {
+		line, col := 1, 1
+		if pi := positions[file]; pi != nil {
+			line, col = pi.at(p)
+		}
+		ds = append(ds, Diagnostic{
+			File: file, Line: line, Col: col, RuleID: RuleCredential,
+			Message: fmt.Sprintf(format, args...),
+		})
+	}
 
 	if err := b.Config.Northbound.MQTT.Password.resolve(lookup); err != nil {
-		ds = append(ds, Diagnostic{
-			File:    "config.yaml",
-			Message: "northbound.mqtt.password: " + err.Error(),
-		})
+		add("config.yaml", fieldPath(fieldPath(fieldPath(nil, "northbound"), "mqtt"), "password"),
+			"northbound.mqtt.password: %v", err)
 	}
 	for i := range b.Links {
 		link := &b.Links[i]
@@ -346,10 +338,12 @@ func resolveSecrets(b *Bundle, lookup func(string) (string, bool)) Diagnostics {
 			continue
 		}
 		if err := link.Chirpstack.resolveToken(lookup); err != nil {
-			ds = append(ds, Diagnostic{
-				File:    "links.yaml",
-				Message: fmt.Sprintf("link %s: api_token_env: %v", link.ID, err),
-			})
+			id := link.ID
+			if id == "" {
+				id = fmt.Sprintf("[%d]", i)
+			}
+			add("links.yaml", fieldPath(fieldPath(indexPath(fieldPath(nil, "links"), i), "chirpstack"), "api_token_env"),
+				"link %s: api_token_env: %v", id, err)
 		}
 	}
 	return ds

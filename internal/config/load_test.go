@@ -87,8 +87,8 @@ func TestUnknownKeys(t *testing.T) {
 			if !strings.Contains(msg, filepath.Base(file)) {
 				t.Errorf("error does not name file: %v", err)
 			}
-			if !strings.Contains(msg, "not found") {
-				t.Errorf("error does not report unknown field: %v", err)
+			if !strings.Contains(msg, "unknown key") {
+				t.Errorf("error does not report unknown key: %v", err)
 			}
 		})
 	}
@@ -100,7 +100,7 @@ func TestTopicsAreNotOpenMap(t *testing.T) {
 		"northbound:\n  mqtt:\n    broker: mqtt://x\n" +
 		"adapter:\n  topics:\n    property_posts: v1/x\n"
 	_, err := loadTree(t, files)
-	if err == nil || !strings.Contains(err.Error(), "not found") {
+	if err == nil || !strings.Contains(err.Error(), "unknown key") {
 		t.Fatalf("misspelled topic should fail, got %v", err)
 	}
 }
@@ -122,6 +122,7 @@ func TestEmptyContainersAreValid(t *testing.T) {
 	for _, content := range []string{"{}\n", "links: []\n"} {
 		files := validTree()
 		files["links.yaml"] = content
+		files["devices.yaml"] = "devices: []\n"
 		if _, err := loadTree(t, files); err != nil {
 			t.Fatalf("empty container %q should load, got %v", content, err)
 		}
@@ -170,7 +171,7 @@ func TestRequiredFields(t *testing.T) {
 	files := validTree()
 	files["config.yaml"] = "node:\n  product_key: p\nnorthbound:\n  mqtt:\n    broker: mqtt://x\n"
 	_, err := loadTree(t, files)
-	if err == nil || !strings.Contains(err.Error(), "config.yaml: node.id: required") {
+	if err == nil || !strings.Contains(err.Error(), "V10: node.id: required") {
 		t.Fatalf("want node.id required, got %v", err)
 	}
 
@@ -178,7 +179,7 @@ func TestRequiredFields(t *testing.T) {
 	files["devices.yaml"] = "devices:\n  - sn: S1\n    device_type: sensor\n" +
 		"    profile: sensor-soil\n    link: sensors\n"
 	_, err = loadTree(t, files)
-	if err == nil || !strings.Contains(err.Error(), "devices[0].address: required") {
+	if err == nil || !strings.Contains(err.Error(), "V12: devices[0].address: required") {
 		t.Fatalf("want address required, got %v", err)
 	}
 }
@@ -275,6 +276,7 @@ func TestChirpstackTokenEnv(t *testing.T) {
 	files["links.yaml"] = "links:\n  - id: lora-gw\n    driver: lorawan\n" +
 		"    chirpstack:\n      grpc_addr: 127.0.0.1:8080\n" +
 		"      api_token_env: CHIRPSTACK_TOKEN\n"
+	files["devices.yaml"] = "devices: []\n"
 	if _, err := loadTree(t, files); err == nil || !strings.Contains(err.Error(), "link lora-gw") {
 		t.Fatalf("want link-scoped token error, got %v", err)
 	}
@@ -382,8 +384,8 @@ func TestRequiredAggregatedInOrder(t *testing.T) {
 		t.Fatal("expected required errors")
 	}
 	msg := err.Error()
-	configIdx := strings.Index(msg, "config.yaml: node.id: required")
-	profileIdx := strings.Index(msg, "sensor-soil.yaml: profile: required")
+	configIdx := strings.Index(msg, "V10: node.id: required")
+	profileIdx := strings.Index(msg, "profiles/sensor-soil.yaml")
 	if configIdx < 0 || profileIdx < 0 {
 		t.Fatalf("both required errors expected, got %v", err)
 	}
