@@ -158,7 +158,7 @@ func TestValidateRules(t *testing.T) {
 			min, max := 101.0, 100.0
 			p.Points[1].Modbus.Min, p.Points[1].Modbus.Max = &min, &max
 		}},
-		{"V41 scale", RuleScale, "scale must be > 0", func(_ *Bundle, loaded []loadedProfile) {
+		{"V41 scale", RuleScale, "scale must be finite and > 0", func(_ *Bundle, loaded []loadedProfile) {
 			p := findLoaded(t, loaded, "valve-modbus")
 			zero := 0.0
 			p.Points[1].Modbus.Scale = &zero
@@ -221,7 +221,7 @@ func TestNumericCoversParamsAndPayload(t *testing.T) {
 		zero := 0.0
 		p.Payload.Decode[0].Scale = &zero
 	})
-	wantRule(t, ds, RuleScale, "scale must be > 0")
+	wantRule(t, ds, RuleScale, "scale must be finite and > 0")
 }
 
 func TestHealthConflictOnlyForLorawan(t *testing.T) {

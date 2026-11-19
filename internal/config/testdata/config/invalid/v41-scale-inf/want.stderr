@@ -1,1 +1,1 @@
-profiles/sensor-soil.yaml:7:48: V41: scale must be a finite number (got +Inf)
+profiles/sensor-soil.yaml:7:48: V41: scale must be finite and > 0 (got +Inf)

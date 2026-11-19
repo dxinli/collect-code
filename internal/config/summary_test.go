@@ -73,6 +73,9 @@ func TestEffectiveSummaryHasNoSecretFields(t *testing.T) {
 		switch typ.Kind() {
 		case reflect.Pointer, reflect.Slice, reflect.Array:
 			walk(typ.Elem())
+		case reflect.Map:
+			walk(typ.Key())
+			walk(typ.Elem())
 		case reflect.Struct:
 			for i := 0; i < typ.NumField(); i++ {
 				walk(typ.Field(i).Type)

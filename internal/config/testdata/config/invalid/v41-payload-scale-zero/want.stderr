@@ -1,1 +1,1 @@
-profiles/valve-lora.yaml:7:58: V41: scale must be > 0 (got 0)
+profiles/valve-lora.yaml:7:58: V41: scale must be finite and > 0 (got 0)

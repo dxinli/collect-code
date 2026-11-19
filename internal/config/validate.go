@@ -40,10 +40,7 @@ func validate(b *Bundle, loaded []loadedProfile, positions map[string]*positionI
 }
 
 func (v *validator) add(file string, p nodePath, rule, format string, args ...any) {
-	line, col := 1, 1
-	if pi := v.positions[file]; pi != nil {
-		line, col = pi.at(p)
-	}
+	line, col := v.pos(file, p)
 	v.ds = append(v.ds, Diagnostic{
 		File: file, Line: line, Col: col, RuleID: rule,
 		Message: fmt.Sprintf(format, args...),
@@ -420,13 +417,9 @@ func (v *validator) checkPositiveInt(file string, path nodePath, rule, label str
 
 func (v *validator) checkMinMax(file string, base nodePath, minKey, maxKey string, min, max *float64) {
 	minPath := fieldPath(base, minKey)
-	maxPath := fieldPath(base, maxKey)
-	if min != nil && badFloat(*min) {
-		v.add(file, minPath, RuleMinMax, "%s must be a finite number (got %s)", minKey, formatFloat(*min))
-		return
-	}
-	if max != nil && badFloat(*max) {
-		v.add(file, maxPath, RuleMinMax, "%s must be a finite number (got %s)", maxKey, formatFloat(*max))
+	if (min != nil && badFloat(*min)) || (max != nil && badFloat(*max)) {
+		v.add(file, minPath, RuleMinMax, "min/max must be finite (min=%s, max=%s)",
+			formatOptFloat(min), formatOptFloat(max))
 		return
 	}
 	if min == nil || max == nil {
@@ -442,18 +435,21 @@ func (v *validator) checkScale(file string, path nodePath, scale *float64) {
 	if scale == nil {
 		return
 	}
-	if badFloat(*scale) {
-		v.add(file, path, RuleScale, "scale must be a finite number (got %s)", formatFloat(*scale))
-		return
-	}
-	if *scale <= 0 {
-		v.add(file, path, RuleScale, "scale must be > 0 (got %s)", formatFloat(*scale))
+	if badFloat(*scale) || *scale <= 0 {
+		v.add(file, path, RuleScale, "scale must be finite and > 0 (got %s)", formatFloat(*scale))
 	}
 }
 
 func badFloat(x float64) bool { return math.IsNaN(x) || math.IsInf(x, 0) }
 
 func formatFloat(x float64) string { return strconv.FormatFloat(x, 'g', -1, 64) }
+
+func formatOptFloat(x *float64) string {
+	if x == nil {
+		return "[unset]"
+	}
+	return formatFloat(*x)
+}
 
 func (v *validator) enums() {
 	for i, l := range v.b.Links {

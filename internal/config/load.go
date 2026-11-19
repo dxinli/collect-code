@@ -307,8 +307,9 @@ func keyAtError(pi *positionIndex, message string, line, col int) (string, bool)
 
 func hasStructuralDiagnostics(ds Diagnostics) bool {
 	for _, d := range ds {
-		n := ruleNumber(d.RuleID)
-		if (n >= 1 && n <= 7) || d.RuleID == RuleCredential {
+		switch d.RuleID {
+		case RuleSyntax, RuleEmptyDocument, RuleUnknownKey, RuleDuplicateKey,
+			RuleTypeMismatch, RuleFile, RuleDuplicateProfile, RuleCredential:
 			return true
 		}
 	}
