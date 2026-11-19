@@ -14,7 +14,7 @@ LDFLAGS := -s -w \
 
 GOBUILD := GOFLAGS= CGO_ENABLED=0 go build -trimpath -buildvcs=false -buildmode=exe -ldflags "$(LDFLAGS)"
 
-.PHONY: build build-linux-amd64 build-linux-arm64 build-all verify-static test test-race vet fmt-check print-check check clean
+.PHONY: build build-linux-amd64 build-linux-arm64 build-all verify-static test test-race vet fmt-check print-check go-fix-check lint check ci clean
 
 build:
 	@mkdir -p $(DIST)
@@ -50,8 +50,18 @@ fmt-check:
 print-check:
 	./scripts/check-print.sh
 
-check: fmt-check print-check vet test build-all verify-static
+go-fix-check:
+	GOFLAGS= go fix -diff -mapsloop ./...
+
+lint:
+	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found"; exit 1; }
+	golangci-lint run ./...
+
+check: fmt-check print-check go-fix-check vet test build-all verify-static
 	GOFLAGS= go run ./cmd/collect-code config-check --config configs/example
+
+# Single entry point for local and CI: same checks, no drift.
+ci: check test-race lint
 
 clean:
 	rm -rf $(DIST)
