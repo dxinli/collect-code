@@ -1,0 +1,38 @@
+profile: valve-modbus
+device_type: valve
+poll_interval_s: 5
+points:
+  - key: opening
+    access: r
+    modbus: {func: 3, address: 1, type: uint16, scale: 0.1, unit: "%"}
+    stale_after_s: 30
+  - key: target_opening
+    access: rw
+    modbus: {func: 3, address: 2, type: uint16, scale: 0.1, unit: "%", min: 0, max: 100}
+    write: {func: 6, address: 2}
+    stale_after_s: 30
+  - key: state_word
+    access: r
+    modbus: {func: 3, address: 0, type: uint16}
+    stale_after_s: 30
+  - key: fault_code
+    access: r
+    modbus: {func: 3, address: 9, type: uint16}
+    stale_after_s: 30
+
+services:
+  - service_id: set_opening
+    confirmed: true
+    params:
+      opening: {type: number, min: .nan, max: 100, unit: "%"}
+    writes:
+      - point: target_opening
+        from: params.opening
+        verify: {point: opening, tolerance: 1.0}
+    timeout_ms: 600000
+    retry_max: 3
+
+events:
+  - event_id: valve_fault
+    trigger: {type: point_changed, point: fault_code, op: ne, value: 0}
+    level: error

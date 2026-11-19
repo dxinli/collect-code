@@ -1,0 +1,8 @@
+profile: access-unset
+device_type: valve
+points:
+  - {key: x}
+services:
+  - service_id: s
+    writes:
+      - {point: x}

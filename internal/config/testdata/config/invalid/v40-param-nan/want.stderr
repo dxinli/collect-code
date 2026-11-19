@@ -1,0 +1,1 @@
+profiles/valve-modbus.yaml:27:31: V40: min/max must be finite (min=NaN, max=100)
