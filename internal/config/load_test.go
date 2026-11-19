@@ -63,8 +63,14 @@ func TestLoadValidAndDefaults(t *testing.T) {
 	if len(b.Links) != 1 || len(b.Devices) != 1 || len(b.Profiles) != 1 {
 		t.Errorf("counts = %d/%d/%d, want 1/1/1", len(b.Links), len(b.Devices), len(b.Profiles))
 	}
-	if want := "config ok: node=node-1 product_key=irrigation links=1 devices=1 profiles=1"; b.Summary() != want {
-		t.Errorf("summary = %q, want %q", b.Summary(), want)
+	summary := b.Summary()
+	if first := strings.SplitN(summary, "\n", 2)[0]; first != "config ok: node=node-1 product_key=irrigation links=1 devices=1 profiles=1" {
+		t.Errorf("summary first line = %q", first)
+	}
+	for _, want := range []string{"northbound.mqtt:", "timing:", "links:", "devices:", "profiles:", `profile="sensor-soil"`} {
+		if !strings.Contains(summary, want) {
+			t.Errorf("summary missing %q:\n%s", want, summary)
+		}
 	}
 }
 
