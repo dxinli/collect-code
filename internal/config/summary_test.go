@@ -7,7 +7,7 @@ import (
 )
 
 func TestSummaryRendersAndMasks(t *testing.T) {
-	b, err := Load("testdata/valid")
+	b, err := Load("testdata/config/base")
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -36,7 +36,7 @@ func TestSummaryRendersAndMasks(t *testing.T) {
 }
 
 func TestSummaryEmptyRedactFields(t *testing.T) {
-	b, err := Load("testdata/valid")
+	b, err := Load("testdata/config/base")
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestSummaryEmptyRedactFields(t *testing.T) {
 }
 
 func TestSummaryDeterministic(t *testing.T) {
-	b, err := Load("testdata/valid")
+	b, err := Load("testdata/config/base")
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}

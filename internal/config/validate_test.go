@@ -11,7 +11,7 @@ import (
 
 func baseParts(t *testing.T) (*Bundle, []loadedProfile, map[string]*positionIndex) {
 	t.Helper()
-	const dir = "testdata/valid"
+	const dir = "testdata/config/base"
 	cfg := Default()
 	b := &Bundle{
 		Config:         &cfg,
@@ -298,7 +298,7 @@ func TestReferenceLocations(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			dir := copyTree(t, "testdata/valid")
+			dir := copyTree(t, "testdata/config/base")
 			writeRel(t, dir, tc.file, strings.Replace(readRel(t, dir, tc.file), tc.old, tc.new, 1))
 			_, err := Load(dir)
 			if err == nil {

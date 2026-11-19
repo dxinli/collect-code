@@ -302,7 +302,7 @@ func TestChirpstackTokenEnv(t *testing.T) {
 }
 
 func TestLoadTestdataFixture(t *testing.T) {
-	b, err := Load("testdata/valid")
+	b, err := Load("testdata/config/base")
 	if err != nil {
 		t.Fatalf("load fixture: %v", err)
 	}

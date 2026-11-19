@@ -1,0 +1,1 @@
+links.yaml:3:5: V50: unknown driver "bogus" (want modbus-rtu/modbus-tcp/modbus-rtu-tcp/lorawan)

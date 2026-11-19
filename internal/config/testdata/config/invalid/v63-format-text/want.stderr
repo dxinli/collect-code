@@ -1,0 +1,1 @@
+config.yaml:15:3: V63: unsupported log.format "text" (only json in v0.1)

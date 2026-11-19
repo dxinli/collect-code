@@ -1,0 +1,1 @@
+profiles/dup-event.yaml:5:6: V24: duplicate event_id "e1" in profile "dup-event" (first defined at profiles/dup-event.yaml:4:6)

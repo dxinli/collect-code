@@ -1,0 +1,3 @@
+config.yaml:14:1: V03: unknown key "bogus_config"
+links.yaml:32:1: V03: unknown key "bogus_links"
+devices.yaml:25:1: V03: unknown key "bogus_devices"

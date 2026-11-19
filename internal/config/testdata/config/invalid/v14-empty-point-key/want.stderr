@@ -1,0 +1,1 @@
+profiles/bad-point.yaml:4:5: V14: points[0].key: required

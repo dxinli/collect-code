@@ -1,0 +1,1 @@
+profiles/sensor-soil.yaml:3:1: V42: poll_interval_s must be >= 1 (got 0)

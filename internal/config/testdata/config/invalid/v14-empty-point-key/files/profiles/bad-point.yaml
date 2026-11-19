@@ -1,0 +1,4 @@
+profile: bad-point
+device_type: sensor
+points:
+  - access: r

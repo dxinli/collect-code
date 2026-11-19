@@ -1,0 +1,4 @@
+profile: bad-service
+device_type: valve
+services:
+  - confirmed: true

@@ -1,0 +1,1 @@
+config.yaml:15:3: V60: health.addr conflicts with link lora-gw chirpstack.grpc_addr="127.0.0.1:9999"

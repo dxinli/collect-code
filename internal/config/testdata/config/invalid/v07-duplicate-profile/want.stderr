@@ -1,0 +1,1 @@
+profiles/sensor-soil.yaml:1:1: V07: duplicate profile "sensor-soil" (also defined in profiles/sensor-soil-copy.yaml)

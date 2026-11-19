@@ -1,0 +1,15 @@
+node:
+  id: gateway-001
+  product_key: irrigation
+
+northbound:
+  mqtt:
+    broker: mqtt://127.0.0.1:1883
+    client_id: collector-{node.id}
+    qos: 1
+    keepalive_s: 60
+
+adapter:
+  name: irrigation-v1
+log:
+  level: verbose

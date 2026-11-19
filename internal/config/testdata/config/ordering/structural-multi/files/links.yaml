@@ -1,0 +1,32 @@
+links:
+  - id: sensors-485
+    driver: modbus-rtu
+    serial:
+      device: /dev/ttyS3
+      baud: 9600
+      data_bits: 8
+      parity: none
+      stop_bits: 1
+    read_deadline_ms: 300
+    retry: {max: 2, backoff_ms: 100}
+
+  - id: valves-net
+    driver: modbus-tcp
+    tcp:
+      host: 192.168.1.50
+      port: 502
+    read_deadline_ms: 500
+    retry: {max: 2, backoff_ms: 100}
+
+  - id: lora-gw
+    driver: lorawan
+    chirpstack:
+      grpc_addr: 127.0.0.1:8080
+      application_id: "00000000-0000-0000-0000-000000000000"
+      mqtt:
+        broker: mqtt://127.0.0.1:1883
+        topic_filter: "application/+/device/+/event/+"
+        json: true
+      expected_uplink_interval_s: 300
+      enqueue_timeout_s: 5
+bogus_links: 1

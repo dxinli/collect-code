@@ -1,0 +1,22 @@
+config ok: node=gateway-001 product_key=irrigation links=3 devices=4 profiles=3
+northbound.mqtt: broker="mqtt://127.0.0.1:1883" client_id="collector-{node.id}" username="[unset]" password="[unset]" qos=1 keepalive_s=60 tls_enabled=false tls_ca_file="[unset]" tls_insecure_skip_verify=false reconnect_min_backoff_s=1 reconnect_max_backoff_s=30
+adapter: name="irrigation-v1" property_post="v1/{product_key}/{device_sn}/property/post" service_reply="v1/{product_key}/{device_sn}/service/reply" event="v1/{product_key}/{device_sn}/event/{event_id}" service_invoke="v1/{product_key}/{device_sn}/service/invoke" node_state="v1/{product_key}/$nodes/{node_id}/state"
+timing: snapshot_interval_s=60 delta_debounce_ms=2000 freshness_window_s=180 offline_after_intervals=1 read_deadline_ms=300 write_verify_deadline_ms=500 cmd_timeout_ms=600000 cmd_retry_max=3 lora_ack_windows=2 lora_window_margin_s=30
+cache: event_queue_max=1000 event_max_bytes=2048 event_dropped_reserve=1
+queue: pending_max=4
+state: db_path="/var/lib/collect-code/state.db" idempotency_ttl_hours=168 compaction_interval_s=3600
+log: level="info" format="json" redact_fields=["password","token","authorization","data"]
+health: enabled=false addr="127.0.0.1:9100"
+links:
+  - id="sensors-485" driver="modbus-rtu" transport="serial" read_deadline_ms=300 retry_max=2 retry_backoff_ms=100 serial_device="/dev/ttyS3" serial_baud=9600 serial_data_bits=8 serial_parity="none" serial_stop_bits=1
+  - id="valves-net" driver="modbus-tcp" transport="tcp" read_deadline_ms=500 retry_max=2 retry_backoff_ms=100 tcp_host="192.168.1.50" tcp_port=502
+  - id="lora-gw" driver="lorawan" transport="chirpstack" read_deadline_ms=300 retry_max=[unset] retry_backoff_ms=[unset] chirpstack_grpc_addr="127.0.0.1:8080" chirpstack_api_token="[unset]" chirpstack_application_id="00000000-0000-0000-0000-000000000000" chirpstack_mqtt_broker="mqtt://127.0.0.1:1883" chirpstack_topic_filter="application/+/device/+/event/+" chirpstack_json=true expected_uplink_interval_s=300 enqueue_timeout_s=5
+devices:
+  - sn="SENSOR-0001" device_type="sensor" profile="sensor-soil" link="sensors-485" address="unit_id=1" poll_interval_s=60
+  - sn="SENSOR-0002" device_type="sensor" profile="sensor-soil" link="sensors-485" address="unit_id=2" poll_interval_s=60
+  - sn="VALVE-0001" device_type="valve" profile="valve-modbus" link="valves-net" address="unit_id=1" poll_interval_s=5
+  - sn="VALVE-LORA-0001" device_type="valve" profile="valve-lora" link="lora-gw" address="dev_eui=0000000000000001,f_port=10" poll_interval_s=300
+profiles:
+  - profile="sensor-soil" source="profiles/sensor-soil.yaml" device_type="sensor" poll_interval_s=60 points=4 services=0 events=0 payload=false
+  - profile="valve-lora" source="profiles/valve-lora.yaml" device_type="valve" poll_interval_s=300 points=0 services=1 events=1 payload=true
+  - profile="valve-modbus" source="profiles/valve-modbus.yaml" device_type="valve" poll_interval_s=5 points=4 services=1 events=1 payload=false

@@ -1,0 +1,1 @@
+profiles/valve-modbus.yaml:29:9: V33: write point "opening" is read-only (access="r")

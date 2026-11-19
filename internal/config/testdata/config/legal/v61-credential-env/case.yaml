@@ -1,0 +1,4 @@
+env:
+  GOLDEN_TOKEN: "s3cr3t-token"
+forbid:
+  - "s3cr3t-token"

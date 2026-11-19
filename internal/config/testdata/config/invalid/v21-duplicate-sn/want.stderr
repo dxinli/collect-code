@@ -1,0 +1,1 @@
+devices.yaml:25:5: V21: duplicate device sn "SENSOR-0001" (first defined at devices.yaml:2:5)

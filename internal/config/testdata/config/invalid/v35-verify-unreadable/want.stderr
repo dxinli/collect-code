@@ -1,0 +1,1 @@
+profiles/valve-lora.yaml:22:34: V35: verify point "target_opening" is not readable (only present in payload.encode)

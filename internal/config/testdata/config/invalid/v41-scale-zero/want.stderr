@@ -1,0 +1,1 @@
+profiles/sensor-soil.yaml:7:48: V41: scale must be > 0 (got 0)

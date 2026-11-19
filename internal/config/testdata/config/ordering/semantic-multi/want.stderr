@@ -1,0 +1,5 @@
+config.yaml:9:5: V45: qos must be 0 or 1 (got 2)
+devices.yaml:4:5: V30: device profile "missing-profile" not found (no profiles/*.yaml defines it)
+devices.yaml:11:5: V31: device link "missing-link" not found in links.yaml
+profiles/valve-modbus.yaml:11:72: V40: min must be <= max (min=101, max=100)
+profiles/valve-modbus.yaml:29:9: V32: write point "missing" not found in profile "valve-modbus"

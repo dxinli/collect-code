@@ -1,0 +1,1 @@
+config.yaml:15:3: V62: unsupported log.level "verbose" (want debug|info|warn|error)

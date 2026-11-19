@@ -1,0 +1,20 @@
+profile: sensor-soil
+device_type: sensor
+poll_interval_s: 0
+points:
+  - key: soil_temperature
+    access: r
+    modbus: {func: 4, address: 0, type: int16, scale: 0.1, unit: "℃"}
+    stale_after_s: 180
+  - key: soil_moisture
+    access: r
+    modbus: {func: 4, address: 1, type: uint16, scale: 0.1, unit: "%"}
+    stale_after_s: 180
+  - key: soil_ec
+    access: r
+    modbus: {func: 4, address: 2, type: uint16, scale: 1, unit: "µS/cm"}
+    stale_after_s: 180
+  - key: soil_ph
+    access: r
+    modbus: {func: 4, address: 3, type: uint16, scale: 0.01, unit: "pH"}
+    stale_after_s: 180

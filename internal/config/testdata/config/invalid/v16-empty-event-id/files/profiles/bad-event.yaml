@@ -1,0 +1,4 @@
+profile: bad-event
+device_type: valve
+events:
+  - level: error

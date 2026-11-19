@@ -1,0 +1,5 @@
+profile: dup-point
+device_type: sensor
+points:
+  - {key: x, access: r}
+  - {key: x, access: r}

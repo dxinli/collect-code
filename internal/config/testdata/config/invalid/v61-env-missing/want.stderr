@@ -1,0 +1,1 @@
+config.yaml:11:5: V61: northbound.mqtt.password: environment variable GOLDEN_MISSING is not set

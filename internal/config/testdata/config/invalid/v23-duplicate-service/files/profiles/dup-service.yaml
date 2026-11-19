@@ -1,0 +1,5 @@
+profile: dup-service
+device_type: valve
+services:
+  - {service_id: s1}
+  - {service_id: s1}
