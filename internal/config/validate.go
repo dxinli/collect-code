@@ -318,35 +318,58 @@ func (v *validator) references() {
 	}
 }
 
+type pointUse struct {
+	noun           string
+	missingRule    string
+	capabilityRule string
+	writable       bool
+}
+
+var (
+	writeUse = pointUse{
+		noun:           "write point",
+		missingRule:    RuleWritePointMissing,
+		capabilityRule: RuleWritePointReadOnly,
+		writable:       true,
+	}
+	verifyUse = pointUse{
+		noun:           "verify point",
+		missingRule:    RuleVerifyPointMissing,
+		capabilityRule: RuleVerifyPointUnreadable,
+	}
+)
+
 func (v *validator) checkCapability(file string, path nodePath, profile string, caps map[string]pointCap, point string, write bool) {
+	use := verifyUse
+	if write {
+		use = writeUse
+	}
+	v.checkPointUse(file, path, profile, caps, point, use)
+}
+
+func (v *validator) checkPointUse(file string, path nodePath, profile string, caps map[string]pointCap, point string, use pointUse) {
 	cap, ok := caps[point]
 	if !ok {
-		if write {
-			v.add(file, path, RuleWritePointMissing,
-				"write point %q not found in profile %q", point, profile)
-		} else {
-			v.add(file, path, RuleVerifyPointMissing,
-				"verify point %q not found in profile %q", point, profile)
-		}
+		v.add(file, path, use.missingRule, "%s %q not found in profile %q", use.noun, point, profile)
 		return
 	}
-	if cap.invalid || (write && cap.writable) || (!write && cap.readable) {
+	if cap.invalid || (use.writable && cap.writable) || (!use.writable && cap.readable) {
 		return
 	}
 
-	noun, verb, rule := "verify point", "not readable", RuleVerifyPointUnreadable
-	if write {
-		noun, verb, rule = "write point", "read-only", RuleWritePointReadOnly
+	verb := "not readable"
+	if use.writable {
+		verb = "read-only"
 	}
 	switch {
 	case cap.access == "":
-		v.add(file, path, rule, "%s %q is %s (access is unset)", noun, point, verb)
-	case write && cap.access == "payload.decode":
-		v.add(file, path, rule, "%s %q is not writable (only present in payload.decode)", noun, point)
-	case !write && cap.access == "payload.encode":
-		v.add(file, path, rule, "%s %q is not readable (only present in payload.encode)", noun, point)
+		v.add(file, path, use.capabilityRule, "%s %q is %s (access is unset)", use.noun, point, verb)
+	case use.writable && cap.access == "payload.decode":
+		v.add(file, path, use.capabilityRule, "%s %q is not writable (only present in payload.decode)", use.noun, point)
+	case !use.writable && cap.access == "payload.encode":
+		v.add(file, path, use.capabilityRule, "%s %q is not readable (only present in payload.encode)", use.noun, point)
 	default:
-		v.add(file, path, rule, "%s %q is %s (access=%q)", noun, point, verb, cap.access)
+		v.add(file, path, use.capabilityRule, "%s %q is %s (access=%q)", use.noun, point, verb, cap.access)
 	}
 }
 
