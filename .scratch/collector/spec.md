@@ -265,7 +265,7 @@ services:
     confirmed: true
     params: {opening: {type: number, min: 0, max: 100, unit: "%"}}
     writes: [{point: target_opening, from: params.opening}]
-    verify: {type: business_ack, point: target_opening, tolerance: 1.0}
+    verify: {type: business_ack, point: opening, tolerance: 1.0}  # 回读实际开度；target_opening 仅 encode，按 P1=A 不可读
     timeout_ms: 600000
     retry_max: 3
 events:
