@@ -31,7 +31,7 @@ func WithEnv(lookup func(string) (string, bool)) Option {
 }
 
 // Load reads and strictly parses the four configuration layers, then applies
-// the V01..V63 validation rules. Structural errors (syntax, unknown keys,
+// the V01..V73 validation rules. Structural errors (syntax, unknown keys,
 // missing files) suppress semantic checks because the decoded model cannot be
 // trusted; the returned diagnostics are always sorted and de-duplicated.
 func Load(dir string, opts ...Option) (*Bundle, error) {

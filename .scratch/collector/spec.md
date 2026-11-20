@@ -199,7 +199,7 @@ links:
 ```yaml
 # valve-modbus.yaml
 profile: valve-modbus
-device_type: valve              # valve|sensor
+device_type: valve              # valve|sensor|gateway
 poll_interval_s: 5
 points:
   - key: opening
@@ -312,7 +312,11 @@ devices:
 
 - 必填：`node.id`、`node.product_key`、`northbound.mqtt.broker`、每条 link 的 `id/driver/传输块`、每个 device 的 `sn/device_type/profile/link/address`。
 - 唯一：link `id`、device `sn`、profile 内 point `key`、service `service_id`、event `event_id`。
-- 引用完整：device.profile 文件存在；device.link 存在；service.writes[].point 在 profile.points 中且 `access=rw`；verify.point 存在且可读。
+- 引用完整：device.profile 文件存在；device.link 存在；service.writes[].point 在 profile 点位集合中存在（`points` ∪ `payload.decode` ∪ `payload.encode`）且可写（`points` 的 `access=rw`，或 `payload.encode`）；verify.point 在 profile 点位集合中存在（并集）且可读（`points` 的 `access=r/rw`，或 `payload.decode`）。
+- 语义一致（V70）：`device.device_type` 与它引用的 profile 的 `device_type` 都非空时必须一致；任一为空串时不参与比较，`profile.device_type` 仍不是必填项。
+- 枚举（V71）：`device_type` 只允许 `valve`、`sensor`、`gateway`（定义见 `GLOSSARY.md`）；`device.device_type` 与 `profile.device_type` 的非空值都要校验，空串跳过。
+- 事件引用（V72）：`event.trigger.type == "point_changed"` 时，`trigger.point` 必须存在且可读；点位集合沿用 `profile.points` ∪ `payload.decode`（可读）∪ `payload.encode`（可写）的口径。其他 `trigger.type`（含空串）不检查 `trigger.point`。
+- 服务参数引用（V73）：`service.writes[].from` 必须写成 `params.<name>`，且 `<name>` 必须已在同一个 service 的 `params` 中声明；空串、缺少 `params.` 前缀或 `<name>` 为空都算非法。
 - 数值：`min ≤ max`；`scale > 0`；`poll_interval_s ≥ 1`；`freshness_window_s > 0`；`offline_after_intervals ≥ 1`；`qos ∈ {0,1}`。
 - 互斥：`parity` 枚举合法；`driver=lorawan` 的 link 必须有 chirpstack 块；`driver=modbus-rtu` 必须有 serial 块且 `modbus-tcp` 必须有 tcp 块。
 - 端口：`health.addr` 不得与 `lora-gw.chirpstack.grpc_addr` 相同（默认 8080/1700 禁用）。

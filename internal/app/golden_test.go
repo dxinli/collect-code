@@ -23,6 +23,7 @@ var allRules = []string{
 	"V40", "V41", "V42", "V43", "V44", "V45",
 	"V50", "V51", "V52", "V53",
 	"V60", "V61", "V62", "V63",
+	"V70", "V71", "V72", "V73",
 }
 
 type caseSpec struct {

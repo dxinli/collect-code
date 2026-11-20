@@ -80,6 +80,15 @@ func wantRule(t *testing.T, ds Diagnostics, rule, substr string) {
 	t.Fatalf("missing %s containing %q in:\n%v", rule, substr, ds)
 }
 
+func wantNoRule(t *testing.T, ds Diagnostics, rule string) {
+	t.Helper()
+	for _, d := range ds {
+		if d.RuleID == rule {
+			t.Fatalf("unexpected %s: %v", rule, ds)
+		}
+	}
+}
+
 func TestValidateRules(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -197,6 +206,27 @@ func TestValidateRules(t *testing.T) {
 		{"V63 log format", RuleLogFormat, "unsupported log.format", func(b *Bundle, _ []loadedProfile) {
 			b.Config.Log.Format = "text"
 		}},
+		{"V70 device type mismatch", RuleDeviceTypeMismatch, `does not match profile "sensor-soil"`, func(b *Bundle, _ []loadedProfile) {
+			b.Devices[0].DeviceType = "valve"
+		}},
+		{"V71 device type enum", RuleDeviceTypeEnum, `unknown device_type "pump"`, func(b *Bundle, _ []loadedProfile) {
+			b.Devices[0].DeviceType = "pump"
+		}},
+		{"V71 profile type enum", RuleDeviceTypeEnum, `unknown device_type "pump"`, func(_ *Bundle, loaded []loadedProfile) {
+			findLoaded(t, loaded, "sensor-soil").DeviceType = "pump"
+		}},
+		{"V72 trigger point missing", RuleEventTriggerPoint, `trigger point "missing" not found`, func(_ *Bundle, loaded []loadedProfile) {
+			findLoaded(t, loaded, "valve-modbus").Events[0].Trigger.Point = "missing"
+		}},
+		{"V72 trigger point unreadable", RuleEventTriggerPoint, "only present in payload.encode", func(_ *Bundle, loaded []loadedProfile) {
+			findLoaded(t, loaded, "valve-lora").Events[0].Trigger.Point = "target_opening"
+		}},
+		{"V73 from undeclared", RuleWriteFromParam, `from param "missing" is not declared`, func(_ *Bundle, loaded []loadedProfile) {
+			findLoaded(t, loaded, "valve-modbus").Services[0].Writes[0].From = "params.missing"
+		}},
+		{"V73 from malformed", RuleWriteFromParam, "from must be params.<name>", func(_ *Bundle, loaded []loadedProfile) {
+			findLoaded(t, loaded, "valve-modbus").Services[0].Writes[0].From = "opening"
+		}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -282,6 +312,156 @@ func TestV40AcceptsEqualBoundsAndRejectsNonFinite(t *testing.T) {
 	wantRule(t, ds, RuleMinMax, "finite")
 }
 
+func TestDeviceTypeConsistencyGuards(t *testing.T) {
+	t.Run("profile missing skips V70", func(t *testing.T) {
+		ds := validateWith(t, func(b *Bundle, _ []loadedProfile) {
+			b.Devices[0].Profile = "missing"
+		})
+		wantRule(t, ds, RuleProfileRef, `device profile "missing"`)
+		wantNoRule(t, ds, RuleDeviceTypeMismatch)
+	})
+
+	t.Run("empty profile type skips V70 and V71", func(t *testing.T) {
+		ds := validateWith(t, func(_ *Bundle, loaded []loadedProfile) {
+			findLoaded(t, loaded, "sensor-soil").DeviceType = ""
+		})
+		wantNoRule(t, ds, RuleDeviceTypeMismatch)
+		wantNoRule(t, ds, RuleDeviceTypeEnum)
+	})
+
+	t.Run("empty device type skips V70 and V71", func(t *testing.T) {
+		ds := validateWith(t, func(b *Bundle, _ []loadedProfile) {
+			b.Devices[0].DeviceType = ""
+		})
+		wantRule(t, ds, RuleRequiredDevice, "devices[0].device_type: required")
+		wantNoRule(t, ds, RuleDeviceTypeMismatch)
+		wantNoRule(t, ds, RuleDeviceTypeEnum)
+	})
+
+	t.Run("invalid profile type only reports V71", func(t *testing.T) {
+		ds := validateWith(t, func(_ *Bundle, loaded []loadedProfile) {
+			findLoaded(t, loaded, "sensor-soil").DeviceType = "pump"
+		})
+		wantRule(t, ds, RuleDeviceTypeEnum, `unknown device_type "pump"`)
+		wantNoRule(t, ds, RuleDeviceTypeMismatch)
+	})
+
+	t.Run("invalid device type only reports V71", func(t *testing.T) {
+		ds := validateWith(t, func(b *Bundle, _ []loadedProfile) {
+			b.Devices[0].DeviceType = "pump"
+		})
+		wantRule(t, ds, RuleDeviceTypeEnum, `unknown device_type "pump"`)
+		wantNoRule(t, ds, RuleDeviceTypeMismatch)
+	})
+
+	t.Run("gateway is accepted", func(t *testing.T) {
+		ds := validateWith(t, func(b *Bundle, loaded []loadedProfile) {
+			b.Devices[0].DeviceType = "gateway"
+			b.Devices[1].DeviceType = "gateway"
+			findLoaded(t, loaded, "sensor-soil").DeviceType = "gateway"
+		})
+		wantNoRule(t, ds, RuleDeviceTypeMismatch)
+		wantNoRule(t, ds, RuleDeviceTypeEnum)
+	})
+}
+
+func TestEventTriggerPoint(t *testing.T) {
+	t.Run("non point_changed is ignored", func(t *testing.T) {
+		ds := validateWith(t, func(_ *Bundle, loaded []loadedProfile) {
+			ev := &findLoaded(t, loaded, "valve-modbus").Events[0]
+			ev.Trigger.Type = "device_offline"
+			ev.Trigger.Point = "missing"
+		})
+		wantNoRule(t, ds, RuleEventTriggerPoint)
+	})
+
+	t.Run("empty trigger type is ignored", func(t *testing.T) {
+		ds := validateWith(t, func(_ *Bundle, loaded []loadedProfile) {
+			ev := &findLoaded(t, loaded, "valve-modbus").Events[0]
+			ev.Trigger.Type = ""
+			ev.Trigger.Point = "missing"
+		})
+		wantNoRule(t, ds, RuleEventTriggerPoint)
+	})
+
+	t.Run("empty point is required", func(t *testing.T) {
+		ds := validateWith(t, func(_ *Bundle, loaded []loadedProfile) {
+			findLoaded(t, loaded, "valve-modbus").Events[0].Trigger.Point = ""
+		})
+		wantRule(t, ds, RuleEventTriggerPoint, "trigger point is required")
+	})
+
+	t.Run("decode point is readable", func(t *testing.T) {
+		wantNoRule(t, validateWith(t, nil), RuleEventTriggerPoint)
+	})
+
+	t.Run("encode-only point is not readable", func(t *testing.T) {
+		ds := validateWith(t, func(_ *Bundle, loaded []loadedProfile) {
+			findLoaded(t, loaded, "valve-lora").Events[0].Trigger.Point = "target_opening"
+		})
+		wantRule(t, ds, RuleEventTriggerPoint, "only present in payload.encode")
+	})
+
+	t.Run("unset access is not readable", func(t *testing.T) {
+		ds := validateWith(t, func(_ *Bundle, loaded []loadedProfile) {
+			p := findLoaded(t, loaded, "valve-modbus")
+			p.Points = append(p.Points, Point{Key: "unset"})
+			p.Events[0].Trigger.Point = "unset"
+		})
+		wantRule(t, ds, RuleEventTriggerPoint, "access is unset")
+	})
+
+	t.Run("invalid access is only V53", func(t *testing.T) {
+		ds := validateWith(t, func(_ *Bundle, loaded []loadedProfile) {
+			p := findLoaded(t, loaded, "valve-modbus")
+			p.Points = append(p.Points, Point{Key: "bogus", Access: "bogus"})
+			p.Events[0].Trigger.Point = "bogus"
+		})
+		wantRule(t, ds, RuleAccess, `unknown access "bogus"`)
+		wantNoRule(t, ds, RuleEventTriggerPoint)
+	})
+}
+
+func TestWriteFromParam(t *testing.T) {
+	setFrom := func(from string) func(*Bundle, []loadedProfile) {
+		return func(_ *Bundle, loaded []loadedProfile) {
+			findLoaded(t, loaded, "valve-modbus").Services[0].Writes[0].From = from
+		}
+	}
+
+	cases := []struct {
+		name   string
+		from   string
+		substr string
+	}{
+		{"empty", "", "from must be params.<name>"},
+		{"missing prefix", "opening", "from must be params.<name>"},
+		{"empty name", "params.", "from must be params.<name>"},
+		{"wrong prefix case", "Params.opening", "from must be params.<name>"},
+		{"leading space", " params.opening", "from must be params.<name>"},
+		{"trailing space", "params.opening ", `from param "opening " is not declared`},
+		{"undeclared", "params.missing", `from param "missing" is not declared`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			wantRule(t, validateWith(t, setFrom(tc.from)), RuleWriteFromParam, tc.substr)
+		})
+	}
+
+	t.Run("dotted name declared", func(t *testing.T) {
+		ds := validateWith(t, func(_ *Bundle, loaded []loadedProfile) {
+			p := findLoaded(t, loaded, "valve-modbus")
+			p.Services[0].Params["a.b"] = ParamSpec{Type: "number"}
+			p.Services[0].Writes[0].From = "params.a.b"
+		})
+		wantNoRule(t, ds, RuleWriteFromParam)
+	})
+
+	t.Run("base is valid", func(t *testing.T) {
+		wantNoRule(t, validateWith(t, nil), RuleWriteFromParam)
+	})
+}
+
 func TestReferenceLocations(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -294,6 +474,10 @@ func TestReferenceLocations(t *testing.T) {
 		{"V31 link", "devices.yaml", "link: sensors-485", "link: missing-link", "devices.yaml:5:5: V31:"},
 		{"V32 write point", "profiles/valve-modbus.yaml", "      - point: target_opening", "      - point: missing", "profiles/valve-modbus.yaml:29:9: V32:"},
 		{"V34 verify point", "profiles/valve-modbus.yaml", "verify: {point: opening, tolerance: 1.0}", "verify: {point: missing, tolerance: 1.0}", "profiles/valve-modbus.yaml:31:18: V34:"},
+		{"V70 device type mismatch", "devices.yaml", "profile: sensor-soil", "profile: valve-modbus", "devices.yaml:3:5: V70:"},
+		{"V71 device type enum", "devices.yaml", "device_type: sensor", "device_type: pump", "devices.yaml:3:5: V71:"},
+		{"V72 trigger point", "profiles/valve-lora.yaml", "point: fault_code", "point: target_opening", "profiles/valve-lora.yaml:28:36: V72:"},
+		{"V73 write from", "profiles/valve-modbus.yaml", "from: params.opening", "from: params.missing", "profiles/valve-modbus.yaml:30:9: V73:"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

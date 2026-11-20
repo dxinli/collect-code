@@ -16,8 +16,9 @@ var (
 		"modbus-rtu-tcp": true,
 		"lorawan":        true,
 	}
-	knownParity = map[string]bool{"none": true, "even": true, "odd": true}
-	knownAccess = map[string]bool{"r": true, "rw": true}
+	knownParity      = map[string]bool{"none": true, "even": true, "odd": true}
+	knownAccess      = map[string]bool{"r": true, "rw": true}
+	knownDeviceTypes = map[string]bool{"valve": true, "sensor": true, "gateway": true}
 )
 
 type validator struct {
@@ -34,6 +35,7 @@ func validate(b *Bundle, loaded []loadedProfile, positions map[string]*positionI
 	v.references()
 	v.numeric()
 	v.enums()
+	v.deviceTypeConsistency()
 	v.ports()
 	v.logOptions()
 	return v.ds
@@ -309,44 +311,97 @@ func (v *validator) references() {
 					verifyPath := fieldPath(fieldPath(indexPath(fieldPath(servicePath(i), "writes"), j), "verify"), "point")
 					v.checkCapability(lp.file, verifyPath, p.Profile, caps, w.Verify.Point, false)
 				}
+				fromPath := fieldPath(indexPath(fieldPath(servicePath(i), "writes"), j), "from")
+				name, ok := strings.CutPrefix(w.From, "params.")
+				switch {
+				case !ok || name == "":
+					v.add(lp.file, fromPath, RuleWriteFromParam,
+						"from must be params.<name> (got %q)", w.From)
+				default:
+					if _, declared := svc.Params[name]; !declared {
+						v.add(lp.file, fromPath, RuleWriteFromParam,
+							"from param %q is not declared in service params", name)
+					}
+				}
 			}
 			if svc.Verify != nil {
 				verifyPath := fieldPath(fieldPath(servicePath(i), "verify"), "point")
 				v.checkCapability(lp.file, verifyPath, p.Profile, caps, svc.Verify.Point, false)
 			}
 		}
+
+		for i, ev := range p.Events {
+			if ev.Trigger.Type != "point_changed" {
+				continue
+			}
+			triggerPath := fieldPath(fieldPath(eventPath(i), "trigger"), "point")
+			if ev.Trigger.Point == "" {
+				v.add(lp.file, triggerPath, RuleEventTriggerPoint,
+					"trigger point is required when trigger.type is \"point_changed\"")
+				continue
+			}
+			v.checkPointUse(lp.file, triggerPath, p.Profile, caps, ev.Trigger.Point, triggerUse)
+		}
 	}
 }
 
+type pointUse struct {
+	noun           string
+	missingRule    string
+	capabilityRule string
+	writable       bool
+}
+
+var (
+	writeUse = pointUse{
+		noun:           "write point",
+		missingRule:    RuleWritePointMissing,
+		capabilityRule: RuleWritePointReadOnly,
+		writable:       true,
+	}
+	verifyUse = pointUse{
+		noun:           "verify point",
+		missingRule:    RuleVerifyPointMissing,
+		capabilityRule: RuleVerifyPointUnreadable,
+	}
+	triggerUse = pointUse{
+		noun:           "trigger point",
+		missingRule:    RuleEventTriggerPoint,
+		capabilityRule: RuleEventTriggerPoint,
+	}
+)
+
 func (v *validator) checkCapability(file string, path nodePath, profile string, caps map[string]pointCap, point string, write bool) {
+	use := verifyUse
+	if write {
+		use = writeUse
+	}
+	v.checkPointUse(file, path, profile, caps, point, use)
+}
+
+func (v *validator) checkPointUse(file string, path nodePath, profile string, caps map[string]pointCap, point string, use pointUse) {
 	cap, ok := caps[point]
 	if !ok {
-		if write {
-			v.add(file, path, RuleWritePointMissing,
-				"write point %q not found in profile %q", point, profile)
-		} else {
-			v.add(file, path, RuleVerifyPointMissing,
-				"verify point %q not found in profile %q", point, profile)
-		}
+		v.add(file, path, use.missingRule, "%s %q not found in profile %q", use.noun, point, profile)
 		return
 	}
-	if cap.invalid || (write && cap.writable) || (!write && cap.readable) {
+	if cap.invalid || (use.writable && cap.writable) || (!use.writable && cap.readable) {
 		return
 	}
 
-	noun, verb, rule := "verify point", "not readable", RuleVerifyPointUnreadable
-	if write {
-		noun, verb, rule = "write point", "read-only", RuleWritePointReadOnly
+	verb := "not readable"
+	if use.writable {
+		verb = "read-only"
 	}
 	switch {
 	case cap.access == "":
-		v.add(file, path, rule, "%s %q is %s (access is unset)", noun, point, verb)
-	case write && cap.access == "payload.decode":
-		v.add(file, path, rule, "%s %q is not writable (only present in payload.decode)", noun, point)
-	case !write && cap.access == "payload.encode":
-		v.add(file, path, rule, "%s %q is not readable (only present in payload.encode)", noun, point)
+		v.add(file, path, use.capabilityRule, "%s %q is %s (access is unset)", use.noun, point, verb)
+	case use.writable && cap.access == "payload.decode":
+		v.add(file, path, use.capabilityRule, "%s %q is not writable (only present in payload.decode)", use.noun, point)
+	case !use.writable && cap.access == "payload.encode":
+		v.add(file, path, use.capabilityRule, "%s %q is not readable (only present in payload.encode)", use.noun, point)
 	default:
-		v.add(file, path, rule, "%s %q is %s (access=%q)", noun, point, verb, cap.access)
+		v.add(file, path, use.capabilityRule, "%s %q is %s (access=%q)", use.noun, point, verb, cap.access)
 	}
 }
 
@@ -491,6 +546,40 @@ func (v *validator) enums() {
 				v.add(lp.file, fieldPath(pointPath(i), "access"), RuleAccess,
 					"unknown access %q (want r/rw)", point.Access)
 			}
+		}
+	}
+
+	for i, d := range v.b.Devices {
+		if d.DeviceType != "" && !knownDeviceTypes[d.DeviceType] {
+			v.add("devices.yaml", fieldPath(devicePath(i), "device_type"), RuleDeviceTypeEnum,
+				"unknown device_type %q (want valve/sensor/gateway)", d.DeviceType)
+		}
+	}
+
+	for _, lp := range v.loaded {
+		if dt := lp.profile.DeviceType; dt != "" && !knownDeviceTypes[dt] {
+			v.add(lp.file, fieldPath(nil, "device_type"), RuleDeviceTypeEnum,
+				"unknown device_type %q (want valve/sensor/gateway)", dt)
+		}
+	}
+}
+
+func (v *validator) deviceTypeConsistency() {
+	for i, d := range v.b.Devices {
+		if d.DeviceType == "" || d.Profile == "" {
+			continue
+		}
+		profile, ok := v.b.Profiles[d.Profile]
+		if !ok || profile.DeviceType == "" {
+			continue
+		}
+		if !knownDeviceTypes[d.DeviceType] || !knownDeviceTypes[profile.DeviceType] {
+			continue
+		}
+		if d.DeviceType != profile.DeviceType {
+			v.add("devices.yaml", fieldPath(devicePath(i), "device_type"), RuleDeviceTypeMismatch,
+				"device_type %q does not match profile %q (profile declares %q)",
+				d.DeviceType, d.Profile, profile.DeviceType)
 		}
 	}
 }
