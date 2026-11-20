@@ -23,8 +23,7 @@ func TestFakeChannelPublishSubscribe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Subscribe: %v", err)
 	}
-	defer sub.Close()
-	var _ interfaces.Subscription = sub
+	defer func() { _ = sub.Close() }()
 
 	match := interfaces.Message{Topic: "v1/p/dev/1", Payload: []byte("a")}
 	if err := ch.Publish(context.Background(), match); err != nil {
@@ -115,7 +114,7 @@ func TestFakeChannelConcurrentPublishInject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Subscribe: %v", err)
 	}
-	defer sub.Close()
+	defer func() { _ = sub.Close() }()
 
 	const n = 50
 	var wg sync.WaitGroup
