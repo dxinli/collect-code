@@ -48,6 +48,9 @@ func NewCaptureBuffer(capacity int, now func() time.Time) *CaptureBuffer {
 	}
 }
 
+// Capacity returns the fixed ring capacity.
+func (c *CaptureBuffer) Capacity() int { return c.capacity }
+
 // Add records one message. The payload is copied; callers may reuse the
 // input slice immediately after Add returns.
 func (c *CaptureBuffer) Add(topic string, payload []byte, qos byte, retain bool) {

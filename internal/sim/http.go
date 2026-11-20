@@ -9,7 +9,13 @@ import (
 	"net/http"
 )
 
-const maxRequestBody = 1 << 20 // 1 MiB
+const (
+	maxRequestBody = 1 << 20 // 1 MiB
+
+	pathCaptured = "/_sim/captured"
+	pathInvoke   = "/_sim/invoke"
+	pathControl  = "/_sim/control"
+)
 
 type controlEnvelope struct {
 	Module string `json:"module"`

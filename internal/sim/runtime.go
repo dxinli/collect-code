@@ -98,6 +98,9 @@ func NewRuntime(opts RuntimeOptions) (*Runtime, error) {
 // Capture returns the shared uplink capture buffer.
 func (r *Runtime) Capture() *CaptureBuffer { return r.capture }
 
+// CaptureCapacity returns the configured capture ring capacity.
+func (r *Runtime) CaptureCapacity() int { return r.capture.Capacity() }
+
 // Now returns the runtime's injected clock.
 func (r *Runtime) Now() time.Time { return r.now() }
 
