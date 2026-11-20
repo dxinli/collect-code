@@ -618,6 +618,96 @@ type ServiceReply struct {
   - `POST /_sim/invoke`：注入完整下行报文。
 - 从站必须独立实现寄存器语义（站号路由、功能码、地址、数量、CRC、异常码），测试用**独立 Modbus 客户端**验证，不复用被测驱动。
 
+#### 7.1 06b 冻结的 MQTT broker + 云端桩契约
+
+06b 只装配 MQTT broker 与云端桩；Modbus 从站（06a）与 ChirpStack 桩（12a/12b）后续在同一进程、同一 `/_sim/*` HTTP 服务、同一 manifest 上追加，**不改变**本节契约。
+
+**CLI**（`collect-code simulate`）：
+
+| Flag | 默认 | 语义 |
+|---|---|---|
+| `--manifest <path>` | 空（不写） | 启动快照输出路径；目录必须已存在 |
+| `--http-addr <host:port>` | `127.0.0.1:0` | 云端桩 HTTP 地址；`0` 表示随机端口 |
+| `--mqtt-addr <host:port>` | `127.0.0.1:0` | 内嵌 broker 监听地址；`0` 表示随机端口 |
+| `--capture-capacity <n>` | `1000` | 上行捕获环形缓冲容量，范围 `1..1000000` |
+| `--topic-filter <filter>` | `#` | 云端桩唯一的 MQTT 订阅过滤器 |
+| `-h`, `--help` | — | 帮助写 stdout 并退出 0 |
+
+- 06b **不加载**生产配置（无 `--config`）；模拟器是纯传输对端，没有硬件/协议假设。
+- 退出码：`0` 成功或收到 SIGINT/SIGTERM 优雅退出；`1` 启动/运行错误；`2` 用法错误。
+- 成功运行时 stdout 为空；结构化 JSON 日志写 stderr（`event=startup|shutdown`）。
+
+**manifest**（`schema_version=1`）：
+
+```json
+{
+  "schema_version": 1,
+  "generated_at": "2026-11-20T11:22:33.123456789Z",
+  "pid": 4242,
+  "http": {"base_url": "http://127.0.0.1:39001", "host": "127.0.0.1", "port": 39001},
+  "mqtt": {
+    "url": "mqtt://127.0.0.1:39002", "host": "127.0.0.1", "port": 39002,
+    "tls": false, "protocols": ["3.1.1", "5.0"],
+    "topic_filters": ["#"], "capture_capacity": 1000
+  },
+  "endpoints": {"captured": "/_sim/captured", "invoke": "/_sim/invoke", "control": "/_sim/control"},
+  "control_actions": {"global": ["broker_disconnect"]},
+  "modules": ["mqtt"]
+}
+```
+
+- `schema_version` 为整数；**加法扩展不升版**：新增顶层 section（如 `modbus`/`chirpstack`）、`endpoints` 新键、`control_actions` 新模块、`modules` 新元素都不破坏既有消费者。删除/改义字段才升到 `2` 并另行评审。
+- 消费者按字段名读取并忽略未知字段；测试不得断言完整键集合或逐字节 golden（端口、`generated_at`、`pid` 天然变化）。
+- `endpoints` 名称、section 名称、`(module, action)` 均唯一；重复注册视为启动错误。`http`/`schema_version`/`generated_at`/`pid`/`endpoints`/`control_actions`/`modules` 为保留 section 名。
+- manifest 通过“同目录临时文件 + fsync + rename”原子替换；目标目录不自动创建。
+- `mqtt.url` 可直接作为 `northbound.mqtt.broker`；`http.base_url` 与 `endpoints` 拼出 HTTP 地址。
+
+**`GET /_sim/captured`**：
+
+```json
+{"ok": true, "messages": [
+  {"seq": 7, "topic": "v1/irrigation/V1/property/post",
+   "payload": {"msg_id": "01J...", "type": "property.post"},
+   "qos": 1, "retain": false, "received_at": "2026-11-20T11:22:40.001234567Z"}
+], "dropped": 0}
+```
+
+- `messages` 按到达顺序、`seq` 从 1 单调递增；空时为 `[]`。
+- `payload` 是原样字节的 JSON 表示：合法 JSON 返回 JSON 值，否则退化为 JSON 字符串。
+- 捕获时**跳过** `$SYS/` 前缀与 inline-origin（`/_sim/invoke` 产生的下行），只表示“收到的上行”。
+- 固定容量环形缓冲：满时丢最旧并累加 `dropped`，绝不阻塞 broker；响应始终返回 `dropped`。
+
+**`POST /_sim/invoke`**：
+
+```json
+{"topic": "v1/irrigation/VALVE-0001/service/invoke",
+ "payload": {"msg_id": "m1", "type": "service.invoke", "service_id": "set_opening", "seq": 17},
+ "qos": 1, "retain": false}
+```
+
+- `topic` 必填，必须是合法 publish topic（无 `+`/`#`，不以 `$SYS` 开头）；空串单独判 400。
+- `payload` 必填，为任意 JSON 值；按该值的**原始字节**发布，不做 `service.invoke` 语义校验（测试可注入畸形报文）。
+- `qos` 可选，默认 `1`，只允许 `0`/`1`；`retain` 可选，默认 `false`。
+- 成功响应 `{"ok":true,"topic":...,"qos":...,"retain":...,"bytes":N}`；解析/校验错误 400，发布失败 500；未知路径 404，方法不对 405。
+
+**`POST /_sim/control`**：
+
+- 请求信封 `{"module": "<optional>", "action": "<required>", ...}`；无 `module` 的动作归入 manifest 的 `control_actions.global`。
+- 06b 只注册 `broker_disconnect`：`{"action":"broker_disconnect","duration_ms":5000}`。
+  - 踢掉 broker 上所有已连接的非 inline 客户端（关闭 TCP，不发送 DISCONNECT）。
+  - `duration_ms` 可选，默认 `0`，范围 `0..86400000`；大于 `0` 时进入保持期：保持期内新 `CONNECT` 被拒绝（MQTT 3.1.1 CONNACK code 5）。
+  - 保持期**惰性自动恢复**：每次 CONNECT 用注入时钟比较 `hold_until`，到期即接受；不需要第二个控制动作。
+  - listener 始终绑定原端口，manifest 的 `mqtt.url` 不变；重复调用覆盖 `hold_until` 并再次踢当前连接。
+  - 成功响应 `{"ok":true,"action":"broker_disconnect","disconnected":N,"hold_until":"...|null"}`。
+- 未知 module/action 或 `duration_ms` 越界返回 400；动作处理器对专有字段使用严格解码（未知字段 400）。
+
+**安全与测试**：
+
+- 默认只绑 loopback；显式传入非 loopback 地址时启动日志告警，但不阻止。无鉴权、无 TLS，仅面向本机测试。
+- mochi 的 hook 默认拒绝连接与 ACL；06b 用**单个** hook 同时提供 `OnConnectAuthenticate`（保持期拒绝，其余放行）与 `OnACLCheck`（恒放行）。
+- 测试用仓库内**独立 MQTT 3.1.1 客户端**（直接读写 TCP 字节，不 import mochi）验证连接、订阅、发布、捕获、注入、断线与恢复；不要求 docker/apt/mosquitto。
+- 06b 不实现 `GET /_sim/requests`（06a）、ChirpStack MQTT fixture（12b）、`--config` 或 05a 的生产 MQTT Channel；这些由后续 ticket 在同一 runtime 上追加。
+
 ## Testing Decisions
 
 ### 缝隙与分层（承认两条内核缝隙）
