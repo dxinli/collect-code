@@ -2,7 +2,7 @@
 #
 # 使用前提
 #   1. Settings -> Secrets and variables -> Actions 添加：
-#        GITHUB_ACTION_CLAUDE_API_KEY = 小米 MiMo 的 API Key
+#        CLAUDE_API_KEY = 小米 MiMo 的 API Key
 #   2. （可选但推荐）添加 CLAUDE_GITHUB_TOKEN = 具有 repo + workflow 权限的 PAT。
 #      未配置时退回 GITHUB_TOKEN：改动仍可推送，但由 GITHUB_TOKEN 触发的 push
 #      不会再次运行 CI（GitHub 防止递归触发）。
@@ -75,13 +75,13 @@ jobs:
         with:
           # 该 action 要求注入 API key；小米网关走 Authorization: Bearer，
           # 所以下面 settings.env 里另外给了同值的 ANTHROPIC_AUTH_TOKEN。
-          anthropic_api_key: ${{ secrets.GITHUB_ACTION_CLAUDE_API_KEY }}
+          anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
           github_token: ${{ secrets.CLAUDE_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           trigger_phrase: "@claude"
           settings: |
             {
               "env": {
-                "ANTHROPIC_AUTH_TOKEN": "${{ secrets.GITHUB_ACTION_CLAUDE_API_KEY }}",
+                "ANTHROPIC_AUTH_TOKEN": "${{ secrets.CLAUDE_API_KEY }}",
                 "ANTHROPIC_SMALL_FAST_MODEL": "mimo-v2.6-flash",
                 "CLAUDE_CODE_SUBAGENT_MODEL": "mimo-v2.6-flash",
                 "DISABLE_TELEMETRY": "1",
