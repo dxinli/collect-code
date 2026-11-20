@@ -2,7 +2,7 @@
 
 - 状态：Accepted
 - 日期：2026-11-17
-- 相关：`docs/产品定型.md` D3/D4/D20/D21/D22/D23/D26/D27、ADR-0005、`docs/缺口台账.md` B12/E6、`CLAUDE.md` 硬约束
+- 相关：`docs/产品定型.md` D3/D4/D20/D21/D22/D23/D26/D27、ADR-0005、`docs/缺口台账.md` B12/E6、`AGENTS.md` 硬约束
 
 ## 背景
 
@@ -67,6 +67,6 @@
 - **纯内存幂等**：重启即失效，正是最危险的时刻。
 - **先执行后落盘**：崩溃窗口落在「副作用已发生」，重启会重复动作。
 - **append-only journal + 周期截断**：在 bbolt 可用后属于重复造轮子；journal 的 append/replay/压缩都要自己维护，且崩溃恢复逻辑更容易写错。
-- **sqlite**：Go 绑定依赖 cgo，与 `CGO_ENABLED=0` 静态编译冲突（CLAUDE.md 硬约束）。
+- **sqlite**：Go 绑定依赖 cgo，与 `CGO_ENABLED=0` 静态编译冲突（AGENTS.md 硬约束）。
 - **Modbus 也做「至少一次重发」**：在写入语义未确认前有物理风险。
 - **不限队列的 LoRa 重发**：Class A 离线时队列塞满，设备上线先执行最旧指令。
