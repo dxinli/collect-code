@@ -323,6 +323,8 @@ devices:
 
 ### 3. 接口契约（含 Clock 与 Store 两条缝隙）
 
+02a 已冻结为 `internal/interfaces`，以下签名是该包的唯一契约。
+
 ```go
 // 缝隙一：协议与传输
 type Driver interface {
@@ -335,6 +337,30 @@ type Driver interface {
     Events() <-chan DriverEvent   // 推送型；拉取型返回 nil
     Status() LinkStatus
 }
+type ReadRequest struct {
+    Device   string
+    Points   []string  // 空表示该设备全部可读点
+    Deadline time.Time // 零值表示无单次截止；由 Clock 计算
+}
+type PointWrite struct{ PointKey string; Value any }
+type WriteRequest struct {
+    Device    string
+    ServiceID string // 所属 service；15a 的 LoRa 队列合并键
+    Confirmed bool   // service.confirmed；Modbus 忽略，LoRa → queueItem.confirmed
+    Writes    []PointWrite
+    Deadline  time.Time
+}
+type CommandHandle struct{ Ref string } // 异步事件用 DriverEvent.Ref 关联
+type DriverEvent struct {
+    Kind    EventKind // uplink | txack | ack | device_status | driver_error
+    Device  string
+    Ref     string
+    State   CommandState
+    Sample  []Sample
+    Payload []byte
+    FPort   int       // LoRa 上行端口；非 LoRa 为 0
+    At      time.Time
+}
 type Capabilities struct{ Pollable, SyncVerify, AsyncAck, Confirmed bool }
 
 type Sample struct {
@@ -344,16 +370,14 @@ type Sample struct {
     At       time.Time   // 必须来自注入的 Clock
     Err      string
 }
-type Outcome int   // OutcomeOK | OutcomePartial | OutcomeFailed | OutcomeUnsupported
-type CommandState int // CmdAccepted | CmdDelivered | CmdCompleted | CmdFailed
-type DriverEvent struct {
-    Kind   EventKind // uplink | txack | ack | device_status | driver_error
-    Device string
-    Ref    string
-    State  CommandState
-    Sample []Sample
-    Payload []byte
-    At     time.Time
+type Outcome int      // OutcomeOK | OutcomePartial | OutcomeFailed | OutcomeUnsupported
+type CommandState int // CmdNone | CmdAccepted | CmdDelivered | CmdCompleted | CmdFailed
+type Quality string   // good | stale | bad
+type Property struct {
+    Key string; Value any; Unit string; Quality Quality; TS time.Time
+}
+type LinkStatus struct {
+    State LinkState; Failures int; LastSuccess time.Time; LastError string
 }
 
 // 缝隙二：持久化（ADR-0004 §4a）
@@ -377,13 +401,57 @@ type Clock interface {
     NewTimer(d time.Duration) Timer
     Sleep(d time.Duration)
 }
+type Ticker interface{ C() <-chan time.Time; Stop() }
+type Timer  interface{ C() <-chan time.Time; Stop() }
+
+// 北向传输
+type Channel interface {
+    Publish(ctx context.Context, msg Message) error
+    Subscribe(ctx context.Context, filter string) (Subscription, error)
+    Status() ChannelStatus
+    Close() error
+}
+type Message struct {
+    Topic string; Payload []byte; QoS QoS; Retain bool; DedupKey string
+}
+type Subscription interface{ C() <-chan Message; Close() error }
+type ChannelStatus struct{ Connected bool; LastError string; ChangedAt time.Time }
+
+// 物模型适配器
+type UplinkAdapter interface {
+    PropertyReport(report PropertyReport) (Message, error)
+    EventReport(report EventReport) (Message, error)
+    DecodePayload(device string, payload []byte, fPort int, at time.Time) ([]Sample, error)
+}
+type PropertyReport struct {
+    MsgID string; Mode ReportMode; ProductKey, DeviceSN, DeviceType string
+    TS time.Time; Online bool; Properties []Property
+}
+type EventReport struct {
+    MsgID, DedupKey, DeviceSN, EventID string; Episode uint64; Level string
+    TS time.Time; Data map[string]any
+}
+type DownlinkAdapter interface {
+    ParseInvocation(msg Message) (Invocation, error)
+    ServiceReply(reply ServiceReply) (Message, error)
+}
+type Invocation struct {
+    MsgID, DeviceSN, ServiceID string; Seq uint64
+    Params map[string]any; Timeout time.Duration; IssuedAt time.Time
+}
+type ServiceReply struct {
+    MsgID, DeviceSN, ServiceID string; Seq uint64; Code int; Msg string
+    Stage ConfirmationStage // business（code=0）| gateway_tx / device_mac（5041）
+    Data map[string]any; Replay bool; Elapsed time.Duration
+}
 ```
 
-- `Channel`：`Publish/Subscribe/Status`；`Message{Topic, Payload, QoS, Retain, DedupKey}`。
-- `UplinkAdapter`：`PropertyReport/EventReport/DecodePayload`。
-- `DownlinkAdapter`：`ParseInvocation/ServiceReply`。
-- 装配只在 `cmd/collect-code`；`internal/core/*` 不 import 任何具体驱动/通道/适配器。
+- 错误哨兵（`errors.Is` 可判）：`ErrLinkDown`（5040）、`ErrDeviceRejected`（4001）、`ErrDeviceNoResponse`/`ErrDeviceInternal`（5044）、`ErrNotConnected`/`ErrClosed`/`ErrUnsupported`、`ErrRecordNotFound`/`ErrAlreadyAccepted`/`ErrAlreadyFinal`。5043 由 09 写后回读判定，不由 `Write` 返回。
+- 装配只在 `cmd/collect-code`；`internal/core/*` 不 import 任何具体驱动/通道/适配器/Store 实现。
+- 真实时钟在 `internal/clock/realclock`（唯一允许直接调用 `time.*` 的运行时包）；FakeClock 与 fake Channel/Adapter 在 `internal/testutil/*`，只被 `_test.go` 引用。
+- `Ticker`/`Timer` 不承诺 channel 容量；Go 1.27 标准库为 unbuffered（cap 0）。FakeClock 为确定性选用 cap 1，属已记录偏差，并要求“分步 Advance + 每步同步”。
 - bbolt 实现放在 `internal/store/bbolt`，**不在** `internal/core/*` 下；core 只 import `interfaces.Store`。
+- 六接口不是完整的南向契约：15a 的下行队列 seam（GetQueue/精确撤销）另行设计。
 
 ### 4. 报文契约（内联，ticket 直接引用）
 

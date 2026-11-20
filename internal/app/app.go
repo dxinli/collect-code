@@ -8,13 +8,17 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/signal"
 	"runtime"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/dxinli/collect-code/internal/config"
+	"github.com/dxinli/collect-code/internal/core/engine"
+	"github.com/dxinli/collect-code/internal/interfaces"
 	"github.com/dxinli/collect-code/internal/logging"
 	"github.com/dxinli/collect-code/internal/version"
 )
@@ -28,8 +32,14 @@ const (
 	ExitUsage = 2
 )
 
+// Deps carries the runtime dependencies the command line assembles. Only the
+// "run" command requires a Clock; version and config-check ignore it.
+type Deps struct {
+	Clock interfaces.Clock
+}
+
 // Run executes one command and returns the process exit code.
-func Run(ctx context.Context, args []string, stdout, stderr io.Writer, lookupEnv func(string) (string, bool)) int {
+func Run(ctx context.Context, deps Deps, args []string, stdout, stderr io.Writer, lookupEnv func(string) (string, bool)) int {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -47,7 +57,7 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer, lookupEnv
 	case "config-check":
 		return runConfigCheck(args[1:], stdout, stderr, lookupEnv)
 	case "run":
-		return runService(ctx, args[1:], stderr, lookupEnv)
+		return runService(ctx, deps, args[1:], stderr, lookupEnv)
 	case "-h", "--help":
 		usage(stdout)
 		return ExitOK
@@ -100,10 +110,14 @@ func loadAndValidate(dir string, lookupEnv func(string) (string, bool)) (*config
 	return bundle, opts, nil
 }
 
-func runService(ctx context.Context, args []string, stderr io.Writer, lookupEnv func(string) (string, bool)) int {
+func runService(ctx context.Context, deps Deps, args []string, stderr io.Writer, lookupEnv func(string) (string, bool)) int {
 	dir, code, ok := parseConfigFlag("run", args, stderr)
 	if !ok {
 		return code
+	}
+	if deps.Clock == nil {
+		_, _ = fmt.Fprintln(stderr, "clock is required")
+		return ExitError
 	}
 	bundle, opts, err := loadAndValidate(dir, lookupEnv)
 	if err != nil {
@@ -113,6 +127,12 @@ func runService(ctx context.Context, args []string, stderr io.Writer, lookupEnv 
 	opts.Output = stderr
 	opts.RedactValues = bundle.SecretValues()
 	logger := logging.New(opts)
+
+	eng, err := engine.New(deps.Clock, logger)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return ExitError
+	}
 
 	// Install the signal handler before the startup line: a test or operator
 	// that reacts to "startup" must never race the default signal action.
@@ -129,6 +149,7 @@ func runService(ctx context.Context, args []string, stderr io.Writer, lookupEnv 
 		"version", version.Version,
 		"links", len(bundle.Links),
 		"devices", len(bundle.Devices),
+		"started_at", eng.StartedAt().UTC().Format(time.RFC3339Nano),
 	)
 	logger.Warn("skeleton mode: no drivers or channels wired", "reason", "skeleton")
 
@@ -156,16 +177,18 @@ func runService(ctx context.Context, args []string, stderr io.Writer, lookupEnv 
 		}
 	}()
 
-	runEngine(runCtx)
+	runEngine(runCtx, eng, logger)
 	// Reached on parent-context cancellation; a signal path already logged.
 	logShutdown("context")
 	return ExitOK
 }
 
-// runEngine is the future home of the scheduler/collector. In 01a it only
-// waits for cancellation so later components inherit one shutdown path.
-func runEngine(ctx context.Context) {
-	<-ctx.Done()
+// runEngine is the future home of the scheduler/collector. In 02a it runs the
+// lifecycle component so later components inherit one shutdown path.
+func runEngine(ctx context.Context, eng *engine.Engine, logger *slog.Logger) {
+	if err := eng.Run(ctx); err != nil {
+		logger.Error("engine stopped with error", "component", "engine", "error", err)
+	}
 }
 
 func parseConfigFlag(name string, args []string, stderr io.Writer) (string, int, bool) {

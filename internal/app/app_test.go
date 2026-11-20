@@ -5,15 +5,19 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/dxinli/collect-code/internal/testutil/fakeclock"
 )
 
 func baseTree() map[string]string {
@@ -45,10 +49,17 @@ func writeConfig(t *testing.T, overrides map[string]string) string {
 	return dir
 }
 
+var testClockStart = time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+
 func run(t *testing.T, args []string, lookup func(string) (string, bool)) (int, string, string) {
 	t.Helper()
+	return runWithDeps(t, Deps{Clock: fakeclock.New(testClockStart)}, args, lookup)
+}
+
+func runWithDeps(t *testing.T, deps Deps, args []string, lookup func(string) (string, bool)) (int, string, string) {
+	t.Helper()
 	var stdout, stderr bytes.Buffer
-	code := Run(context.Background(), args, &stdout, &stderr, lookup)
+	code := Run(context.Background(), deps, args, &stdout, &stderr, lookup)
 	return code, stdout.String(), stderr.String()
 }
 
@@ -297,6 +308,78 @@ func TestVersionOutputOrder(t *testing.T) {
 		if !strings.HasPrefix(lines[i], prefix) {
 			t.Fatalf("line %d = %q, want prefix %q", i, lines[i], prefix)
 		}
+	}
+}
+
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func TestRunUsesInjectedClock(t *testing.T) {
+	dir := writeConfig(t, nil)
+	clock := fakeclock.New(testClockStart)
+
+	var stderr syncBuffer
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan int, 1)
+	go func() {
+		done <- Run(ctx, Deps{Clock: clock}, []string{"run", "--config", dir}, io.Discard, &stderr, nil)
+	}()
+
+	want := `"started_at":"` + testClockStart.Format(time.RFC3339Nano) + `"`
+	deadline := time.Now().Add(5 * time.Second)
+	for !strings.Contains(stderr.String(), want) {
+		select {
+		case code := <-done:
+			t.Fatalf("run exited early with %d; stderr=%s", code, stderr.String())
+		default:
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("startup missing %s; stderr=%s", want, stderr.String())
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	cancel()
+	select {
+	case code := <-done:
+		if code != ExitOK {
+			t.Fatalf("run exit = %d, want %d", code, ExitOK)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("run did not stop after cancellation")
+	}
+}
+
+func TestRunServiceRequiresClock(t *testing.T) {
+	dir := writeConfig(t, nil)
+
+	code, _, stderr := runWithDeps(t, Deps{}, []string{"run", "--config", dir}, nil)
+	if code != ExitError || !strings.Contains(stderr, "clock is required") {
+		t.Fatalf("run without clock: code=%d stderr=%q", code, stderr)
+	}
+
+	// Commands that never read time must keep working without a Clock.
+	if code, stdout, _ := runWithDeps(t, Deps{}, []string{"version"}, nil); code != ExitOK || stdout == "" {
+		t.Fatalf("version without clock: code=%d stdout=%q", code, stdout)
+	}
+	if code, stdout, stderr := runWithDeps(t, Deps{}, []string{"config-check", "--config", dir}, nil); code != ExitOK {
+		t.Fatalf("config-check without clock: code=%d stderr=%q", code, stderr)
+	} else if !strings.Contains(stdout, "config ok") {
+		t.Fatalf("config-check summary = %q", stdout)
 	}
 }
 
