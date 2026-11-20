@@ -44,6 +44,9 @@ Single-context: `GLOSSARY.md` at the root plus `docs/adr/`. See `docs/agents/dom
 
 1. changes 文件列表保持整洁，对每阶段的修改进行提交，好追溯问题
 2. 如果 `implement` 阶段（全部完成，是多个 commit）的 diff 太大，比如跨多个模块，代码变更行数较多，则可以写一个 diff 说明文档
+3. 每个 ticket 开始阶段请切分支(基于 main 分支创建)，ticket 完成（implement）之后 open pr 等我审核
+4. 每个 feat 分支不能混入不同的 ticket，如果 ticket 没有完成或者有问题，但是 pr 已经合并，可以开一个 hotfix 分支
+5. 如果对于 .git 单仓无法完成的工作，比如出现并行任务，请基于 worktree 方式
 
 ## 代码走读
 
