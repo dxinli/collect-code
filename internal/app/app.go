@@ -32,10 +32,16 @@ const (
 	ExitUsage = 2
 )
 
+// SimulateFunc runs the simulator subcommand. It is injected by cmd so the
+// app package never imports a concrete simulator.
+type SimulateFunc func(ctx context.Context, args []string, stdout, stderr io.Writer) int
+
 // Deps carries the runtime dependencies the command line assembles. Only the
-// "run" command requires a Clock; version and config-check ignore it.
+// "run" command requires a Clock; "simulate" requires Simulate; version and
+// config-check ignore both.
 type Deps struct {
-	Clock interfaces.Clock
+	Clock    interfaces.Clock
+	Simulate SimulateFunc
 }
 
 // Run executes one command and returns the process exit code.
@@ -58,6 +64,8 @@ func Run(ctx context.Context, deps Deps, args []string, stdout, stderr io.Writer
 		return runConfigCheck(args[1:], stdout, stderr, lookupEnv)
 	case "run":
 		return runService(ctx, deps, args[1:], stderr, lookupEnv)
+	case "simulate":
+		return runSimulate(ctx, deps, args[1:], stdout, stderr)
 	case "-h", "--help":
 		usage(stdout)
 		return ExitOK
@@ -108,6 +116,14 @@ func loadAndValidate(dir string, lookupEnv func(string) (string, bool)) (*config
 		return nil, logging.Options{}, err
 	}
 	return bundle, opts, nil
+}
+
+func runSimulate(ctx context.Context, deps Deps, args []string, stdout, stderr io.Writer) int {
+	if deps.Simulate == nil {
+		_, _ = fmt.Fprintln(stderr, "simulate is unavailable: no simulator dependency was provided")
+		return ExitError
+	}
+	return deps.Simulate(ctx, args, stdout, stderr)
 }
 
 func runService(ctx context.Context, deps Deps, args []string, stderr io.Writer, lookupEnv func(string) (string, bool)) int {
@@ -220,6 +236,7 @@ Usage:
 
 Commands:
   run            start the collector (skeleton mode in 01a)
+  simulate       run the in-process MQTT broker and cloud stub
   config-check   parse and validate the configuration, print a summary
   version        print build information
 
