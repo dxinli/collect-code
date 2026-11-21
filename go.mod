@@ -4,4 +4,12 @@ go 1.27
 
 toolchain go1.27.4
 
-require go.yaml.in/yaml/v4 v4.0.0
+require (
+	github.com/mochi-mqtt/server/v2 v2.7.9
+	go.yaml.in/yaml/v4 v4.0.0
+)
+
+require (
+	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/rs/xid v1.4.0 // indirect
+)
