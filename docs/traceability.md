@@ -15,7 +15,7 @@ CI 只失败于“既无归属也无计划”的条目。实现 PR 落地测试�
 | REQ-SCOPE-01 | not-applicable | 产品范围由 `docs/产品定型.md` §1–§3、§9 定义，无可执行测试 |
 | REQ-TIME-01 | covered | 02a；`scripts/check-time.sh` |
 | REQ-SEAM-01 | covered | 02a；`scripts/check-deps.sh` |
-| REQ-SEAM-02 | planned(02b) | `internal/interfaces/store.go` 已冻结；bbolt 合同测试待 02b |
+| REQ-SEAM-02 | covered | 02b；`scripts/check-deps.sh`、`internal/store/storetest` 与两实现合同测试 |
 | REQ-QUALITY-01 | planned(03b) | `03b-state-freshness` |
 | REQ-QUALITY-02 | planned(03b) | `03b-state-freshness` |
 | REQ-QUALITY-03 | planned(03b) | `03b-state-freshness` |
@@ -63,14 +63,14 @@ CI 只失败于“既无归属也无计划”的条目。实现 PR 落地测试�
 | CFG-VALIDATION-01 | covered | 01b/01c；`internal/config/validate_test.go`、golden corpus |
 | CFG-V73 | covered | 01c；V70–V73 单测与 golden |
 | CFG-RELOAD-01 | planned(17a) | `17a-reload-atomic`、`17b-reload-lifecycle` |
-| STORE-ACCEPT-01 | planned(02b) | `02b-store-bbolt` |
-| STORE-FINISH-01 | planned(02b) | `02b-store-bbolt` |
-| STORE-LOOKUP-01 | planned(02b) | `02b-store-bbolt` |
-| STORE-LASTSEQ-01 | planned(02b) | `02b-store-bbolt` |
-| STORE-DEVICES-01 | planned(02b) | `02b-store-bbolt` |
-| STORE-SNAPSHOT-01 | planned(02b) | `02b-store-bbolt` |
-| STORE-EXPIRY-01 | planned(02b) | `02b-store-bbolt` |
-| STORE-CLOSE-01 | planned(02b) | `02b-store-bbolt` |
+| STORE-ACCEPT-01 | covered | `internal/store/storetest`：`BeginAcceptedAndLookup`、`BeginAcceptedDuplicateIsRejected` |
+| STORE-FINISH-01 | covered | `internal/store/storetest`：`FinishCompletesAcceptedRecord`、`FinishUnknownRecordIsRejected`、`FinishAlreadyFinalIsRejected` |
+| STORE-LOOKUP-01 | covered | `internal/store/storetest`：`LookupMissingReturnsNotFound`、bbolt `CorruptRecordIsRejected` |
+| STORE-LASTSEQ-01 | covered | `internal/store/storetest`：`LastSeqStartsAtZeroAndIsMonotonic`、`LastSeqSurvivesDeleteExpired`、`SaveDevicesDoesNotChangeLastSeqWatermark` |
+| STORE-DEVICES-01 | covered | `internal/store/storetest`：`LoadDevicesEmptyReturnsEmptySlice`、`SaveDevicesUpsertsWithoutDeleting`、`SaveDevicesDoesNotChangeLastSeqWatermark` |
+| STORE-SNAPSHOT-01 | covered | `internal/store/storetest`：`SaveSnapshotReplacesWholeDevice`、`SaveSnapshotNilIsFoundEmpty`、`UnknownQualityIsOpaque` |
+| STORE-EXPIRY-01 | covered | `internal/store/storetest`：`DeleteExpiredOnlyFinalStrictlyBefore`、`DeleteExpiredKeepsAcceptedRecords`、`DeleteExpiredReturnsDeletedCount` |
+| STORE-CLOSE-01 | covered | `internal/store/storetest`：`CloseIsIdempotent`、`OperationsAfterCloseReturnErrClosed`、`CloseWhileWritesInFlight` |
 | SIM-CLI-01 | covered | 06b；`internal/sim/run_test.go`、`internal/app/simulate_test.go` |
 | SIM-MANIFEST-01 | covered | 06b；`internal/sim/manifest_test.go` |
 | SIM-CAPTURE-01 | covered | 06b；`internal/sim/capture_test.go` |
