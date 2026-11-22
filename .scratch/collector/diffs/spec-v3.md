@@ -102,12 +102,12 @@ $ for f in $(git diff --name-only main...HEAD -- '.scratch/collector/issues/*.md
 - `spec-impact.sh` 仅本地使用；CI 不调用。
 - PR 模板包含 `Spec-Version`、`Spec-Impact`、`REQ`。
 
-门禁自测（用 `SPEC_BASE=HEAD~1` 模拟合并后 base）：
+门禁自测（base 提交 `a0b36da`，该提交含 `docs/spec/VERSION`；三个临时分支均从该提交创建，运行 `SPEC_BASE=a0b36da`）：
 
 ```text
-feature-branch-modifies-spec exit=2
-spec-delta-code-only exit=1
-spec-delta-missing-version exit=1
+feature-branch-modifies-spec exit=2   # FAIL: feature branch modifies the spec package
+spec-delta-code-only exit=1           # FAIL: spec-delta must not change code: internal/gate_test_tmp.txt
+spec-delta-missing-version exit=1     # FAIL: spec-delta must update docs/spec/VERSION
 ```
 
 本地结果：
@@ -133,4 +133,4 @@ GitHub PR #10 的 `ci` 与 `gitleaks` 均通过。
 - 02b 仍 `on-hold`；A/B 未拍板；解冻必须先合并 `spec-delta/02b-store`。
 - `docs/traceability.md` 中大量条目仍是 `planned(ticket)`；对应实现落地后才改为 `covered`。
 - 06b 的实现与 ticket 验收未改；只迁移了契约归属与前向引用。
-- 合并后自测：从 main 开临时分支修改规范包，`make spec-status` 应 exit 2；`spec-delta/*` 夹带代码应 exit 1。本 PR 内已用 `SPEC_BASE=<含 VERSION 的提交>` 模拟过该路径。
+- 合并后自测：从 main 开临时分支修改规范包，`make spec-status` 应 exit 2；`spec-delta/*` 夹带代码应 exit 1。本 PR 内已用 `SPEC_BASE=a0b36da` 模拟过该路径。

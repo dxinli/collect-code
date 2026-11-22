@@ -680,7 +680,7 @@ git show spec-v2-draft:.scratch/collector/spec.md
 - [x] spec 与 AGENTS/ADR/contracts/testing 无重复规范段落。
 - [x] AGENTS 只保留流程/约束，行为细节链接 spec/ADR。
 - [x] `spec-check.sh` 六项检查在 bootstrap PR 通过；目标状态用同一脚本验证。
-- [x] `make spec-status` 可检测落后/改规范/REQ 变更；`spec-delta` 例外（临时分支自测：普通分支改规范 exit 2，spec-delta 缺版本 exit 1，spec-delta 只改代码 exit 1）。
+- [x] `make spec-status` 可检测落后/改规范/REQ 变更；`spec-delta` 例外（临时分支自测，`SPEC_BASE=a0b36da`：普通分支改规范 exit 2，spec-delta 缺版本 exit 1，spec-delta 只改代码 exit 1）。
 - [x] `spec-impact` 明确为本地工具；CI 只做 merge-base/版本检查。
 - [x] PR 模板含 `Spec-Version` / `Spec-Impact` / `REQ`；至少人工检查，或 CI 解析。
 - [x] tag `spec-v2-draft` 已推送，`spec-archive.sh` 可读取。
@@ -720,4 +720,4 @@ git show spec-v2-draft:.scratch/collector/spec.md
 4. 02b 保持 `on-hold`；
 5. 06b worktree/branch 在启用门禁前退役（已完成：本地 worktree、本地分支与 `origin` 分支均已删除）；
 6. 所有实现提交经 PR，不直接 push main。
-7. 合并后自测：从 main 开临时分支修改规范包，`make spec-status` 应 exit 2；`spec-delta/*` 夹带代码应 exit 1。bootstrap PR 内用 `SPEC_BASE=<含 VERSION 的提交>` 模拟该路径。
+7. 合并后自测：从 main 开临时分支修改规范包，`make spec-status` 应 exit 2；`spec-delta/*` 夹带代码应 exit 1。bootstrap PR 内用 `SPEC_BASE=a0b36da` 模拟该路径。
