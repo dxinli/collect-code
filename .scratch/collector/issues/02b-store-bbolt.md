@@ -4,7 +4,7 @@
 
 **Blocked by:** 02a
 
-**Status:** on-hold
+**Status:** ready-for-agent
 
 - [ ] 同一套契约测试分别跑内存实现与 bbolt 实现
 - [ ] 覆盖 BeginAccepted/Finish/重复 Begin/Finish 未知记录/LastSeq/LoadDevices/SaveDevices/LoadSnapshot/SaveSnapshot/DeleteExpired
@@ -15,3 +15,5 @@
 
 - 2026-11-22 plan 已并入 main；实现暂停，等待 `docs/spec/spec.md` v3 与 `docs/contracts/store.md`。
 - 解冻时：merge main → 用户拍板 plan §4.5/§4.12/§4.13 的 A/B → 合并 `spec-delta/02b-store` → 按 store 合同实现，不再修改 spec/contract。
+- 2026-11-23 用户确认 plan §4 全部按推荐 A，并明确“计划评审通过”；`spec-delta/02b-store` 已合并（规范包 3.1.0）。
+- 实施约束：只按 `docs/contracts/store.md` 实现；实现提交不得修改 spec/contract；完成后更新 `docs/traceability.md` 与 ticket。
