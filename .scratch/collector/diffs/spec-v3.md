@@ -102,6 +102,14 @@ $ for f in $(git diff --name-only main...HEAD -- '.scratch/collector/issues/*.md
 - `spec-impact.sh` 仅本地使用；CI 不调用。
 - PR 模板包含 `Spec-Version`、`Spec-Impact`、`REQ`。
 
+门禁自测（用 `SPEC_BASE=HEAD~1` 模拟合并后 base）：
+
+```text
+feature-branch-modifies-spec exit=2
+spec-delta-code-only exit=1
+spec-delta-missing-version exit=1
+```
+
 本地结果：
 
 ```text
