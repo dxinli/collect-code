@@ -17,10 +17,15 @@ base=$(git merge-base "$BASE_REF" HEAD 2>/dev/null || echo "$BASE_REF")
 changed=$(git diff --name-only "$base"...HEAD 2>/dev/null || true)
 behind=$(git rev-list --count HEAD.."$BASE_REF" 2>/dev/null || echo 0)
 
-echo "spec-status: branch=$branch base=$BASE_REF"
-echo "spec-status: local version=$(tr -d '[:space:]' < docs/spec/VERSION 2>/dev/null || echo missing)"
+local_version=$(tr -d '[:space:]' < docs/spec/VERSION 2>/dev/null || true)
+base_version=""
 if git cat-file -e "$base:docs/spec/VERSION" 2>/dev/null; then
-  echo "spec-status: base version=$(git show "$base:docs/spec/VERSION" | tr -d '[:space:]')"
+  base_version=$(git show "$base:docs/spec/VERSION" | tr -d '[:space:]')
+fi
+echo "spec-status: branch=$branch base=$BASE_REF"
+echo "spec-status: local version=${local_version:-missing}"
+if [ -n "$base_version" ]; then
+  echo "spec-status: base version=$base_version"
 fi
 
 if [ "$behind" -gt 0 ]; then
@@ -32,8 +37,16 @@ spec_changed=$(echo "$changed" | grep -E '^(docs/spec/|docs/contracts/)' || true
 code_changed=$(echo "$changed" | grep -E '^(cmd/|internal/|go\.mod$|go\.sum$)' || true)
 
 has_base_version=0
-if git cat-file -e "$base:docs/spec/VERSION" 2>/dev/null; then
+if [ -n "$base_version" ]; then
   has_base_version=1
+fi
+
+if [ -n "$local_version" ] && [ -n "$base_version" ] && [ "$local_version" != "$base_version" ]; then
+  older=$(printf '%s\n%s\n' "$base_version" "$local_version" | sort -V | head -n1)
+  if [ "$older" = "$local_version" ]; then
+    echo "spec-status: FAIL: local version $local_version is older than base $base_version" >&2
+    exit 1
+  fi
 fi
 
 if [ -n "$spec_changed" ]; then

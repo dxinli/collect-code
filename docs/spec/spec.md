@@ -60,7 +60,7 @@
 
 **REQ-SCHED-04** 采集周期属于设备：profile 提供默认值，设备可覆盖。链路 tick 必须取该链路所有设备采集周期的最大公约数，且不小于一秒；每个 tick 只处理到期的设备。上报周期属于节点，必须与采集周期解耦。
 
-**REQ-UPLINK-01** LoRaWAN 上行去重必须优先使用 ChirpStack 提供的去重标识；缺失时必须使用设备标识与帧计数组合。去重窗口只存在于内存，容量为 1024，重启后不保证；重复上行不得产生重复属性或事件。
+**REQ-UPLINK-01** LoRaWAN 上行去重必须优先使用 ChirpStack 提供的 `deduplicationId`；缺失时必须使用 `devEui` 与 `fCnt` 组合。去重窗口只存在于内存，容量为 1024，重启后不保证；重复上行不得产生重复属性或事件。
 
 ## 4. 服务调用语义
 
@@ -118,13 +118,13 @@ Topic、报文 JSON、code、阶段、事件枚举、去重键、目标开度、
 
 **REQ-OPS-02** 健康端点默认关闭；开启后只能绑定配置的本地地址，不得监听其他接口。`/healthz` 只表示进程存活，`/status` 必须以固定结构反映持久化可用性、北向连接、各链路状态、每设备在线状态、队列深度与计数器。`/metrics` 必须暴露以下固定指标名与标签：
 
-| 指标 | 类型 | 标签 |
-|---|---|---|
-| `collector_link_ok` | gauge | `link` |
-| `collector_poll_total` | counter | `link`、`result` |
-| `collector_queue_depth` | gauge | `device` |
-| `collector_event_dropped_total` | counter | 无 |
-| `collector_missed_ticks_total` | counter | `link` |
+| 指标（含标签） | 类型 |
+|---|---|
+| `collector_link_ok{link}` | gauge |
+| `collector_poll_total{link,result}` | counter |
+| `collector_queue_depth{device}` | gauge |
+| `collector_event_dropped_total` | counter |
+| `collector_missed_ticks_total{link}` | counter |
 
 指标名、类型与标签是契约，不得随意改名。启动与配置校验不得占用 ChirpStack 已使用的端口。
 
