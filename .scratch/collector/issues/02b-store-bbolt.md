@@ -17,3 +17,4 @@
 - 解冻时：merge main → 用户拍板 plan §4.5/§4.12/§4.13 的 A/B → 合并 `spec-delta/02b-store` → 按 store 合同实现，不再修改 spec/contract。
 - 2026-11-23 用户确认 plan §4 全部按推荐 A，并明确“计划评审通过”；`spec-delta/02b-store` 已合并（规范包 3.1.0）。
 - 实施约束：只按 `docs/contracts/store.md` 实现；实现提交不得修改 spec/contract；完成后更新 `docs/traceability.md` 与 ticket。
+- 2026-11-23 实现完成，PR #12（`feat/02b-store-bbolt`）。共享契约套件 37 项对 memory/bbolt 双实现全绿；`-race` 与并发用例 `-count=10` 全绿；`make ci` 全绿。`docs/traceability.md` 的 `REQ-SEAM-02` 与 8 个 `STORE-*` 已改为 `covered`。等待用户验收后再勾选验收项并标 `done`。
