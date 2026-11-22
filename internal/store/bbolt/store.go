@@ -424,3 +424,288 @@ func (s *Store) LastSeq(ctx context.Context, device string) (uint64, error) {
 	}
 	return watermark, nil
 }
+
+// LoadDevices implements interfaces.Store.
+func (s *Store) LoadDevices(ctx context.Context) ([]interfaces.DeviceState, error) {
+	if err := checkCtx(ctx); err != nil {
+		return nil, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, errClosed
+	}
+
+	states := make([]interfaces.DeviceState, 0)
+	err := s.db.View(func(tx *bolt.Tx) error {
+		if err := checkCtx(ctx); err != nil {
+			return err
+		}
+		devices := tx.Bucket(bucketDevices)
+		if devices == nil {
+			return fmt.Errorf("bbolt store: missing %q bucket", bucketDevices)
+		}
+		return devices.ForEach(func(key, value []byte) error {
+			if err := checkCtx(ctx); err != nil {
+				return err
+			}
+			var dto deviceDTO
+			if err := json.Unmarshal(value, &dto); err != nil {
+				return fmt.Errorf("bbolt store: decode device %q: %w", string(key), err)
+			}
+			states = append(states, interfaces.DeviceState{
+				Device:        dto.Device,
+				Online:        dto.Online,
+				LastSuccessAt: dto.LastSuccessAt,
+				LastSeq:       dto.LastSeq,
+				UpdatedAt:     dto.UpdatedAt,
+			})
+			return nil
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return states, nil
+}
+
+// SaveDevices implements interfaces.Store.
+func (s *Store) SaveDevices(ctx context.Context, states []interfaces.DeviceState) error {
+	if err := checkCtx(ctx); err != nil {
+		return err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return errClosed
+	}
+
+	type encodedDevice struct {
+		device string
+		value  []byte
+	}
+	encoded := make([]encodedDevice, 0, len(states))
+	for _, state := range states {
+		if err := checkCtx(ctx); err != nil {
+			return err
+		}
+		value, err := json.Marshal(deviceDTO{
+			Device:        state.Device,
+			Online:        state.Online,
+			LastSuccessAt: state.LastSuccessAt,
+			LastSeq:       state.LastSeq,
+			UpdatedAt:     state.UpdatedAt,
+		})
+		if err != nil {
+			return fmt.Errorf("bbolt store: encode device %q: %w", state.Device, err)
+		}
+		encoded = append(encoded, encodedDevice{device: state.Device, value: value})
+	}
+
+	return s.db.Update(func(tx *bolt.Tx) error {
+		if err := checkCtx(ctx); err != nil {
+			return err
+		}
+		devices := tx.Bucket(bucketDevices)
+		if devices == nil {
+			return fmt.Errorf("bbolt store: missing %q bucket", bucketDevices)
+		}
+		for _, e := range encoded {
+			if err := checkCtx(ctx); err != nil {
+				return err
+			}
+			if err := devices.Put([]byte(e.device), e.value); err != nil {
+				return fmt.Errorf("bbolt store: write device %q: %w", e.device, err)
+			}
+		}
+		return nil
+	})
+}
+
+// LoadSnapshot implements interfaces.Store.
+func (s *Store) LoadSnapshot(ctx context.Context, device string) ([]interfaces.Property, bool, error) {
+	if err := checkCtx(ctx); err != nil {
+		return nil, false, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, false, errClosed
+	}
+
+	var props []interfaces.Property
+	var found bool
+	err := s.db.View(func(tx *bolt.Tx) error {
+		if err := checkCtx(ctx); err != nil {
+			return err
+		}
+		snapshots := tx.Bucket(bucketSnapshots)
+		if snapshots == nil {
+			return fmt.Errorf("bbolt store: missing %q bucket", bucketSnapshots)
+		}
+		raw := snapshots.Get([]byte(device))
+		if raw == nil {
+			return nil
+		}
+		var dtos []propertyDTO
+		if err := json.Unmarshal(raw, &dtos); err != nil {
+			return fmt.Errorf("bbolt store: decode snapshot %q: %w", device, err)
+		}
+		props = make([]interfaces.Property, 0, len(dtos))
+		for _, dto := range dtos {
+			props = append(props, interfaces.Property{
+				Key:     dto.Key,
+				Value:   dto.Value,
+				Unit:    dto.Unit,
+				Quality: interfaces.Quality(dto.Quality),
+				TS:      dto.TS,
+			})
+		}
+		found = true
+		return nil
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	if !found {
+		return nil, false, nil
+	}
+	return props, true, nil
+}
+
+// SaveSnapshot implements interfaces.Store.
+func (s *Store) SaveSnapshot(ctx context.Context, device string, props []interfaces.Property) error {
+	if err := checkCtx(ctx); err != nil {
+		return err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return errClosed
+	}
+
+	if props == nil {
+		props = []interfaces.Property{}
+	}
+	dtos := make([]propertyDTO, 0, len(props))
+	for _, prop := range props {
+		dtos = append(dtos, propertyDTO{
+			Key:     prop.Key,
+			Value:   prop.Value,
+			Unit:    prop.Unit,
+			Quality: string(prop.Quality),
+			TS:      prop.TS,
+		})
+	}
+	value, err := json.Marshal(dtos)
+	if err != nil {
+		return fmt.Errorf("bbolt store: encode snapshot %q: %w", device, err)
+	}
+
+	return s.db.Update(func(tx *bolt.Tx) error {
+		if err := checkCtx(ctx); err != nil {
+			return err
+		}
+		snapshots := tx.Bucket(bucketSnapshots)
+		if snapshots == nil {
+			return fmt.Errorf("bbolt store: missing %q bucket", bucketSnapshots)
+		}
+		if err := snapshots.Put([]byte(device), value); err != nil {
+			return fmt.Errorf("bbolt store: write snapshot %q: %w", device, err)
+		}
+		return nil
+	})
+}
+
+// DeleteExpired implements interfaces.Store.
+func (s *Store) DeleteExpired(ctx context.Context, before time.Time) (int, error) {
+	if err := checkCtx(ctx); err != nil {
+		return 0, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return 0, errClosed
+	}
+
+	type recordKey struct {
+		device string
+		seq    uint64
+	}
+	count := 0
+	err := s.db.Update(func(tx *bolt.Tx) error {
+		if err := checkCtx(ctx); err != nil {
+			return err
+		}
+		records := tx.Bucket(bucketRecords)
+		if records == nil {
+			return fmt.Errorf("bbolt store: missing %q bucket", bucketRecords)
+		}
+
+		var toDelete []recordKey
+		affected := make(map[string]struct{})
+		if err := records.ForEachBucket(func(device []byte) error {
+			if err := checkCtx(ctx); err != nil {
+				return err
+			}
+			name := string(device)
+			rb := records.Bucket(device)
+			if rb == nil {
+				return nil
+			}
+			return rb.ForEach(func(key, value []byte) error {
+				if err := checkCtx(ctx); err != nil {
+					return err
+				}
+				rec, err := decodeRecord(value)
+				if err != nil {
+					return err
+				}
+				if rec.Phase != interfaces.PhaseFinal || !rec.FinalAt.Before(before) {
+					return nil
+				}
+				if len(key) != 8 {
+					return fmt.Errorf("bbolt store: corrupt record key for device %q: length %d, want 8", name, len(key))
+				}
+				toDelete = append(toDelete, recordKey{device: name, seq: binary.BigEndian.Uint64(key)})
+				affected[name] = struct{}{}
+				return nil
+			})
+		}); err != nil {
+			return err
+		}
+
+		for _, item := range toDelete {
+			if err := checkCtx(ctx); err != nil {
+				return err
+			}
+			rb := records.Bucket([]byte(item.device))
+			if rb == nil {
+				continue
+			}
+			if err := rb.Delete(seqBE(item.seq)); err != nil {
+				return fmt.Errorf("bbolt store: delete record %q/%d: %w", item.device, item.seq, err)
+			}
+			count++
+		}
+		for device := range affected {
+			if err := checkCtx(ctx); err != nil {
+				return err
+			}
+			rb := records.Bucket([]byte(device))
+			if rb == nil {
+				continue
+			}
+			if key, _ := rb.Cursor().First(); key == nil {
+				if err := records.DeleteBucket([]byte(device)); err != nil {
+					return fmt.Errorf("bbolt store: delete empty records bucket for %q: %w", device, err)
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
