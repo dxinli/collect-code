@@ -1,5 +1,7 @@
 # 01c: 配置语义补强（01b 移出的 4 条规则）
 
+> **历史文档（historical）**：文中的 `spec §N` 是 v2-draft 的历史引用；当前行为规范见 `docs/spec/spec.md`，配置合同见 `docs/contracts/config.md`。
+
 **What to build:** 补齐四类“配置写得出来但运行期必坏”的语义检查；这些规则不在 spec §2 明写，01b 计划评审决定移出，单独成单。
 
 **Blocked by:** 01b

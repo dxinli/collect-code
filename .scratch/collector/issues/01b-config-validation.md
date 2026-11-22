@@ -14,7 +14,7 @@
 
 ## Comments
 
-- 2026-11-19 计划 v4 经用户评审通过；4 条 spec 外规则移出并登记 `01c-config-semantics.md`。
+- 2026-11-19 计划 v4 经用户评审通过；4 条当时 spec 外规则移出并登记 `01c-config-semantics.md`（historical：当前配置合同见 `docs/contracts/config.md`）。
 - 实现按功能点提交：`094c601` 位置索引/规则号、`92d22c6` 语义校验、
   `43463c6` 生效摘要、`f4826b4` golden、`e00b247` 评审修复、
   `712db8c` 合法用例入库与 P8/空 access 边界。
