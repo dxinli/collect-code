@@ -1,5 +1,7 @@
 # spec-v3 实施 diff 说明
 
+<!-- spec-refs: historical-file -->
+
 **范围**：`main@461121c` .. `docs/spec-v3`（spec 管理化方案落地）。
 **性质**：文档、规范包与 CI 门禁；不改产品行为、接口签名、配置字段、错误码或事件语义。
 **旧规范**：冻结于 tag `spec-v2-draft`；本文的旧行号均指该 tag 中的 `.scratch/collector/spec.md`。

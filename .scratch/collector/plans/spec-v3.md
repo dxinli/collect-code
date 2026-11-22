@@ -654,42 +654,42 @@ git show spec-v2-draft:.scratch/collector/spec.md
 
 ### 14.1 结构
 
-- [ ] `docs/spec/spec.md` v3.0.0，`Status: proposed`；用户批准后改 accepted。
-- [ ] `VERSION`、`CHANGELOG.md` 存在且一致（`VERSION` 纯 `3.0.0`）。
-- [ ] spec 无决策/评审编号、理由、ticket 编号、完整代码/配置/JSON、旧标题空壳。
-- [ ] v2 迁移矩阵逐条有归属；无未映射条目。
-- [ ] contracts external/config/store/simulator 存在。
-- [ ] testing/traceability/architecture/README/ADR README 存在。
-- [ ] 旧 `.scratch/collector/spec.md` 已删除；`git ls-files` 不再包含它。
-- [ ] PRD 无 Go/JSON/YAML 代码块、无重复规范、无 D 表正文。
+- [x] `docs/spec/spec.md` v3.0.0，`Status: proposed`（accepted 待用户单独批准）。
+- [x] `VERSION`、`CHANGELOG.md` 存在且一致（`VERSION` 纯 `3.0.0`）。
+- [x] spec 无决策/评审编号、理由、ticket 编号、完整代码/配置/JSON、旧标题空壳。
+- [x] v2 迁移矩阵逐条有归属；无未映射条目（覆盖表见 `.scratch/collector/diffs/spec-v3.md`）。
+- [x] contracts external/config/store/simulator 存在。
+- [x] testing/traceability/architecture/README/ADR README 存在。
+- [x] 旧 `.scratch/collector/spec.md` 已删除；`git ls-files` 不再包含它。
+- [x] PRD 无 Go/JSON/YAML 代码块、无重复规范、无 D 表正文。
 
 ### 14.2 兼容与规范化
 
-- [ ] 06b 实现/ticket 状态/验收/评论不变；§7.1 已移到 simulator contract；前向引用已改。
-- [ ] 02b 仍 `on-hold`；A/B 未被决定；plan 前向引用已改；解冻流程写入 ticket/plan。
-- [ ] 01a/01b/01c/02a 的验收、评论、提交哈希不变；前向引用已更新。
-- [ ] plans/tickets 无**未标记历史**的裸 `spec §N`；历史事实有 `(historical)`。
-- [ ] 不新增 `refs-migration-log` 或其他兼容映射契约。
-- [ ] 语义 diff 通过：状态/验收/日期/评论/代码块不变。
-- [ ] `cmd/**`、`internal/**`、`go.mod`、`go.sum`、testdata 无变更。
-- [ ] ADR-0003/0004/0005 原文不变，Amendment 声明规范正文归属。
+- [x] 06b 实现/ticket 状态/验收/评论不变；§7.1 已移到 simulator contract；前向引用已改。
+- [x] 02b 仍 `on-hold`；A/B 未被决定；plan 前向引用已改；解冻流程写入 ticket/plan。
+- [x] 01a/01b/01c/02a 的验收、评论、提交哈希不变；前向引用已更新。
+- [x] plans/tickets 无**未标记历史**的裸 `spec §N`；历史事实用行内 `historical` 或显式 `spec-refs: historical-file` 文件头标记。
+- [x] 不新增 `refs-migration-log` 或其他兼容映射契约。
+- [x] 语义 diff 通过：状态/验收/日期/评论/代码块不变（证据见 `.scratch/collector/diffs/spec-v3.md` §2）。
+- [x] `cmd/**`、`internal/**`、`go.mod`、`go.sum`、testdata 无变更。
+- [x] ADR-0003/0004/0005 原文不变，Amendment 声明规范正文归属。
 
 ### 14.3 去重与控制
 
-- [ ] spec 与 AGENTS/ADR/contracts/testing 无重复规范段落。
-- [ ] AGENTS 只保留流程/约束，行为细节链接 spec/ADR。
-- [ ] `spec-check.sh` 六项检查可在 bootstrap PR 通过；目标状态用同一脚本验证。
-- [ ] `make spec-status` 可检测落后/改规范/REQ 变更；`spec-delta` 例外。
-- [ ] `spec-impact` 明确为本地工具；CI 只做 merge-base/版本检查。
-- [ ] PR 模板含 `Spec-Version` / `Spec-Impact` / `REQ`；至少人工检查，或 CI 解析。
-- [ ] tag `spec-v2-draft` 已推送，`spec-archive.sh` 可读取。
+- [x] spec 与 AGENTS/ADR/contracts/testing 无重复规范段落。
+- [x] AGENTS 只保留流程/约束，行为细节链接 spec/ADR。
+- [x] `spec-check.sh` 六项检查在 bootstrap PR 通过；目标状态用同一脚本验证。
+- [x] `make spec-status` 可检测落后/改规范/REQ 变更；`spec-delta` 例外（临时分支自测：普通分支改规范 exit 2，spec-delta 缺版本 exit 1）。
+- [x] `spec-impact` 明确为本地工具；CI 只做 merge-base/版本检查。
+- [x] PR 模板含 `Spec-Version` / `Spec-Impact` / `REQ`；至少人工检查，或 CI 解析。
+- [x] tag `spec-v2-draft` 已推送，`spec-archive.sh` 可读取。
 
 ### 14.4 构建与批准
 
-- [ ] `make ci` 全绿。
-- [ ] 第二轮复审 Blocker 已逐条关闭。
+- [x] `make ci` 全绿（含 `spec-check` 与 `spec-status`）。
+- [x] 第二轮复审 Blocker 与实施评审 B1–B10 已逐条处理（见 `.scratch/collector/diffs/spec-v3.md`）。
 - [ ] spec 内容经用户单独批准。
-- [ ] 用户明确“计划评审通过”后才实现。
+- [x] 用户明确“计划评审通过”后才实现。
 
 ---
 
@@ -717,5 +717,5 @@ git show spec-v2-draft:.scratch/collector/spec.md
 2. 用户明确“计划评审通过”；
 3. 06b 已合并（已完成）；
 4. 02b 保持 `on-hold`；
-5. 06b worktree/branch 在启用门禁前退役；
+5. 06b worktree/branch 在启用门禁前退役（已完成：本地 worktree、本地分支与 `origin` 分支均已删除）；
 6. 所有实现提交经 PR，不直接 push main。
