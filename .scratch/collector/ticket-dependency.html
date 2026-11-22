@@ -245,8 +245,8 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
     <p class="lede">01–20 全部 ticket 的依赖、当前可做任务与并行波次。状态取自 <span class="mono">.scratch/collector/issues</span>，依赖取自每个 ticket 的 <span class="mono">Blocked by</span>。</p>
     <div class="stat-grid">
       <div class="stat total"><span class="stat-num">33</span><span class="stat-label">全部 ticket</span></div>
-<div class="stat done"><span class="stat-num">3</span><span class="stat-label">已完成</span></div>
-<div class="stat ready"><span class="stat-num">4</span><span class="stat-label">现在可做</span></div>
+<div class="stat done"><span class="stat-num">4</span><span class="stat-label">已完成</span></div>
+<div class="stat ready"><span class="stat-num">3</span><span class="stat-label">现在可做</span></div>
 <div class="stat blocked"><span class="stat-num">25</span><span class="stat-label">依赖未满足</span></div>
 <div class="stat needs-info"><span class="stat-num">1</span><span class="stat-label">需要信息</span></div>
     </div>
@@ -261,7 +261,7 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <section>
     <div class="section-head">
       <div><p class="eyebrow">Next</p><h2>现在可以做</h2></div>
-      <p class="section-note">四个 ticket 的前置都已完成，可以并行。建议先开 <span class="mono">02a</span>，它是核心路径的公共前置；其余三个作为独立轨道并行推进。</p>
+      <p class="section-note">三个 ticket 的前置都已完成，可以并行。建议先开 <span class="mono">02a</span>，它是核心路径的公共前置；其余两个作为独立轨道并行推进。</p>
     </div>
     <div class="now-grid">
       <article class="now-card">
@@ -271,14 +271,6 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <div class="now-facts">
     <span><span class="label">直接解锁</span> <span class="mono">02b, 03a, 03b, 04a, 05a, 11</span></span>
     <span><span class="label">传递影响</span> <span class="mono">25</span> 个</span>
-  </div>
-</article><article class="now-card">
-  <div class="ticket-top"><span class="tid">06b</span><span class="pill ready">ready now</span></div>
-  <h3>内嵌 MQTT broker 与云端桩</h3>
-  <p>只依赖 01a，与 02a 无耦合；是 07 端到端与 12b 上行时序的测试桩，可立即并行。</p>
-  <div class="now-facts">
-    <span><span class="label">直接解锁</span> <span class="mono">07, 12b</span></span>
-    <span><span class="label">传递影响</span> <span class="mono">10</span> 个</span>
   </div>
 </article><article class="now-card">
   <div class="ticket-top"><span class="tid">12a</span><span class="pill ready">ready now</span></div>
@@ -361,8 +353,8 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <h4>内核接口与假时钟</h4>
   <p class="meta"><span class="label">←</span> 01a</p>
 </article>
-<article class="ticket ready">
-  <div class="ticket-top"><span class="tid">06b</span><span class="pill ready">ready now</span></div>
+<article class="ticket done">
+  <div class="ticket-top"><span class="tid">06b</span><span class="pill done">done</span></div>
   <h4>内嵌 MQTT broker 与云端桩</h4>
   <p class="meta"><span class="label">←</span> 01a</p>
 </article>
@@ -672,7 +664,7 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <td class="mono id-cell">06b</td>
   <td>内嵌 MQTT broker 与云端桩</td>
   <td class="mono deps-cell">01a</td>
-  <td><span class="pill ready">ready now</span></td>
+  <td><span class="pill done">done</span></td>
   <td class="mono unlocks-cell">07, 12b</td>
 </tr><tr>
   <td class="mono id-cell">12a</td>

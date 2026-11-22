@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Enforce the kernel import boundaries. core and drivers may import
-# interfaces (and their own sub-packages) but never a concrete implementation.
+# interfaces (and their own sub-packages) but never a concrete implementation
+# or the test simulator.
 #
 # go list .Deps is the transitive production closure: it excludes the package
 # itself and test-only imports, so _test.go files may use internal/testutil.
@@ -37,7 +38,7 @@ check_root() {
 	done < <(go list ./"$root"/... 2>/dev/null || true)
 }
 
-common="${MODULE}/internal/(channels|adapters|store|testutil|clock/realclock)(/|$)|^go\\.etcd\\.io/bbolt(/|$)"
+common="${MODULE}/internal/(channels|adapters|store|testutil|clock/realclock|sim)(/|$)|^go\\.etcd\\.io/bbolt(/|$)"
 core_forbidden="${common}|${MODULE}/internal/drivers(/|$)"
 drivers_forbidden="${common}|${MODULE}/internal/core(/|$)"
 check_root internal/core "$core_forbidden"
