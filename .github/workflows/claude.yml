@@ -1,0 +1,106 @@
+# 在 PR 里 @claude，让 Claude（小米 MiMo 模型）按评论修改文档或源码。
+#
+# 使用前提
+#   1. Settings -> Secrets and variables -> Actions 添加：
+#        CLAUDE_API_KEY = 小米 MiMo 的 API Key
+#   2. （可选但推荐）添加 CLAUDE_GITHUB_TOKEN = 具有 repo + workflow 权限的 PAT。
+#      未配置时退回 GITHUB_TOKEN：改动仍可推送，但由 GITHUB_TOKEN 触发的 push
+#      不会再次运行 CI（GitHub 防止递归触发）。
+#
+# 触发方式
+#   - PR 评论：@claude 把 docs/缺口台账.md 里 E6 的决策 4=B 补充上理由
+#   - Files changed 里的行内评论
+#   - PR review 正文
+#   只有对仓库有写权限的用户能触发（由 claude-code-action 校验）。
+#
+# 模型档位：Opus/Sonnet -> mimo-v2.6-pro，Haiku/子代理 -> mimo-v2.6-flash。
+
+name: Claude PR Assistant
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+
+env:
+  ANTHROPIC_BASE_URL: https://token-plan-cn.xiaomimimo.com/anthropic
+  ANTHROPIC_DEFAULT_OPUS_MODEL: mimo-v2.6-pro
+  ANTHROPIC_DEFAULT_SONNET_MODEL: mimo-v2.6-pro
+  ANTHROPIC_DEFAULT_HAIKU_MODEL: mimo-v2.6-flash
+
+concurrency:
+  # 同一个 PR 串行执行，避免两次 @claude 同时改同一分支；不取消已开始的运行，
+  # 否则可能打断 Claude 正在推送的提交。
+  group: claude-${{ github.event.pull_request.number || github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  claude:
+    name: claude
+    # 只响应 PR 上的 @claude；普通 issue 不触发，避免误建分支。
+    if: |
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != null &&
+        contains(github.event.comment.body || '', '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' &&
+        contains(github.event.comment.body || '', '@claude')) ||
+      (github.event_name == 'pull_request_review' &&
+        contains(github.event.review.body || '', '@claude'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # 让 Claude 能实际跑 go build / go test 验证改动。
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1
+        with:
+          # 该 action 要求注入 API key；小米网关走 Authorization: Bearer，
+          # 所以下面 settings.env 里另外给了同值的 ANTHROPIC_AUTH_TOKEN。
+          anthropic_api_key: ${{ secrets.CLAUDE_API_KEY }}
+          github_token: ${{ secrets.CLAUDE_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          trigger_phrase: "@claude"
+          settings: |
+            {
+              "env": {
+                "ANTHROPIC_AUTH_TOKEN": "${{ secrets.CLAUDE_API_KEY }}",
+                "ANTHROPIC_SMALL_FAST_MODEL": "mimo-v2.6-flash",
+                "CLAUDE_CODE_SUBAGENT_MODEL": "mimo-v2.6-flash",
+                "DISABLE_TELEMETRY": "1",
+                "DISABLE_ERROR_REPORTING": "1"
+              },
+              "permissions": {
+                "allow": [
+                  "Bash(go build:*)",
+                  "Bash(go test:*)",
+                  "Bash(go vet:*)",
+                  "Bash(gofmt:*)",
+                  "Bash(git diff:*)",
+                  "Bash(git status:*)",
+                  "Bash(git log:*)",
+                  "Bash(git show:*)"
+                ]
+              }
+            }
+          claude_args: |
+            --model mimo-v2.6-pro
+            --max-turns 40
+            --append-system-prompt "你在 GitHub PR 中执行维护者的 @claude 指令：只修改评论中明确要求的内容，遵循仓库 AGENTS.md 的编码约定与硬约束；不要开启新的 ticket，不要改动与请求无关的文件；完成后用中文简要列出修改的文件与原因。"
