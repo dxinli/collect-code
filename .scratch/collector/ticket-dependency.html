@@ -1,5 +1,11 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="generator" content="tools/ticketgraph">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>采集引擎 Ticket 依赖</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
@@ -15,10 +21,14 @@
   --accent-soft: #dcebe4;
   --done: #2f6f5e;
   --done-soft: #dcebe4;
+  --inreview: #3466a8;
+  --inreview-soft: #e0e9f7;
   --ready: #a85f16;
   --ready-soft: #f6e4cd;
   --blocked: #6c7a72;
   --blocked-soft: #e5e9e4;
+  --hold: #6c7a72;
+  --hold-soft: #e5e9e4;
   --needs: #9a3f3f;
   --needs-soft: #f3dddd;
   --shadow: 0 1px 0 rgba(24, 33, 28, .04);
@@ -38,10 +48,14 @@
     --accent-soft: #1d332a;
     --done: #74b9a2;
     --done-soft: #1d332a;
+    --inreview: #7fa8e0;
+    --inreview-soft: #1b2a3f;
     --ready: #e0a25a;
     --ready-soft: #3a2a18;
     --blocked: #8a988f;
     --blocked-soft: #232d27;
+    --hold: #8a988f;
+    --hold-soft: #232d27;
     --needs: #e08a8a;
     --needs-soft: #3a2020;
     --shadow: none;
@@ -59,10 +73,14 @@
   --accent-soft: #1d332a;
   --done: #74b9a2;
   --done-soft: #1d332a;
+  --inreview: #7fa8e0;
+  --inreview-soft: #1b2a3f;
   --ready: #e0a25a;
   --ready-soft: #3a2a18;
   --blocked: #8a988f;
   --blocked-soft: #232d27;
+  --hold: #8a988f;
+  --hold-soft: #232d27;
   --needs: #e08a8a;
   --needs-soft: #3a2020;
   --shadow: none;
@@ -97,7 +115,7 @@ p { margin: 0; }
 .hero { padding-bottom: 26px; border-bottom: 1px solid var(--line); }
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
   margin-top: 22px;
 }
@@ -111,7 +129,10 @@ p { margin: 0; }
 }
 .stat.total { border-top-color: var(--accent); }
 .stat.done { border-top-color: var(--done); }
+.stat.in-review { border-top-color: var(--inreview); }
 .stat.ready { border-top-color: var(--ready); }
+.stat.blocked { border-top-color: var(--blocked); }
+.stat.on-hold { border-top-color: var(--hold); }
 .stat.needs-info { border-top-color: var(--needs); }
 .stat-num {
   display: block;
@@ -126,6 +147,7 @@ section { margin-top: 34px; }
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
 .section-note { color: var(--muted); font-size: .86rem; max-width: 66ch; }
 .now-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.now-grid > .note { grid-column: 1 / -1; }
 .now-card {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -151,8 +173,10 @@ section { margin-top: 34px; }
   border: 1px solid currentColor;
 }
 .pill.done { color: var(--done); background: var(--done-soft); }
+.pill.in-review { color: var(--inreview); background: var(--inreview-soft); }
 .pill.ready { color: var(--ready); background: var(--ready-soft); }
 .pill.blocked { color: var(--blocked); background: var(--blocked-soft); }
+.pill.on-hold { color: var(--hold); background: var(--hold-soft); }
 .pill.needs-info { color: var(--needs); background: var(--needs-soft); }
 .chain {
   display: flex;
@@ -175,7 +199,9 @@ section { margin-top: 34px; }
   gap: 2px;
 }
 .chain-node.done { border-bottom-color: var(--done); }
+.chain-node.in-review { border-bottom-color: var(--inreview); }
 .chain-node.ready { border-bottom-color: var(--ready); }
+.chain-node.on-hold { border-bottom-color: var(--hold); }
 .chain-node.needs-info { border-bottom-color: var(--needs); }
 .chain-title { color: var(--muted); font-size: .7rem; line-height: 1.25; }
 .chain-arrow { flex: 0 0 auto; align-self: center; padding: 0 6px; color: var(--muted); font-size: 1.1rem; }
@@ -207,7 +233,9 @@ section { margin-top: 34px; }
 }
 .ticket:last-child { margin-bottom: 0; }
 .ticket.done { border-left-color: var(--done); }
+.ticket.in-review { border-left-color: var(--inreview); }
 .ticket.ready { border-left-color: var(--ready); }
+.ticket.on-hold { border-left-color: var(--hold); }
 .ticket.needs-info { border-left-color: var(--needs); }
 .ticket .meta { color: var(--muted); font-family: var(--font-mono); font-size: .68rem; overflow-wrap: anywhere; }
 .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
@@ -230,30 +258,34 @@ tr:last-child td { border-bottom: 0; }
 .rule { border: 0; border-top: 1px solid var(--line); margin: 30px 0 0; }
 footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: .76rem; }
 @media (max-width: 900px) {
-  .stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .now-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
-  .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wrap { padding-block: 22px 42px; }
 }
 </style>
+</head>
+<body>
 <div class="wrap">
   <header class="hero">
-    <p class="eyebrow">采集引擎 · 实施路线 · 2026-11-20</p>
+    <p class="eyebrow">采集引擎 · 实施路线</p>
     <h1>采集引擎 Ticket 依赖</h1>
-    <p class="lede">01–20 全部 ticket 的依赖、当前可做任务与并行波次。状态取自 <span class="mono">.scratch/collector/issues</span>，依赖取自每个 ticket 的 <span class="mono">Blocked by</span>。</p>
+    <p class="lede">采集引擎 全部 ticket 的依赖、当前可做任务与并行波次。状态取自 <span class="mono">.scratch/collector/issues/*.md</span>，依赖取自每个 ticket 的 <span class="mono">Blocked by</span>。本页由脚本生成，不再手工维护。</p>
     <div class="stat-grid">
       <div class="stat total"><span class="stat-num">33</span><span class="stat-label">全部 ticket</span></div>
-<div class="stat done"><span class="stat-num">4</span><span class="stat-label">已完成</span></div>
-<div class="stat ready"><span class="stat-num">3</span><span class="stat-label">现在可做</span></div>
-<div class="stat blocked"><span class="stat-num">25</span><span class="stat-label">依赖未满足</span></div>
-<div class="stat needs-info"><span class="stat-num">1</span><span class="stat-label">需要信息</span></div>
+      <div class="stat done"><span class="stat-num">6</span><span class="stat-label">已完成</span></div>
+      <div class="stat in-review"><span class="stat-num">0</span><span class="stat-label">in review</span></div>
+      <div class="stat ready"><span class="stat-num">6</span><span class="stat-label">现在可做</span></div>
+      <div class="stat blocked"><span class="stat-num">20</span><span class="stat-label">依赖未满足</span></div>
+      <div class="stat on-hold"><span class="stat-num">0</span><span class="stat-label">暂停</span></div>
+      <div class="stat needs-info"><span class="stat-num">1</span><span class="stat-label">需要信息</span></div>
     </div>
     <div class="legend">
-      <span><span class="pill done">done</span> 已完成</span>
+      <span><span class="pill done">done</span> 已完成（合并后写入）</span>
+      <span><span class="pill in-review">in review</span> 实现完成、未合并</span>
       <span><span class="pill ready">ready now</span> 依赖已全部完成</span>
       <span><span class="pill blocked">blocked</span> 仍有前置未完成</span>
+      <span><span class="pill on-hold">on-hold</span> 暂停</span>
       <span><span class="pill needs-info">needs-info</span> 需要外部信息</span>
     </div>
   </header>
@@ -261,29 +293,53 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <section>
     <div class="section-head">
       <div><p class="eyebrow">Next</p><h2>现在可以做</h2></div>
-      <p class="section-note">三个 ticket 的前置都已完成，可以并行。建议先开 <span class="mono">02a</span>，它是核心路径的公共前置；其余两个作为独立轨道并行推进。</p>
+      <p class="section-note">这些 ticket 的前置都已 done，且自身状态是 ready-for-agent；可以并行。in-review 表示实现完成但尚未合并，依赖方仍然 blocked。</p>
     </div>
     <div class="now-grid">
-      <article class="now-card">
-  <div class="ticket-top"><span class="tid">02a</span><span class="pill ready">ready now</span></div>
-  <h3>内核接口与假时钟</h3>
-  <p>依赖已全部完成（01a），是后续核心路径的公共前置；直接解锁 6 个 ticket，传递影响 25 个。</p>
+      <article class="now-card ready">
+  <div class="ticket-top"><span class="tid">03a</span><span class="pill ready">ready now</span></div>
+  <h3>调度相位与单设备 deadline</h3>
+  <p>依赖已全部完成；直接解锁 3 个，传递影响 19 个。</p>
   <div class="now-facts">
-    <span><span class="label">直接解锁</span> <span class="mono">02b, 03a, 03b, 04a, 05a, 11</span></span>
-    <span><span class="label">传递影响</span> <span class="mono">25</span> 个</span>
+    <span><span class="label">直接解锁</span> <span class="mono">03b, 17a, 18</span></span>
+    <span><span class="label">传递影响</span> <span class="mono">19</span> 个</span>
   </div>
-</article><article class="now-card">
+</article><article class="now-card ready">
+  <div class="ticket-top"><span class="tid">05a</span><span class="pill ready">ready now</span></div>
+  <h3>MQTT 通道：连接、重连、LWT</h3>
+  <p>依赖已全部完成；直接解锁 2 个，传递影响 16 个。</p>
+  <div class="now-facts">
+    <span><span class="label">直接解锁</span> <span class="mono">05b, 18</span></span>
+    <span><span class="label">传递影响</span> <span class="mono">16</span> 个</span>
+  </div>
+</article><article class="now-card ready">
+  <div class="ticket-top"><span class="tid">04a</span><span class="pill ready">ready now</span></div>
+  <h3>Modbus PDU 与三种传输</h3>
+  <p>依赖已全部完成；直接解锁 2 个，传递影响 14 个。</p>
+  <div class="now-facts">
+    <span><span class="label">直接解锁</span> <span class="mono">04b, 06a</span></span>
+    <span><span class="label">传递影响</span> <span class="mono">14</span> 个</span>
+  </div>
+</article><article class="now-card ready">
   <div class="ticket-top"><span class="tid">12a</span><span class="pill ready">ready now</span></div>
   <h3>ChirpStack 桩：官方 proto 与队列</h3>
-  <p>只依赖 01a，是 ChirpStack 桩的第一块；直接解锁 12b 与 15a，可与内核主线并行。</p>
+  <p>依赖已全部完成；直接解锁 2 个，传递影响 9 个。</p>
   <div class="now-facts">
     <span><span class="label">直接解锁</span> <span class="mono">12b, 15a</span></span>
     <span><span class="label">传递影响</span> <span class="mono">9</span> 个</span>
   </div>
-</article><article class="now-card">
+</article><article class="now-card ready">
+  <div class="ticket-top"><span class="tid">11</span><span class="pill ready">ready now</span></div>
+  <h3>事件总线与去重契约</h3>
+  <p>依赖已全部完成；直接解锁 2 个，传递影响 5 个。</p>
+  <div class="now-facts">
+    <span><span class="label">直接解锁</span> <span class="mono">14b, 15b</span></span>
+    <span><span class="label">传递影响</span> <span class="mono">5</span> 个</span>
+  </div>
+</article><article class="now-card ready">
   <div class="ticket-top"><span class="tid">19a</span><span class="pill ready">ready now</span></div>
   <h3>构建、systemd 打包与冒烟</h3>
-  <p>只依赖 01a，属于构建/打包/冒烟轨道；没有直接下游 ticket，但能提前暴露交付风险。</p>
+  <p>依赖已全部完成；没有直接下游 ticket。</p>
   <div class="now-facts">
     <span><span class="label">直接解锁</span> <span class="mono">—</span></span>
     <span><span class="label">传递影响</span> <span class="mono">0</span> 个</span>
@@ -295,43 +351,17 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <section>
     <div class="section-head">
       <div><p class="eyebrow">Critical path</p><h2>最长依赖链</h2></div>
-      <p class="section-note">从 01a 到 20 的最长路径，共 14 个节点。<span class="mono">20</span> 还依赖外部 P0 资料。</p>
+      <p class="section-note">从 01a 到 20 的最长路径，共 14 个节点。 终点仍需要外部信息。</p>
     </div>
-    <div class="chain" role="img" aria-label="从 01a 到 20 的关键路径">
-      <span class="chain-node done"><span class="mono">01a</span><span class="chain-title">工程骨架、配置解析、日志契约</span></span>
-<span class="chain-arrow" aria-hidden="true">→</span>
-<span class="chain-node ready"><span class="mono">02a</span><span class="chain-title">内核接口与假时钟</span></span>
-<span class="chain-arrow" aria-hidden="true">→</span>
-<span class="chain-node blocked"><span class="mono">03a</span><span class="chain-title">调度相位与单设备 deadline</span></span>
-<span class="chain-arrow" aria-hidden="true">→</span>
-<span class="chain-node blocked"><span class="mono">03b</span><span class="chain-title">设备状态、新鲜度与离线</span></span>
-<span class="chain-arrow" aria-hidden="true">→</span>
-<span class="chain-node blocked"><span class="mono">04b</span><span class="chain-title">Modbus 读批、质量与链路状态</span></span>
-<span class="chain-arrow" aria-hidden="true">→</span>
-<span class="chain-node blocked"><span class="mono">08</span><span class="chain-title">Modbus TCP 阀门读取与上报</span></span>
-<span class="chain-arrow" aria-hidden="true">→</span>
-<span class="chain-node blocked"><span class="mono">09</span><span class="chain-title">服务调用与写后回读</span></span>
-<span class="chain-arrow" aria-hidden="true">→</span>
-<span class="chain-node blocked"><span class="mono">10</span><span class="chain-title">幂等、两阶段与 seq 契约</span></span>
-<span class="chain-arrow" aria-hidden="true">→</span>
-<span class="chain-node blocked"><span class="mono">14a</span><span class="chain-title">LoRaWAN 下行与 A/B 级确认</span></span>
-<span class="chain-arrow" aria-hidden="true">→</span>
-<span class="chain-node blocked"><span class="mono">15a</span><span class="chain-title">下行队列合并与精确撤销</span></span>
-<span class="chain-arrow" aria-hidden="true">→</span>
-<span class="chain-node blocked"><span class="mono">15b</span><span class="chain-title">pending 上限与运维命令</span></span>
-<span class="chain-arrow" aria-hidden="true">→</span>
-<span class="chain-node blocked"><span class="mono">18</span><span class="chain-title">健康端点、指标与日志完善</span></span>
-<span class="chain-arrow" aria-hidden="true">→</span>
-<span class="chain-node blocked"><span class="mono">19b</span><span class="chain-title">最终文档包与索引</span></span>
-<span class="chain-arrow" aria-hidden="true">→</span>
-<span class="chain-node needs-info"><span class="mono">20</span><span class="chain-title">实物联调与缺陷修复（epic）</span></span>
+    <div class="chain" role="img" aria-label="从起始 ticket 到终点的关键路径">
+      <span class="chain-node done"><span class="mono">01a</span><span class="chain-title">工程骨架、配置解析、日志契约</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node done"><span class="mono">02a</span><span class="chain-title">内核接口与假时钟</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node ready"><span class="mono">03a</span><span class="chain-title">调度相位与单设备 deadline</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">03b</span><span class="chain-title">设备状态、新鲜度与离线</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">04b</span><span class="chain-title">Modbus 读批、质量与链路状态</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">08</span><span class="chain-title">Modbus TCP 阀门读取与上报</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">09</span><span class="chain-title">服务调用与写后回读</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">10</span><span class="chain-title">幂等、两阶段与 seq 契约</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">14a</span><span class="chain-title">LoRaWAN 下行与 A/B 级确认</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">15a</span><span class="chain-title">下行队列合并与精确撤销</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">15b</span><span class="chain-title">pending 上限与运维命令</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">18</span><span class="chain-title">健康端点、指标与日志完善</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">19b</span><span class="chain-title">最终文档包与索引</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node needs-info"><span class="mono">20</span><span class="chain-title">实物联调与缺陷修复（epic）</span></span>
     </div>
   </section>
 
   <section>
     <div class="section-head">
       <div><p class="eyebrow">Waves</p><h2>并行波次</h2></div>
-      <p class="section-note">同一列 = 依赖深度相同，在前一列完成后可以并行，不是必须按列串行。卡片上的 <span class="mono">←</span> 是直接前置；直接解锁见下方明细表。</p>
+      <p class="section-note">同一列 = 依赖深度相同，在前一列完成后可以并行，不是必须按列串行。卡片上的 ← 是直接前置；直接解锁见下方明细表。</p>
     </div>
     <div class="waves" role="region" aria-label="按依赖深度分层的 ticket 波次">
       <div class="wave">
@@ -348,8 +378,8 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <h4>配置校验规则与可定位诊断</h4>
   <p class="meta"><span class="label">←</span> 01a</p>
 </article>
-<article class="ticket ready">
-  <div class="ticket-top"><span class="tid">02a</span><span class="pill ready">ready now</span></div>
+<article class="ticket done">
+  <div class="ticket-top"><span class="tid">02a</span><span class="pill done">done</span></div>
   <h4>内核接口与假时钟</h4>
   <p class="meta"><span class="label">←</span> 01a</p>
 </article>
@@ -370,47 +400,47 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
 </article>
 </div><div class="wave">
   <div class="wave-head"><span class="wave-name">Wave 2</span><span class="wave-count">7</span></div>
-  <article class="ticket blocked">
-  <div class="ticket-top"><span class="tid">11</span><span class="pill blocked">blocked</span></div>
-  <h4>事件总线与去重契约</h4>
-  <p class="meta"><span class="label">←</span> 02a</p>
-</article>
-<article class="ticket done">
+  <article class="ticket done">
   <div class="ticket-top"><span class="tid">01c</span><span class="pill done">done</span></div>
   <h4>配置语义补强（01b 移出的 4 条规则）</h4>
   <p class="meta"><span class="label">←</span> 01b</p>
 </article>
-<article class="ticket blocked">
-  <div class="ticket-top"><span class="tid">02b</span><span class="pill blocked">blocked</span></div>
+<article class="ticket done">
+  <div class="ticket-top"><span class="tid">02b</span><span class="pill done">done</span></div>
   <h4>Store 契约与 bbolt 实现</h4>
   <p class="meta"><span class="label">←</span> 02a</p>
 </article>
-<article class="ticket blocked">
-  <div class="ticket-top"><span class="tid">03a</span><span class="pill blocked">blocked</span></div>
+<article class="ticket ready">
+  <div class="ticket-top"><span class="tid">03a</span><span class="pill ready">ready now</span></div>
   <h4>调度相位与单设备 deadline</h4>
   <p class="meta"><span class="label">←</span> 02a</p>
 </article>
-<article class="ticket blocked">
-  <div class="ticket-top"><span class="tid">04a</span><span class="pill blocked">blocked</span></div>
+<article class="ticket ready">
+  <div class="ticket-top"><span class="tid">04a</span><span class="pill ready">ready now</span></div>
   <h4>Modbus PDU 与三种传输</h4>
   <p class="meta"><span class="label">←</span> 02a</p>
 </article>
-<article class="ticket blocked">
-  <div class="ticket-top"><span class="tid">05a</span><span class="pill blocked">blocked</span></div>
+<article class="ticket ready">
+  <div class="ticket-top"><span class="tid">05a</span><span class="pill ready">ready now</span></div>
   <h4>MQTT 通道：连接、重连、LWT</h4>
+  <p class="meta"><span class="label">←</span> 02a</p>
+</article>
+<article class="ticket ready">
+  <div class="ticket-top"><span class="tid">11</span><span class="pill ready">ready now</span></div>
+  <h4>事件总线与去重契约</h4>
   <p class="meta"><span class="label">←</span> 02a</p>
 </article>
 <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">12b</span><span class="pill blocked">blocked</span></div>
   <h4>ChirpStack 桩：上行与确认时序</h4>
-  <p class="meta"><span class="label">←</span> 12a, 06b</p>
+  <p class="meta"><span class="label">←</span> 12a,06b</p>
 </article>
 </div><div class="wave">
   <div class="wave-head"><span class="wave-name">Wave 3</span><span class="wave-count">3</span></div>
   <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">03b</span><span class="pill blocked">blocked</span></div>
   <h4>设备状态、新鲜度与离线</h4>
-  <p class="meta"><span class="label">←</span> 02a, 03a</p>
+  <p class="meta"><span class="label">←</span> 02a,03a</p>
 </article>
 <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">06a</span><span class="pill blocked">blocked</span></div>
@@ -420,48 +450,48 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
 <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">17a</span><span class="pill blocked">blocked</span></div>
   <h4>配置重载：解析与原子交换</h4>
-  <p class="meta"><span class="label">←</span> 01b, 03a</p>
+  <p class="meta"><span class="label">←</span> 01b,03a</p>
 </article>
 </div><div class="wave">
   <div class="wave-head"><span class="wave-name">Wave 4</span><span class="wave-count">2</span></div>
   <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">04b</span><span class="pill blocked">blocked</span></div>
   <h4>Modbus 读批、质量与链路状态</h4>
-  <p class="meta"><span class="label">←</span> 04a, 03b</p>
+  <p class="meta"><span class="label">←</span> 04a,03b</p>
 </article>
 <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">05b</span><span class="pill blocked">blocked</span></div>
   <h4>上行适配器与下行订阅</h4>
-  <p class="meta"><span class="label">←</span> 05a, 03b</p>
+  <p class="meta"><span class="label">←</span> 05a,03b</p>
 </article>
 </div><div class="wave">
   <div class="wave-head"><span class="wave-name">Wave 5</span><span class="wave-count">4</span></div>
   <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">07</span><span class="pill blocked">blocked</span></div>
   <h4>v0.1 端到端：485 传感器 → MQTT</h4>
-  <p class="meta"><span class="label">←</span> 04b, 05b, 06a, 06b</p>
+  <p class="meta"><span class="label">←</span> 04b,05b,06a,06b</p>
 </article>
 <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">08</span><span class="pill blocked">blocked</span></div>
   <h4>Modbus TCP 阀门读取与上报</h4>
-  <p class="meta"><span class="label">←</span> 04b, 05b, 03b</p>
+  <p class="meta"><span class="label">←</span> 04b,05b,03b</p>
 </article>
 <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">13</span><span class="pill blocked">blocked</span></div>
   <h4>LoRaWAN 上行接入</h4>
-  <p class="meta"><span class="label">←</span> 12b, 05b, 03b</p>
+  <p class="meta"><span class="label">←</span> 12b,05b,03b</p>
 </article>
 <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">16a</span><span class="pill blocked">blocked</span></div>
   <h4>北向断线有界缓存</h4>
-  <p class="meta"><span class="label">←</span> 05b, 03b</p>
+  <p class="meta"><span class="label">←</span> 05b,03b</p>
 </article>
 </div><div class="wave">
   <div class="wave-head"><span class="wave-name">Wave 6</span><span class="wave-count">2</span></div>
   <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">09</span><span class="pill blocked">blocked</span></div>
   <h4>服务调用与写后回读</h4>
-  <p class="meta"><span class="label">←</span> 08, 02b</p>
+  <p class="meta"><span class="label">←</span> 08,02b</p>
 </article>
 <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">16b</span><span class="pill blocked">blocked</span></div>
@@ -473,59 +503,59 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">10</span><span class="pill blocked">blocked</span></div>
   <h4>幂等、两阶段与 seq 契约</h4>
-  <p class="meta"><span class="label">←</span> 09, 02b</p>
+  <p class="meta"><span class="label">←</span> 09,02b</p>
 </article>
 </div><div class="wave">
   <div class="wave-head"><span class="wave-name">Wave 8</span><span class="wave-count">2</span></div>
   <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">14a</span><span class="pill blocked">blocked</span></div>
   <h4>LoRaWAN 下行与 A/B 级确认</h4>
-  <p class="meta"><span class="label">←</span> 13, 09, 10</p>
+  <p class="meta"><span class="label">←</span> 13,09,10</p>
 </article>
 <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">17b</span><span class="pill blocked">blocked</span></div>
   <h4>配置重载：设备与服务生命周期</h4>
-  <p class="meta"><span class="label">←</span> 17a, 09, 10, 16b</p>
+  <p class="meta"><span class="label">←</span> 17a,09,10,16b</p>
 </article>
 </div><div class="wave">
   <div class="wave-head"><span class="wave-name">Wave 9</span><span class="wave-count">2</span></div>
   <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">14b</span><span class="pill blocked">blocked</span></div>
   <h4>C 级业务确认、窗口超时与重试</h4>
-  <p class="meta"><span class="label">←</span> 14a, 11</p>
+  <p class="meta"><span class="label">←</span> 14a,11</p>
 </article>
 <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">15a</span><span class="pill blocked">blocked</span></div>
   <h4>下行队列合并与精确撤销</h4>
-  <p class="meta"><span class="label">←</span> 14a, 12a</p>
+  <p class="meta"><span class="label">←</span> 14a,12a</p>
 </article>
 </div><div class="wave">
   <div class="wave-head"><span class="wave-name">Wave 10</span><span class="wave-count">1</span></div>
   <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">15b</span><span class="pill blocked">blocked</span></div>
   <h4>pending 上限与运维命令</h4>
-  <p class="meta"><span class="label">←</span> 15a, 11</p>
+  <p class="meta"><span class="label">←</span> 15a,11</p>
 </article>
 </div><div class="wave">
   <div class="wave-head"><span class="wave-name">Wave 11</span><span class="wave-count">1</span></div>
   <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">18</span><span class="pill blocked">blocked</span></div>
   <h4>健康端点、指标与日志完善</h4>
-  <p class="meta"><span class="label">←</span> 03a, 05a, 15b, 16a</p>
+  <p class="meta"><span class="label">←</span> 03a,05a,15b,16a</p>
 </article>
 </div><div class="wave">
   <div class="wave-head"><span class="wave-name">Wave 12</span><span class="wave-count">1</span></div>
   <article class="ticket blocked">
   <div class="ticket-top"><span class="tid">19b</span><span class="pill blocked">blocked</span></div>
   <h4>最终文档包与索引</h4>
-  <p class="meta"><span class="label">←</span> 07, 15b, 16b, 17b, 18</p>
+  <p class="meta"><span class="label">←</span> 07,15b,16b,17b,18</p>
 </article>
 </div><div class="wave">
   <div class="wave-head"><span class="wave-name">Wave 13</span><span class="wave-count">1</span></div>
   <article class="ticket needs-info">
   <div class="ticket-top"><span class="tid">20</span><span class="pill needs-info">needs-info</span></div>
   <h4>实物联调与缺陷修复（epic）</h4>
-  <p class="meta"><span class="label">←</span> 19b + 外部 P0 资料</p>
+  <p class="meta"><span class="label">←</span> 19b &#43; 外部 P0 资料</p>
 </article>
 </div>
     </div>
@@ -534,61 +564,13 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <section>
     <div class="section-head">
       <div><p class="eyebrow">Inventory</p><h2>依赖明细</h2></div>
-      <p class="section-note">33 个 ticket 的完整清单。状态列是“依赖状态”，不是 issue 文件的 Status 字段；除 <span class="mono">20</span> 为 <span class="mono">needs-info</span> 外，其余未完成 ticket 的 Status 都是 <span class="mono">ready-for-agent</span>。</p>
+      <p class="section-note">共 33 个 ticket。状态列是“依赖状态”，不是 issue 文件的 Status 字段；done/in-review/on-hold/needs-info 直接来自 Status。</p>
     </div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>ID</th><th>Ticket</th><th>Blocked by</th><th>依赖状态</th><th>直接解锁</th></tr></thead>
         <tbody>
           <tr>
-  <td class="mono id-cell">07</td>
-  <td>v0.1 端到端：485 传感器 → MQTT</td>
-  <td class="mono deps-cell">04b, 05b, 06a, 06b</td>
-  <td><span class="pill blocked">blocked</span></td>
-  <td class="mono unlocks-cell">19b</td>
-</tr><tr>
-  <td class="mono id-cell">08</td>
-  <td>Modbus TCP 阀门读取与上报</td>
-  <td class="mono deps-cell">04b, 05b, 03b</td>
-  <td><span class="pill blocked">blocked</span></td>
-  <td class="mono unlocks-cell">09</td>
-</tr><tr>
-  <td class="mono id-cell">09</td>
-  <td>服务调用与写后回读</td>
-  <td class="mono deps-cell">08, 02b</td>
-  <td><span class="pill blocked">blocked</span></td>
-  <td class="mono unlocks-cell">10, 14a, 17b</td>
-</tr><tr>
-  <td class="mono id-cell">10</td>
-  <td>幂等、两阶段与 seq 契约</td>
-  <td class="mono deps-cell">09, 02b</td>
-  <td><span class="pill blocked">blocked</span></td>
-  <td class="mono unlocks-cell">14a, 17b</td>
-</tr><tr>
-  <td class="mono id-cell">11</td>
-  <td>事件总线与去重契约</td>
-  <td class="mono deps-cell">02a</td>
-  <td><span class="pill blocked">blocked</span></td>
-  <td class="mono unlocks-cell">14b, 15b</td>
-</tr><tr>
-  <td class="mono id-cell">13</td>
-  <td>LoRaWAN 上行接入</td>
-  <td class="mono deps-cell">12b, 05b, 03b</td>
-  <td><span class="pill blocked">blocked</span></td>
-  <td class="mono unlocks-cell">14a</td>
-</tr><tr>
-  <td class="mono id-cell">18</td>
-  <td>健康端点、指标与日志完善</td>
-  <td class="mono deps-cell">03a, 05a, 15b, 16a</td>
-  <td><span class="pill blocked">blocked</span></td>
-  <td class="mono unlocks-cell">19b</td>
-</tr><tr>
-  <td class="mono id-cell">20</td>
-  <td>实物联调与缺陷修复（epic）</td>
-  <td class="mono deps-cell">19b + 外部 P0 资料</td>
-  <td><span class="pill needs-info">needs-info</span></td>
-  <td class="mono unlocks-cell">—</td>
-</tr><tr>
   <td class="mono id-cell">01a</td>
   <td>工程骨架、配置解析、日志契约</td>
   <td class="mono deps-cell">—</td>
@@ -610,48 +592,48 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <td class="mono id-cell">02a</td>
   <td>内核接口与假时钟</td>
   <td class="mono deps-cell">01a</td>
-  <td><span class="pill ready">ready now</span></td>
+  <td><span class="pill done">done</span></td>
   <td class="mono unlocks-cell">02b, 03a, 03b, 04a, 05a, 11</td>
 </tr><tr>
   <td class="mono id-cell">02b</td>
   <td>Store 契约与 bbolt 实现</td>
   <td class="mono deps-cell">02a</td>
-  <td><span class="pill blocked">blocked</span></td>
+  <td><span class="pill done">done</span></td>
   <td class="mono unlocks-cell">09, 10</td>
 </tr><tr>
   <td class="mono id-cell">03a</td>
   <td>调度相位与单设备 deadline</td>
   <td class="mono deps-cell">02a</td>
-  <td><span class="pill blocked">blocked</span></td>
+  <td><span class="pill ready">ready now</span></td>
   <td class="mono unlocks-cell">03b, 17a, 18</td>
 </tr><tr>
   <td class="mono id-cell">03b</td>
   <td>设备状态、新鲜度与离线</td>
-  <td class="mono deps-cell">02a, 03a</td>
+  <td class="mono deps-cell">02a,03a</td>
   <td><span class="pill blocked">blocked</span></td>
   <td class="mono unlocks-cell">04b, 05b, 08, 13, 16a</td>
 </tr><tr>
   <td class="mono id-cell">04a</td>
   <td>Modbus PDU 与三种传输</td>
   <td class="mono deps-cell">02a</td>
-  <td><span class="pill blocked">blocked</span></td>
+  <td><span class="pill ready">ready now</span></td>
   <td class="mono unlocks-cell">04b, 06a</td>
 </tr><tr>
   <td class="mono id-cell">04b</td>
   <td>Modbus 读批、质量与链路状态</td>
-  <td class="mono deps-cell">04a, 03b</td>
+  <td class="mono deps-cell">04a,03b</td>
   <td><span class="pill blocked">blocked</span></td>
   <td class="mono unlocks-cell">07, 08</td>
 </tr><tr>
   <td class="mono id-cell">05a</td>
   <td>MQTT 通道：连接、重连、LWT</td>
   <td class="mono deps-cell">02a</td>
-  <td><span class="pill blocked">blocked</span></td>
+  <td><span class="pill ready">ready now</span></td>
   <td class="mono unlocks-cell">05b, 18</td>
 </tr><tr>
   <td class="mono id-cell">05b</td>
   <td>上行适配器与下行订阅</td>
-  <td class="mono deps-cell">05a, 03b</td>
+  <td class="mono deps-cell">05a,03b</td>
   <td><span class="pill blocked">blocked</span></td>
   <td class="mono unlocks-cell">07, 08, 13, 16a</td>
 </tr><tr>
@@ -667,6 +649,36 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <td><span class="pill done">done</span></td>
   <td class="mono unlocks-cell">07, 12b</td>
 </tr><tr>
+  <td class="mono id-cell">07</td>
+  <td>v0.1 端到端：485 传感器 → MQTT</td>
+  <td class="mono deps-cell">04b,05b,06a,06b</td>
+  <td><span class="pill blocked">blocked</span></td>
+  <td class="mono unlocks-cell">19b</td>
+</tr><tr>
+  <td class="mono id-cell">08</td>
+  <td>Modbus TCP 阀门读取与上报</td>
+  <td class="mono deps-cell">04b,05b,03b</td>
+  <td><span class="pill blocked">blocked</span></td>
+  <td class="mono unlocks-cell">09</td>
+</tr><tr>
+  <td class="mono id-cell">09</td>
+  <td>服务调用与写后回读</td>
+  <td class="mono deps-cell">08,02b</td>
+  <td><span class="pill blocked">blocked</span></td>
+  <td class="mono unlocks-cell">10, 14a, 17b</td>
+</tr><tr>
+  <td class="mono id-cell">10</td>
+  <td>幂等、两阶段与 seq 契约</td>
+  <td class="mono deps-cell">09,02b</td>
+  <td><span class="pill blocked">blocked</span></td>
+  <td class="mono unlocks-cell">14a, 17b</td>
+</tr><tr>
+  <td class="mono id-cell">11</td>
+  <td>事件总线与去重契约</td>
+  <td class="mono deps-cell">02a</td>
+  <td><span class="pill ready">ready now</span></td>
+  <td class="mono unlocks-cell">14b, 15b</td>
+</tr><tr>
   <td class="mono id-cell">12a</td>
   <td>ChirpStack 桩：官方 proto 与队列</td>
   <td class="mono deps-cell">01a</td>
@@ -675,37 +687,43 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
 </tr><tr>
   <td class="mono id-cell">12b</td>
   <td>ChirpStack 桩：上行与确认时序</td>
-  <td class="mono deps-cell">12a, 06b</td>
+  <td class="mono deps-cell">12a,06b</td>
   <td><span class="pill blocked">blocked</span></td>
   <td class="mono unlocks-cell">13</td>
 </tr><tr>
+  <td class="mono id-cell">13</td>
+  <td>LoRaWAN 上行接入</td>
+  <td class="mono deps-cell">12b,05b,03b</td>
+  <td><span class="pill blocked">blocked</span></td>
+  <td class="mono unlocks-cell">14a</td>
+</tr><tr>
   <td class="mono id-cell">14a</td>
   <td>LoRaWAN 下行与 A/B 级确认</td>
-  <td class="mono deps-cell">13, 09, 10</td>
+  <td class="mono deps-cell">13,09,10</td>
   <td><span class="pill blocked">blocked</span></td>
   <td class="mono unlocks-cell">14b, 15a</td>
 </tr><tr>
   <td class="mono id-cell">14b</td>
   <td>C 级业务确认、窗口超时与重试</td>
-  <td class="mono deps-cell">14a, 11</td>
+  <td class="mono deps-cell">14a,11</td>
   <td><span class="pill blocked">blocked</span></td>
   <td class="mono unlocks-cell">—</td>
 </tr><tr>
   <td class="mono id-cell">15a</td>
   <td>下行队列合并与精确撤销</td>
-  <td class="mono deps-cell">14a, 12a</td>
+  <td class="mono deps-cell">14a,12a</td>
   <td><span class="pill blocked">blocked</span></td>
   <td class="mono unlocks-cell">15b</td>
 </tr><tr>
   <td class="mono id-cell">15b</td>
   <td>pending 上限与运维命令</td>
-  <td class="mono deps-cell">15a, 11</td>
+  <td class="mono deps-cell">15a,11</td>
   <td><span class="pill blocked">blocked</span></td>
   <td class="mono unlocks-cell">18, 19b</td>
 </tr><tr>
   <td class="mono id-cell">16a</td>
   <td>北向断线有界缓存</td>
-  <td class="mono deps-cell">05b, 03b</td>
+  <td class="mono deps-cell">05b,03b</td>
   <td><span class="pill blocked">blocked</span></td>
   <td class="mono unlocks-cell">16b, 18</td>
 </tr><tr>
@@ -717,13 +735,19 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
 </tr><tr>
   <td class="mono id-cell">17a</td>
   <td>配置重载：解析与原子交换</td>
-  <td class="mono deps-cell">01b, 03a</td>
+  <td class="mono deps-cell">01b,03a</td>
   <td><span class="pill blocked">blocked</span></td>
   <td class="mono unlocks-cell">17b</td>
 </tr><tr>
   <td class="mono id-cell">17b</td>
   <td>配置重载：设备与服务生命周期</td>
-  <td class="mono deps-cell">17a, 09, 10, 16b</td>
+  <td class="mono deps-cell">17a,09,10,16b</td>
+  <td><span class="pill blocked">blocked</span></td>
+  <td class="mono unlocks-cell">19b</td>
+</tr><tr>
+  <td class="mono id-cell">18</td>
+  <td>健康端点、指标与日志完善</td>
+  <td class="mono deps-cell">03a,05a,15b,16a</td>
   <td><span class="pill blocked">blocked</span></td>
   <td class="mono unlocks-cell">19b</td>
 </tr><tr>
@@ -735,9 +759,15 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
 </tr><tr>
   <td class="mono id-cell">19b</td>
   <td>最终文档包与索引</td>
-  <td class="mono deps-cell">07, 15b, 16b, 17b, 18</td>
+  <td class="mono deps-cell">07,15b,16b,17b,18</td>
   <td><span class="pill blocked">blocked</span></td>
   <td class="mono unlocks-cell">20</td>
+</tr><tr>
+  <td class="mono id-cell">20</td>
+  <td>实物联调与缺陷修复（epic）</td>
+  <td class="mono deps-cell">19b &#43; 外部 P0 资料</td>
+  <td><span class="pill needs-info">needs-info</span></td>
+  <td class="mono unlocks-cell">—</td>
 </tr>
         </tbody>
       </table>
@@ -748,10 +778,12 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
     <div class="section-head">
       <div><p class="eyebrow">Reading</p><h2>怎么读这张图</h2></div>
     </div>
-    <p class="note"><span class="mono">ready now</span> 只看依赖是否完成，不看排期、工作量或人手。波次取最长路径深度，所以同一波次里可能有“其实早已完成”的节点（例如 01c 在 Wave 2，但它已 done）。关键路径是最长链，不代表唯一路径；并行侧线越早完成，后续汇合点越早解锁。</p>
+    <p class="note"><span class="mono">ready now</span> 只看依赖是否 done，且 ticket 状态是 ready-for-agent；<span class="mono">in review</span> 表示实现完成但尚未合并，依赖方仍 blocked。波次取最长路径深度，所以同一波次里可能有早已完成的节点。关键路径是最长链，不代表唯一路径；并行侧线越早完成，后续汇合点越早解锁。</p>
   </section>
 
   <footer>
-    数据源：<span class="mono">.scratch/collector/issues/*.md</span>；生成时间 2026-11-20。依赖图只描述 ticket 间的前置关系，不替代每个 ticket 的验收项与计划评审。
+    数据源：<span class="mono">.scratch/collector/issues/*.md</span>；由 <span class="mono">tools/ticketgraph</span> 生成，请勿手工编辑。
   </footer>
 </div>
+</body>
+</html>
