@@ -1,41 +1,31 @@
-# Spec 管理化方案落地计划（v2）
+# Spec 管理化方案落地计划（v3）
 
-**状态**：待用户评审（已按独立模型评审修订，2026-11-22）
+**状态**：待用户评审（2026-11-22；按用户修正 v3）
 **基础**：`main@461121c`（PR #6 / 06b 已合并；PR #9 / 02b plan 已合并）
 **工作分支**：`docs/spec-v3`
-**范围**：文档治理、spec v3、契约拆分、历史引用迁移、PRD 清理、CI 约束
-**非目标**：不修改产品行为、接口签名、配置字段、错误码、事件语义；不修改 06b 已合并实现；不恢复 02b 实现。
+**范围**：文档治理、spec v3、契约拆分、**02b/06b 文档纳入调整**、历史 plans/tickets 直接规范化、PRD 清理、CI 约束
+**非目标**：不修改产品行为、接口签名、配置字段、错误码、事件语义；不修改 06b 已合并实现；不恢复 02b 实现；不替用户拍板 02b 的 A/B。
 
 ---
 
-## 0. 对独立评审的处理
+## 0. 用户修正与中心原则
 
-独立评审结论为 `reject`。本版逐条处理：
+### 0.1 用户修正
 
-| 评审项 | 处理 |
-|---|---|
-| B1 02b 未拍板 A/B 被冻结 | **接受**：本次不移动 02b plan §10.8；`store.md` 只从 `internal/interfaces/store.go` + 02a 已批准语义派生，02b 补充标 `pending` |
-| B2 缺少 v2 迁移矩阵 | **接受**：新增 §6 完整迁移矩阵；未映射条目不得合并 |
-| B3 spec 新位置与 AGENTS 冲突 | **接受**：AGENTS.md + `docs/agents/issue-tracker.md` + `domain.md` 作为最早独立提交 |
-| B4 历史引用批量替换改变语义 | **接受**：不再批量改写已完成 tickets/plans；只新增迁移映射，新文档用新锚点 |
-| B5 合同无版本/无影响扫描 | **接受**：引入“规范包版本”，spec + contracts 同版本；impact 扫描合同锚点 |
-| B6 CI 在 bootstrap PR 失败 | **接受**：检查只作用于 PR diff；历史文件 baseline/allowlist；bootstrap 豁免；fetch-depth 0 |
-| B7 流程缺少 plan v2 / AGENTS 提交 | **接受**：本文件为 plan v2；AGENTS 规则最早单独提交 |
-| B8 全局权威链错误 | **接受**：改为“按事实类型分权”的矩阵 |
-| B9 config.md 手工镜像制造漂移 | **接受**：config.md 改为导航/摘要，不复制全量键；生成方案后续单独做 |
-| R1 ADR-0004 Amendment 不完整 | **接受**：Amendment 覆盖路径、接口位置、方法集链接 |
-| R2 D1–D28 无 ADR 的决策无家 | **接受**：建立决策索引，逐项指定 ADR/REQ/contract 或标“历史，不作当前权威” |
-| R3 版本历史与 CHANGELOG 重复 | **接受**：spec 不设“版本历史”章节，只留元数据 + CHANGELOG 链接 |
-| R4 PRD 仍有规范重复/架构无家 | **接受**：新增 `docs/architecture.md`；PRD 规范语句改为链接 |
-| R5 REQ/合同锚点/traceability 未定义 | **接受**：定义锚点格式、测试标注、三种状态 |
-| R6 脚本/CI 细节不足 | **接受**：定义 spec-status 分支类型、merge-base、fetch-depth、Makefile/ci.yml |
-| R7 06b worktree/branch 仍持旧 spec | **接受**：启用门禁前退役 worktree/branch |
-| R8 v2 归档仅靠 tag 不可审计 | **接受**：显式 tag 创建/推送 + `spec-archive.sh` 按需 fetch；不保留工作区全文副本 |
-| R9 引用替换不等于语义不变 | **接受**：历史事实/实施指令不改；02b 路径变更走新的 plan 修订 |
-| R10 06b 契约可能丢失非目标边界 | **接受**：simulator.md 保留当前版本非目标 |
-| R11 diffs/HTML/代码走读未纳入基线 | **接受**：纳入基线或明确 allowlist |
-| R12 §5.2 与 §6.5 矛盾 | **接受**：规范变更 PR 只改 docs/version/CHANGELOG；代码/测试在后续 PR |
-| S1–S8 | **接受**：合并检查脚本、声明源方向、统一 semver、内容判据、proposed 状态、Go 版本、模拟器独立性、Store 从 interfaces 派生 |
+1. **02b、06b 也在修改范围内**：它们的 plan/ticket/文档必须按新 spec 规范调整；此前计划把它们排除，已修正。
+2. **plans/tickets 必须调整**：只要语义不变、不与代码实现冲突，就必须更新到新的 spec 锚点/合同/REQ；不能保留旧引用。
+
+### 0.2 中心原则
+
+1. **不做兼容映射契约**：
+   - 不引入 `refs-migration-log.md` 这类常驻解析层；
+   - 不保留旧标题空壳；
+   - 文档在语义不变的前提下直接改为新锚点；
+   - 若改引用会改变语义，停止并走 plan 修订，而不是靠映射表兼容。
+2. **spec 内容不能重复**：
+   - spec 之间不重复；
+   - spec 与 `AGENTS.md`、ADR、contracts、testing、config 之间不重复；
+   - 每类事实只有一个权威，其他文档只链接。
 
 ---
 
@@ -47,8 +37,10 @@
 | 06b | 已合并；`internal/sim/**` 在 main；ticket `done` |
 | 06b spec 改动 | `.scratch/collector/spec.md:621` 起有 `#### 7.1 06b 冻结的 MQTT broker + 云端桩契约` |
 | 06b worktree | `.claude/worktrees/06b` 仍存在；分支 `feat/06b-mqtt-broker-stub` 仍存在 |
+| 06b plan | `.scratch/collector/plans/06b.md`，含 `spec §7.1` 引用 |
 | 02b | plan 已并入 main；ticket `on-hold`；实现暂停；plan v2 待用户评审 |
 | 02b 未决 | plan §4.5/§4.12/§4.13 的 A/B 尚未拍板；§10.8 依赖这些选择 |
+| 02b plan | `.scratch/collector/plans/02b.md`，含 `spec §3` 追加指令 |
 | spec v2 | `.scratch/collector/spec.md`，含实现细节、评审编号、ticket 编号 |
 | 产品定型 | `docs/产品定型.md` 含旧接口、报文副本、D 决策表 |
 | main 保护 | 必须经 PR；required checks `ci`、`gitleaks` |
@@ -60,7 +52,7 @@
 1. **spec 版本化且受控**：
    - 当前规范包：`docs/spec/spec.md` + `docs/contracts/**`；
    - 包版本：`docs/spec/VERSION`（`v3.0.0`）；
-   - v2 用 tag `spec-v2.0.0` 冻结，工作区不保留全文副本；
+   - v2 用 tag `spec-v2.0.0` 冻结；工作区不保留全文副本；
    - `docs/spec/CHANGELOG.md` 记录 REQ 与合同锚点变更；
    - semver：编辑 patch、增补 minor、破坏 major。
 2. **spec 只放规范**：
@@ -71,29 +63,30 @@
    - 行为 → `docs/spec/spec.md` 的 `REQ-*`
    - 外部 Topic/code/event → `docs/contracts/external.md`
    - 配置导航/校验分类 → `docs/contracts/config.md` + 代码/testdata
-   - Store 契约 → `docs/contracts/store.md`（从 `interfaces.Store` + 02a 派生）
+   - Store 契约 → `docs/contracts/store.md`（`interfaces.Store` + 02a；02b pending）
    - 模拟器契约 → `docs/contracts/simulator.md`
    - 决策与理由 → `docs/adr/**`
    - 术语 → `GLOSSARY.md`
    - 产品意图 → `docs/产品定型.md`
    - 架构/包布局 → `docs/architecture.md`
    - 单票验收 → tickets
-   - 历史 → plans / tag / migration log
-4. **兼容不污染规范**：
+   - 历史 → plans / tag
+4. **兼容不污染规范，也不做映射层**：
    - 不保留旧标题空壳；
-   - 历史 tickets/plans **不批量改写**；新增 `docs/refs-migration-log.md` 作为等价表；
-   - 新文档只引用新锚点。
+   - 02b/06b 及所有 plans/tickets 在语义不变时直接更新到新锚点；
+   - 若引用更新会改变语义，停止并另发 plan 修订；
+   - 不创建常驻 `refs-migration-log`。
 5. **新工作最小上下文**：
    - 新 ticket 只允许 `REQ-*`、合同锚点、`ADR-*`；
    - 禁止 `spec §N`、决策编号、archive 路径、旧 plan 路径；
    - `docs/README.md` 定义当前/历史阅读路径；
-   - `docs/agents/domain.md` 默认不读 archive/migration/旧 plan。
+   - `docs/agents/domain.md` 默认不读 archive/旧 plan。
 6. **跨分支/worktree 同步**：
    - `VERSION` + `spec-check.sh` + PR 模板 + CI；
    - 分支落后 main、feature branch 改规范、规范包变更无版本，均失败。
-7. **06b / 02b**：
-   - 06b §7.1 → `docs/contracts/simulator.md`，保留非目标边界；
-   - 02b 保持 `on-hold`；本次不移动 §10.8；解冻后另发 plan 修订。
+7. **06b / 02b 处理**：
+   - 06b §7.1 → `docs/contracts/simulator.md`；06b plan/ticket 的 spec 引用同步更新；
+   - 02b plan 的 `spec §3` 目标改为 `docs/contracts/store.md`；A/B 仍不拍板；ticket 保持 `on-hold`。
 
 ---
 
@@ -101,16 +94,18 @@
 
 | 编号 | 约束 |
 |---|---|
-| C1 | 不修改 06b 已合并实现、ticket、评论、验收 |
-| C2 | 02b 保持 `on-hold`；本次不实现、不勾选、不标 done；不把未拍板 A/B 写成契约 |
+| C1 | 06b 已合并实现不改；ticket 状态/验收/提交哈希不改；只更新文档引用与 spec 归属 |
+| C2 | 02b 保持 `on-hold`；不实现、不勾选、不标 done；不把未拍板 A/B 写成契约 |
 | C3 | 01a/01b/01c/02a/06b 的验收、评论、提交哈希不改 |
-| C4 | **不批量改写**已完成 tickets/plans；只新增迁移映射 |
+| C4 | plans/tickets 在语义不变时**必须**更新到新锚点；不保留旧 `spec §N` 引用；不建映射契约 |
 | C5 | 不修改 `cmd/**`、`internal/**`、`go.mod`、`go.sum`、`internal/config/testdata/**`；允许修改 `Makefile`、`.github/**`、`scripts/spec-*` |
 | C6 | 不修改 `docs/需求文档_*.md`、`docs/缺口台账.md` 内容 |
 | C7 | ADR 原文不改写；ADR-0004 用 Amendment |
 | C8 | spec v3 不保留旧标题空壳 |
 | C9 | 所有变更经 PR 进入 main；禁止直接 push main |
-| C10 | 06b worktree/branch 在启用门禁前退役；不在 spec v3 PR 中静默改它 |
+| C10 | 06b worktree/branch 在启用门禁前退役 |
+| C11 | spec 不与 AGENTS/ADR/contracts/testing 重复同一规范内容 |
+| C12 | 任何文档修改若会改变语义，停止并走 plan 修订，不允许“兼容映射”绕过 |
 
 ### 3.1 基线
 
@@ -126,7 +121,10 @@ sha256sum .scratch/collector/issues/*.md \
           > /tmp/spec-v3-historical.sha
 ```
 
-历史文件在 PR 中必须哈希不变；新文档不在此基线内。
+plans/tickets 在规范化阶段允许变化，但必须用“语义 diff”证明只改了引用/格式：
+- 状态、验收勾选、日期、评论、代码块、被引用原文不变；
+- 仅引用锚点、路径、REQ/contract 名称变化；
+- 逐文件记录改动理由，不建立常驻映射契约。
 
 ---
 
@@ -147,9 +145,10 @@ sha256sum .scratch/collector/issues/*.md \
 | `docs/architecture.md` | 组件、依赖方向、包布局 |
 | `docs/adr/README.md` | ADR 索引 + D 决策索引 |
 | `docs/adr/0006-doc-authority-and-spec-change-policy.md` | 文档权威、版本、变更控制 |
-| `docs/refs-migration-log.md` | 历史引用等价表（审计用） |
-| `.scratch/collector/issues/**` | 单票验收 |
-| `.scratch/collector/plans/**` | 计划历史 |
+| `.scratch/collector/issues/**` | 单票验收（更新引用，不改语义） |
+| `.scratch/collector/plans/**` | 计划历史（更新引用，不改语义） |
+
+**不新增** `docs/refs-migration-log.md`。历史引用在当前文档中直接改到新锚点；无法语义不变地改的，停在此处走 plan 修订。
 
 ### 4.1 按事实类型分权
 
@@ -165,6 +164,23 @@ sha256sum .scratch/collector/issues/*.md \
 | 产品意图 | `docs/产品定型.md` | 产品评审 |
 | 架构/包布局 | `docs/architecture.md` + `check-deps` | 架构 PR |
 | 单票验收 | ticket | 计划评审 |
+
+### 4.2 Spec 去重
+
+禁止 spec 重复以下内容：
+
+| 内容 | 唯一归属 | spec 只做 |
+|---|---|---|
+| 流程/交付/版本控制规则 | `AGENTS.md` | 不写流程 |
+| 决策理由/被否决方案 | ADR | 不写理由 |
+| Topic/JSON/code/事件表 | `docs/contracts/external.md` | 链接 |
+| 四层 YAML/键/默认值 | `docs/contracts/config.md` + 代码/testdata | 链接/摘要 |
+| Store 实现细节 | `docs/contracts/store.md` | 链接 |
+| 模拟器 API | `docs/contracts/simulator.md` | 链接 |
+| 测试分层/命令/数值判据 | `docs/testing.md` | 链接/验收摘要 |
+| 术语定义 | `GLOSSARY.md` | 使用术语，不重定义 |
+
+同样，`AGENTS.md` 不重复 spec 的行为规则；硬约束只保留一句规则 + 链接。`ADR` 不重抄完整 spec；只记录决策与理由。
 
 ---
 
@@ -227,18 +243,8 @@ docs/spec/spec.md
 - ticket 编号、提交哈希、实现历史；
 - 完整 Go 接口、完整 YAML、完整 JSON、测试命令、测试类名；
 - 旧章节重定向空壳；
-- 版本历史章节（只留元数据 + CHANGELOG 链接）。
-
-### 5.2 条款格式
-
-```markdown
-### REQ-INVOKE-01 至多一次受理
-
-引擎 MUST 对同一 `(device, seq)` 至多受理一次。
-首次受理后 MUST 先持久化 `accepted`，再调用驱动 `Write`。
-```
-
-理由在 ADR-0004；spec 不写理由。
+- 版本历史章节（只留元数据 + CHANGELOG 链接）；
+- AGENTS 的流程/交付/版本控制规则。
 
 ---
 
@@ -275,10 +281,11 @@ docs/spec/spec.md
 ### 6.1 02b 的边界
 
 - 02b plan §10.8 依赖未拍板的 A/B（§4.5/§4.12/§4.13）；
-- 本次**不移动** §10.8 到 `store.md`；
+- 本次**不决定** A/B，也不把 §10.8 写成当前契约；
+- 但 02b plan 中的 `spec §3` 目标改为 `docs/contracts/store.md`，这是文档位置变更，不改变待选语义；
 - `store.md` 只包含 `internal/interfaces/store.go` 冻结语义 + 02a 已批准内容；
-- 02b 补充标 `Pending 02b plan approval`，不作为当前权威；
-- 02b 解冻后另发 plan 修订，再追加 Store 语义。
+- 02b 补充标 `Pending 02b plan approval`；
+- 02b ticket 保持 `on-hold`。
 
 ### 6.2 06b 的契约抽取
 
@@ -291,6 +298,8 @@ docs/spec/spec.md
 - 安全与独立客户端测试；
 - **当前版本非目标**：不提供 `/_sim/requests`、ChirpStack fixture、`--config`、生产 MQTT Channel；06a/12a/12b 后续追加，不改本节契约；
 - 模拟器独立性：不加载生产配置、不依赖硬件假设、不 import 被测实现。
+
+06b plan/ticket 中的 `spec §7.1` 引用同步改为 `docs/contracts/simulator.md`；ticket 状态/验收/提交哈希不变。
 
 ---
 
@@ -320,8 +329,6 @@ docs/spec/spec.md
 - 热重载矩阵链接 `REQ-OPS-01`；
 - 标注“全量键/默认值以代码/testdata 为准；本文件只做导航”。
 
-后续可单独做生成物：`make gen-config-doc` + `git diff --exit-code`；本次不引入代码生成。
-
 ### 7.3 `store.md`
 
 - 从 `internal/interfaces/store.go` 冻结注释 + 02a 已批准语义派生；
@@ -345,7 +352,7 @@ docs/spec/spec.md
 - `docs/spec/VERSION` 为 **规范包版本**（spec + contracts）；
 - `CHANGELOG.md` 记录 REQ 与合同锚点变更；
 - semver：编辑 patch、增补 minor、破坏 major；
-- v2 → v3 为 major（结构/身份变化）；
+- v2 → v3 为 major；
 - spec 头部 `Status: proposed`，用户批准合并后改 `accepted`。
 
 ### 8.2 变更流程
@@ -361,20 +368,20 @@ docs/spec/spec.md
 
 | 子命令 | 检查 |
 |---|---|
-| `lint` | spec 无决策/评审编号、理由、ticket 编号、完整代码/配置/JSON、旧标题空壳 |
+| `lint` | spec 无决策/评审编号、理由、ticket 编号、完整代码/配置/JSON、旧标题空壳；无与 AGENTS/ADR/contracts 重复的规范段落 |
 | `version` | spec/contracts 改了但 VERSION/CHANGELOG 没变 |
 | `contracts` | config 与 testdata/代码；external code/event 在实现后启用；store 与 interfaces |
 | `traceability` | REQ/锚点无归属且无计划 |
-| `refs` | 仅新文档：禁止 `spec §N`、决策编号、archive 路径 |
-| `links` | 新文档相对链接；历史文件 allowlist |
+| `refs` | plans/tickets/新文档不得出现裸 `spec §N`、决策编号、archive 路径 |
+| `links` | 相对链接目标；历史文件在允许范围内 |
 
 运行规则：
 
 - 只检查 PR diff 的新增/修改行；
-- 历史 tickets/plans/diffs/HTML/代码走读在 allowlist；
+- `refs` 对 plans/tickets 逐步收紧：本 PR 直接规范化 02b/06b 及全部 plans/tickets，目标为零裸 `spec §N`；
 - bootstrap PR 用 `spec-bootstrap` label 豁免；
 - `fetch-depth: 0` 或显式 fetch base；
-- 先并入现有 `ci` job，非 required；稳定后再更新 branch protection。
+- 先并入现有 `ci` job，非 required；稳定后更新 branch protection。
 
 ### 8.4 不一致处理
 
@@ -410,7 +417,7 @@ make spec-status
 
 ### 9.3 `spec-status.sh`
 
-- 用 merge-base 判断是否落后，不用“落后 commit 数”；
+- 用 merge-base 判断是否落后；
 - 比较规范包版本；
 - 检查分支是否修改 `docs/spec/**` 或 `docs/contracts/**`；
 - `spec-delta/*` 允许修改规范；其他分支修改则 exit 2；
@@ -419,7 +426,7 @@ make spec-status
 ### 9.4 `spec-impact.sh`
 
 - 从 CHANGELOG 提取变更 REQ + 合同锚点；
-- 扫描本地分支、worktree、tickets/plans（仅新文档/活跃工作）；
+- 扫描本地分支、worktree、tickets/plans；
 - 输出受影响项。
 
 ### 9.5 CI 门禁
@@ -429,6 +436,7 @@ make spec-status
 - `spec-delta/*` 无版本/CHANGELOG：失败；
 - `spec-delta/*` 同时改代码：失败；
 - 代码 PR 声明 normative 但无 spec delta：失败；
+- plans/tickets 出现裸 `spec §N`：失败；
 - 新 ticket/plan 引用不存在的 REQ/锚点：失败。
 
 ### 9.6 AGENTS 规则
@@ -439,33 +447,56 @@ make spec-status
 4. 三个检查点运行 `make spec-status`；
 5. PR 写 `Spec-Version` / `Spec-Impact` / `REQ`；
 6. 分支携带规范修改不得合并；
-7. `.scratch/` 只放 tickets/plans；当前规范在 `docs/spec/`，合同在 `docs/contracts/`。
+7. `.scratch/` 只放 tickets/plans；当前规范在 `docs/spec/`，合同在 `docs/contracts/`；
+8. AGENTS 不重复 spec 行为规则，只保留流程/约束并链接。
 
 ---
 
-## 10. 历史文档策略
+## 10. Plans / Tickets 直接规范化
 
-**不批量改写已完成 tickets/plans。**
+### 10.1 范围
 
-原因：评审确认大量 `spec §N` 不是 token-only，而是实施指令（02b plan §10.8）或历史事实（06b plan §7.1）。替换路径会改变语义。
+- `.scratch/collector/issues/**`
+- `.scratch/collector/plans/**`
+- `.scratch/collector/diffs/**`
+- `.scratch/collector/ticket-dependency.html`
+- `docs/代码走读/**` 中的 spec 引用
+- 02b、06b 全部在范围内。
 
-做法：
+### 10.2 规则
 
-1. 保留历史原文；
-2. 新增 `docs/refs-migration-log.md`：
-   - 旧位置 → 新 REQ/合同锚点；
-   - 标注“历史引用，不作当前权威”；
-3. 新 ticket/plan 只引用新锚点；
-4. 02b 的路径变更：解冻时另发 plan 修订，不在本 PR 做；
-5. 06b plan 的 `spec §7.1`：迁移日志记录，原文不改；
-6. CI `refs-lint` 只检查**新增/修改行**，历史文件 allowlist；
-7. `diffs/06b.md`、`ticket-dependency.html`、`docs/代码走读` 纳入基线/allowlist，不纳入新检查。
+| 可改 | 不可改 |
+|---|---|
+| `spec §2` → `REQ-*` / contract 锚点 | Status、验收勾选、日期、评论、决策 |
+| 旧决策编号 → `ADR-*` | 代码/配置块、被引用原文 |
+| 旧 spec 路径 → 新路径 | 历史事实错误（保留原样） |
+
+### 10.3 02b 特殊处理
+
+- plan 中 `spec §3` 目标改为 `docs/contracts/store.md`；
+- 不改变 A/B 选项、不决定 A/B、不把未决语义写成契约；
+- ticket 保持 `on-hold`；
+- 若某处引用更新必须依赖 A/B 决策，停止并保留原文，另发 02b plan 修订。
+
+### 10.4 06b 特殊处理
+
+- plan/ticket 中 `spec §7.1` 改为 `docs/contracts/simulator.md`；
+- ticket 状态 `done`、验收、提交哈希不变；
+- 不做实现修改。
+
+### 10.5 语义 diff 证明
+
+1. 只替换等价引用/路径/锚点；
+2. 对每个文件生成掩码 diff：抹掉被替换 token 后，剩余文本逐字节一致；
+3. 任何未命中替换规则的行不得变化；
+4. 状态、验收、日期、评论、代码块做哈希校验；
+5. 若某文件无法满足，停止并升级为 plan 修订，不做映射契约。
 
 ---
 
 ## 11. 产品定型与架构
 
-### 11.1 产品定型保留
+### 11.1 保留
 
 - §1 定位、§2 抽象依据、§3 目标/非目标、§4 角色/部署、§5 场景、§8 功能清单、§11 非功能、§13 风险、§14 路线。
 
@@ -473,7 +504,7 @@ make spec-status
 
 | 位置 | 处理 |
 |---|---|
-| §5.3/§5.5 规范语句 | 改为链接 spec `REQ-QUALITY-04` / `REQ-OPS-01`，不重复正文 |
+| §5.3/§5.5 规范语句 | 改为链接 spec `REQ-QUALITY-04` / `REQ-OPS-01` |
 | §6.1–6.3 接口 | 删除，链接 `internal/interfaces` |
 | §6.3.1 调度 | 删除，链接 ADR-0003 |
 | §6.4 组件 | 移到 `docs/architecture.md` |
@@ -490,21 +521,17 @@ make spec-status
 - `:394` `internal/core/store` → `internal/store/bbolt`；
 - `:561-571` code 表 → 链接/补 5042–5044；
 - `:582-594` 事件表 → 补 `valve_fault_clear`；
-- `:608` Go 精确版本（`go.mod` 的 `go 1.27` + toolchain `go1.27.4`）；
+- `:608` Go 精确版本；
 - `:614` 24h 真实/假时钟；
 - `:3` 状态与规范范围。
 
 ### 11.4 D 决策索引
 
-`docs/adr/README.md`：
+`docs/adr/README.md` 逐项列出 D1–D28：
 
-| D | 决策简述 | 当前归属 | 状态 |
-|---|---|---|---|
-| D1–D3… | 从 PRD §9 提取 | ADR-0001/0004… | current |
-| 无 ADR 的 D | 一行决策 + 现有行为 | spec `REQ-*` / contract | historical or current |
-| 已废弃 | 保留一行 | ADR-0006 | superseded |
-
-要求：PRD §9 删除前，D1–D28 每项必须有落点；否则不得删除。
+- 有 ADR 的 → ADR；
+- 无 ADR 的 → 一行决策 + 当前 REQ/contract，或标“历史，不作当前权威”；
+- PRD §9 删除前必须每项有落点。
 
 ---
 
@@ -517,19 +544,19 @@ make spec-status
 
 ### 12.2 提交顺序
 
-1. `plan: spec-v3 计划 v2（按独立评审修订）`（本文件）
-2. `docs(agents): 定义 spec/contracts 位置与阅读路径`
+1. `plan: spec-v3 计划 v3（按用户修正）`（本文件）
+2. `docs(agents): 定义 spec/contracts 位置与阅读路径，并去除与 spec 的重复`
    - `AGENTS.md`
    - `docs/agents/issue-tracker.md`
    - `docs/agents/domain.md`
 3. `docs(adr): 新增 ADR-0006 与 ADR-0004 Amendment`
 4. `docs: 新增文档地图、ADR 索引、D 决策索引`
 5. `docs: tag spec-v2.0.0 + 新增 spec v3 + VERSION/CHANGELOG`
-6. `docs: 新增 external/config/simulator/testing/traceability 契约`
-7. `docs: 新增 architecture + 清理产品定型`
-8. `docs: 新增 refs-migration-log（不改历史原文）`
+6. `docs: 新增 external/config/simulator/testing/traceability/architecture 契约`
+7. `docs: 清理产品定型`
+8. `docs: 直接规范化所有 plans/tickets 的 spec 引用（含 02b/06b）`
 9. `ci: 新增 spec-check/spec-status/spec-impact/spec-archive、Makefile、PR 模板、workflow`
-10. `chore: 退役 06b worktree/branch`（单独提交/操作）
+10. `chore: 退役 06b worktree/branch`
 
 ### 12.3 tag 与归档
 
@@ -545,7 +572,7 @@ git fetch --tags
 git show spec-v2.0.0:.scratch/collector/spec.md
 ```
 
-不保留工作区全文副本；浅克隆审计必须先 fetch tag。README 写明。
+不保留工作区全文副本；浅克隆审计必须先 fetch tag。
 
 ---
 
@@ -558,25 +585,28 @@ git show spec-v2.0.0:.scratch/collector/spec.md
 - [ ] spec 无决策/评审编号、理由、ticket 编号、完整代码/配置/JSON、旧标题空壳。
 - [ ] v2 迁移矩阵逐条有归属；无未映射条目。
 - [ ] contracts external/config/store/simulator 存在。
-- [ ] testing/traceability/architecture/README/ADR README/refs-migration-log 存在。
+- [ ] testing/traceability/architecture/README/ADR README 存在。
 - [ ] PRD 无 Go/JSON/YAML 代码块、无重复规范、无 D 表正文。
 
-### 13.2 兼容
+### 13.2 兼容与规范化
 
-- [ ] 06b 实现/ticket/评论/验收不变；§7.1 已移到 simulator contract。
-- [ ] 02b 仍 `on-hold`；未把 A/B 写成契约；plan 原文未改。
-- [ ] 01a/01b/01c/02a 历史哈希不变。
+- [ ] 06b 实现/ticket 状态/验收/评论不变；§7.1 已移到 simulator contract；plan/ticket 引用已改。
+- [ ] 02b 仍 `on-hold`；A/B 未被决定；plan 的 `spec §3` 已改为 store contract；ticket 原文语义不变。
+- [ ] 01a/01b/01c/02a 的验收、评论、提交哈希不变；引用已更新。
+- [ ] 所有 plans/tickets 无裸 `spec §N`。
+- [ ] 不新增 `refs-migration-log` 或其他兼容映射契约。
+- [ ] 语义 diff 通过：状态/验收/日期/评论/代码块不变。
 - [ ] `cmd/**`、`internal/**`、`go.mod`、`go.sum`、testdata 无变更。
 - [ ] ADR-0004 原文不变，Amendment 完整。
-- [ ] 历史 diffs/HTML/代码走读在 allowlist。
 
-### 13.3 控制
+### 13.3 去重与控制
 
+- [ ] spec 与 AGENTS/ADR/contracts/testing 无重复规范段落。
+- [ ] AGENTS 只保留流程/约束，行为细节链接 spec/ADR。
 - [ ] `spec-check.sh` 六项检查可在 bootstrap PR 通过（豁免）。
 - [ ] `make spec-status` 可检测落后/改规范/REQ 变更；`spec-delta` 例外。
 - [ ] `spec-impact` 覆盖 REQ + 合同锚点。
 - [ ] PR 模板含 `Spec-Version` / `Spec-Impact` / `REQ`。
-- [ ] AGENTS 规则已更新且最早单独提交。
 - [ ] tag `spec-v2.0.0` 已推送，`spec-archive.sh` 可读取。
 
 ### 13.4 构建
@@ -592,8 +622,9 @@ git show spec-v2.0.0:.scratch/collector/spec.md
 | 风险 | 缓解 |
 |---|---|
 | v2 迁移遗漏 | 迁移矩阵 + 覆盖门禁 + 独立复审 |
-| 02b 未拍板决策被冻结 | 本次不移动 §10.8；store.md 只从 interfaces/02a 派生 |
-| 历史引用改写语义 | 不批量改写；迁移日志 + 新文档锚点 |
+| 02b 未拍板决策被冻结 | 只改目标路径，不决定 A/B；store.md 标 pending |
+| plans/tickets 改引用改变语义 | 语义 diff + 逐文件理由；无法保持则停止 |
+| spec 与 AGENTS 重复 | 去重矩阵 + spec-check lint + 独立复审 |
 | CI bootstrap 失败 | PR diff 范围 + allowlist + `spec-bootstrap` 豁免 |
 | 合同与代码漂移 | 声明源方向；config 导航、external 后续生成/校验 |
 | 06b worktree 旧 spec | 启用门禁前退役 |
