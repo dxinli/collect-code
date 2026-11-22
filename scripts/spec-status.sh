@@ -12,7 +12,7 @@ if ! git rev-parse --verify --quiet "$BASE_REF" >/dev/null; then
   BASE_REF=HEAD
 fi
 
-branch=$(git rev-parse --abbrev-ref HEAD)
+branch="${SPEC_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}"
 base=$(git merge-base "$BASE_REF" HEAD 2>/dev/null || echo "$BASE_REF")
 changed=$(git diff --name-only "$base"...HEAD 2>/dev/null || true)
 behind=$(git rev-list --count HEAD.."$BASE_REF" 2>/dev/null || echo 0)
