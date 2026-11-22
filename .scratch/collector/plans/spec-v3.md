@@ -671,7 +671,7 @@ git show spec-v2-draft:.scratch/collector/spec.md
 - [x] 01a/01b/01c/02a 的验收、评论、提交哈希不变；前向引用已更新。
 - [x] plans/tickets 无**未标记历史**的裸 `spec §N`；历史事实用行内 `historical` 或显式 `spec-refs: historical-file` 文件头标记。
 - [x] 不新增 `refs-migration-log` 或其他兼容映射契约。
-- [x] 语义 diff 通过：状态/验收/日期/评论/代码块不变（证据见 `.scratch/collector/diffs/spec-v3.md` §2）。
+- [x] 语义 diff 通过：状态/验收/日期/提交哈希不变；02b 评论按 §6.1 同步，其余评论与代码块不变（证据见 `.scratch/collector/diffs/spec-v3.md` §2）。
 - [x] `cmd/**`、`internal/**`、`go.mod`、`go.sum`、testdata 无变更。
 - [x] ADR-0003/0004/0005 原文不变，Amendment 声明规范正文归属。
 
