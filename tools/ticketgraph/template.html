@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="generator" content="tools/ticketgraph">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>{{.PageTitle}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+:root {
+  --bg: #f3f5f0;
+  --surface: #ffffff;
+  --surface-2: #e9ede6;
+  --ink: #18211c;
+  --muted: #5d6a62;
+  --line: #d5dbd2;
+  --accent: #2f6f5e;
+  --accent-soft: #dcebe4;
+  --done: #2f6f5e;
+  --done-soft: #dcebe4;
+  --inreview: #3466a8;
+  --inreview-soft: #e0e9f7;
+  --ready: #a85f16;
+  --ready-soft: #f6e4cd;
+  --blocked: #6c7a72;
+  --blocked-soft: #e5e9e4;
+  --hold: #6c7a72;
+  --hold-soft: #e5e9e4;
+  --needs: #9a3f3f;
+  --needs-soft: #f3dddd;
+  --shadow: 0 1px 0 rgba(24, 33, 28, .04);
+  --font-display: "Space Grotesk", "IBM Plex Sans", sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1512;
+    --surface: #161e19;
+    --surface-2: #1d2821;
+    --ink: #e6ece6;
+    --muted: #9aa89f;
+    --line: #2b3831;
+    --accent: #74b9a2;
+    --accent-soft: #1d332a;
+    --done: #74b9a2;
+    --done-soft: #1d332a;
+    --inreview: #7fa8e0;
+    --inreview-soft: #1b2a3f;
+    --ready: #e0a25a;
+    --ready-soft: #3a2a18;
+    --blocked: #8a988f;
+    --blocked-soft: #232d27;
+    --hold: #8a988f;
+    --hold-soft: #232d27;
+    --needs: #e08a8a;
+    --needs-soft: #3a2020;
+    --shadow: none;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1512;
+  --surface: #161e19;
+  --surface-2: #1d2821;
+  --ink: #e6ece6;
+  --muted: #9aa89f;
+  --line: #2b3831;
+  --accent: #74b9a2;
+  --accent-soft: #1d332a;
+  --done: #74b9a2;
+  --done-soft: #1d332a;
+  --inreview: #7fa8e0;
+  --inreview-soft: #1b2a3f;
+  --ready: #e0a25a;
+  --ready-soft: #3a2a18;
+  --blocked: #8a988f;
+  --blocked-soft: #232d27;
+  --hold: #8a988f;
+  --hold-soft: #232d27;
+  --needs: #e08a8a;
+  --needs-soft: #3a2020;
+  --shadow: none;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 30px 54px; }
+.eyebrow {
+  margin: 0 0 10px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+h1, h2, h3, h4 { font-family: var(--font-display); line-height: 1.15; text-wrap: balance; }
+h1 { margin: 0; font-size: clamp(2rem, 4vw, 3.4rem); letter-spacing: -.03em; }
+h2 { margin: 0 0 4px; font-size: clamp(1.3rem, 2.2vw, 1.7rem); letter-spacing: -.02em; }
+h3 { margin: 8px 0 6px; font-size: 1.02rem; }
+h4 { margin: 6px 0 6px; font-size: .94rem; }
+p { margin: 0; }
+.lede { max-width: 72ch; margin-top: 14px; color: var(--muted); font-size: 1.02rem; }
+.hero { padding-bottom: 26px; border-bottom: 1px solid var(--line); }
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 22px;
+}
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: var(--shadow);
+  border-top: 3px solid var(--blocked);
+}
+.stat.total { border-top-color: var(--accent); }
+.stat.done { border-top-color: var(--done); }
+.stat.in-review { border-top-color: var(--inreview); }
+.stat.ready { border-top-color: var(--ready); }
+.stat.blocked { border-top-color: var(--blocked); }
+.stat.on-hold { border-top-color: var(--hold); }
+.stat.needs-info { border-top-color: var(--needs); }
+.stat-num {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.03em;
+}
+.stat-label { display: block; color: var(--muted); font-size: .78rem; }
+section { margin-top: 34px; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+.section-note { color: var(--muted); font-size: .86rem; max-width: 66ch; }
+.now-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.now-grid > .note { grid-column: 1 / -1; }
+.now-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ready);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+.now-card p { color: var(--muted); font-size: .9rem; }
+.now-facts { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; color: var(--muted); font-size: .8rem; }
+.label { color: var(--muted); font-family: var(--font-mono); font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.ticket-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tid { font-family: var(--font-mono); font-weight: 600; font-size: .86rem; letter-spacing: .02em; }
+.pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  letter-spacing: .03em;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+}
+.pill.done { color: var(--done); background: var(--done-soft); }
+.pill.in-review { color: var(--inreview); background: var(--inreview-soft); }
+.pill.ready { color: var(--ready); background: var(--ready-soft); }
+.pill.blocked { color: var(--blocked); background: var(--blocked-soft); }
+.pill.on-hold { color: var(--hold); background: var(--hold-soft); }
+.pill.needs-info { color: var(--needs); background: var(--needs-soft); }
+.chain {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  overflow-x: auto;
+  padding: 4px 2px 10px;
+}
+.chain-node {
+  flex: 0 0 auto;
+  min-width: 118px;
+  max-width: 170px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-bottom: 3px solid var(--blocked);
+  border-radius: 8px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chain-node.done { border-bottom-color: var(--done); }
+.chain-node.in-review { border-bottom-color: var(--inreview); }
+.chain-node.ready { border-bottom-color: var(--ready); }
+.chain-node.on-hold { border-bottom-color: var(--hold); }
+.chain-node.needs-info { border-bottom-color: var(--needs); }
+.chain-title { color: var(--muted); font-size: .7rem; line-height: 1.25; }
+.chain-arrow { flex: 0 0 auto; align-self: center; padding: 0 6px; color: var(--muted); font-size: 1.1rem; }
+.waves {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 2px 2px 12px;
+}
+.wave {
+  flex: 0 0 228px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+}
+.wave-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.wave-name { font-family: var(--font-mono); font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.wave-count { font-family: var(--font-mono); font-size: .7rem; color: var(--muted); }
+.ticket {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--blocked);
+  border-radius: 8px;
+  padding: 9px 10px;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow);
+}
+.ticket:last-child { margin-bottom: 0; }
+.ticket.done { border-left-color: var(--done); }
+.ticket.in-review { border-left-color: var(--inreview); }
+.ticket.ready { border-left-color: var(--ready); }
+.ticket.on-hold { border-left-color: var(--hold); }
+.ticket.needs-info { border-left-color: var(--needs); }
+.ticket .meta { color: var(--muted); font-family: var(--font-mono); font-size: .68rem; overflow-wrap: anywhere; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { width: 100%; border-collapse: collapse; min-width: 760px; }
+th, td { padding: 9px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: .82rem; }
+th {
+  background: var(--surface-2);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+tr:last-child td { border-bottom: 0; }
+.id-cell { font-weight: 600; white-space: nowrap; }
+.deps-cell, .unlocks-cell { color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; color: var(--muted); font-size: .78rem; }
+.note { color: var(--muted); font-size: .82rem; max-width: 80ch; }
+.rule { border: 0; border-top: 1px solid var(--line); margin: 30px 0 0; }
+footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: .76rem; }
+@media (max-width: 900px) {
+  .now-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .wrap { padding-block: 22px 42px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <p class="eyebrow">{{.Eyebrow}}</p>
+    <h1>{{.PageTitle}}</h1>
+    <p class="lede">{{.Feature}} 全部 ticket 的依赖、当前可做任务与并行波次。状态取自 <span class="mono">{{.Source}}</span>，依赖取自每个 ticket 的 <span class="mono">Blocked by</span>。本页由脚本生成，不再手工维护。</p>
+    <div class="stat-grid">
+      <div class="stat total"><span class="stat-num">{{.Total}}</span><span class="stat-label">全部 ticket</span></div>
+      <div class="stat done"><span class="stat-num">{{.Done}}</span><span class="stat-label">已完成</span></div>
+      <div class="stat in-review"><span class="stat-num">{{.InReview}}</span><span class="stat-label">in review</span></div>
+      <div class="stat ready"><span class="stat-num">{{.Ready}}</span><span class="stat-label">现在可做</span></div>
+      <div class="stat blocked"><span class="stat-num">{{.Blocked}}</span><span class="stat-label">依赖未满足</span></div>
+      <div class="stat on-hold"><span class="stat-num">{{.OnHold}}</span><span class="stat-label">暂停</span></div>
+      <div class="stat needs-info"><span class="stat-num">{{.NeedsInfo}}</span><span class="stat-label">需要信息</span></div>
+    </div>
+    <div class="legend">
+      <span><span class="pill done">done</span> 已完成（合并后写入）</span>
+      <span><span class="pill in-review">in review</span> 实现完成、未合并</span>
+      <span><span class="pill ready">ready now</span> 依赖已全部完成</span>
+      <span><span class="pill blocked">blocked</span> 仍有前置未完成</span>
+      <span><span class="pill on-hold">on-hold</span> 暂停</span>
+      <span><span class="pill needs-info">needs-info</span> 需要外部信息</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <div><p class="eyebrow">Next</p><h2>现在可以做</h2></div>
+      <p class="section-note">这些 ticket 的前置都已 done，且自身状态是 ready-for-agent；可以并行。in-review 表示实现完成但尚未合并，依赖方仍然 blocked。</p>
+    </div>
+    <div class="now-grid">
+      {{range .ReadyCards}}<article class="now-card {{.State}}">
+  <div class="ticket-top"><span class="tid">{{.ID}}</span><span class="pill {{.State}}">{{.StateLabel}}</span></div>
+  <h3>{{.Title}}</h3>
+  <p>{{.Summary}}</p>
+  <div class="now-facts">
+    <span><span class="label">直接解锁</span> <span class="mono">{{.Unlocks}}</span></span>
+    <span><span class="label">传递影响</span> <span class="mono">{{.Impact}}</span> 个</span>
+  </div>
+</article>{{else}}<p class="note">当前没有依赖全部完成、且状态为 ready-for-agent 的 ticket。</p>{{end}}
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <div><p class="eyebrow">Critical path</p><h2>最长依赖链</h2></div>
+      <p class="section-note">{{.CriticalPathNote}}</p>
+    </div>
+    <div class="chain" role="img" aria-label="从起始 ticket 到终点的关键路径">
+      {{range $i, $n := .CriticalPath}}{{if $i}}<span class="chain-arrow" aria-hidden="true">→</span>{{end}}<span class="chain-node {{$n.State}}"><span class="mono">{{$n.ID}}</span><span class="chain-title">{{$n.Title}}</span></span>{{end}}
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <div><p class="eyebrow">Waves</p><h2>并行波次</h2></div>
+      <p class="section-note">同一列 = 依赖深度相同，在前一列完成后可以并行，不是必须按列串行。卡片上的 ← 是直接前置；直接解锁见下方明细表。</p>
+    </div>
+    <div class="waves" role="region" aria-label="按依赖深度分层的 ticket 波次">
+      {{range .Waves}}<div class="wave">
+  <div class="wave-head"><span class="wave-name">Wave {{.Index}}</span><span class="wave-count">{{.Count}}</span></div>
+  {{range .Cards}}<article class="ticket {{.State}}">
+  <div class="ticket-top"><span class="tid">{{.ID}}</span><span class="pill {{.State}}">{{.StateLabel}}</span></div>
+  <h4>{{.Title}}</h4>
+  <p class="meta"><span class="label">←</span> {{.BlockedBy}}</p>
+</article>
+{{end}}</div>{{end}}
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <div><p class="eyebrow">Inventory</p><h2>依赖明细</h2></div>
+      <p class="section-note">共 {{.Total}} 个 ticket。状态列是“依赖状态”，不是 issue 文件的 Status 字段；done/in-review/on-hold/needs-info 直接来自 Status。</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Ticket</th><th>Blocked by</th><th>依赖状态</th><th>直接解锁</th></tr></thead>
+        <tbody>
+          {{range .Rows}}<tr>
+  <td class="mono id-cell">{{.ID}}</td>
+  <td>{{.Title}}</td>
+  <td class="mono deps-cell">{{.BlockedBy}}</td>
+  <td><span class="pill {{.State}}">{{.StateLabel}}</span></td>
+  <td class="mono unlocks-cell">{{.Unlocks}}</td>
+</tr>{{end}}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <div><p class="eyebrow">Reading</p><h2>怎么读这张图</h2></div>
+    </div>
+    <p class="note"><span class="mono">ready now</span> 只看依赖是否 done，且 ticket 状态是 ready-for-agent；<span class="mono">in review</span> 表示实现完成但尚未合并，依赖方仍 blocked。波次取最长路径深度，所以同一波次里可能有早已完成的节点。关键路径是最长链，不代表唯一路径；并行侧线越早完成，后续汇合点越早解锁。</p>
+  </section>
+
+  <footer>
+    数据源：<span class="mono">{{.Source}}</span>；由 <span class="mono">tools/ticketgraph</span> 生成，请勿手工编辑。
+  </footer>
+</div>
+</body>
+</html>
