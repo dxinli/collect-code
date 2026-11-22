@@ -137,6 +137,13 @@ GitHub PR #10 的 `ci` 与 `gitleaks` 均通过。
 | 4. 指标标签取值 | A | `result` ∈ {ok, fail, timeout}；`collector_link_ok` 取 0 或 1 |
 | 5. `LastSeq` pending 行 | A | 删除 pending 行；`STORE-LASTSEQ-01` 明确水位独立于记录存在性 |
 
+补充评审 G1–G4：
+
+- **G1**：`STORE-DEVICES-01` 补“`SaveDevices` 不得推进/修改幂等水位，水位只由 `BeginAccepted` 推进”；`STORE-LASTSEQ-01` 同步。
+- **G2**：02b plan 的待增补清单删除 `LastSeq` 独立水位项，注明已由冻结接口确定。
+- **G3**：`REQ-QUEUE-03` 删除与 `REQ-QUEUE-02` 重复的丢弃禁令。
+- **G4**：`EXT-CODE-01` 的 4001 补“设备侧拒绝时 `data.field` 填被写入的点位或参数名”。
+
 ## 5. 已知未完成项
 
 - `docs/spec/spec.md` 仍为 `Status: proposed`；需用户单独批准 spec/contracts 内容后，再提交 `Status: accepted`。

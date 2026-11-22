@@ -27,13 +27,14 @@
 ## STORE-LASTSEQ-01 `LastSeq`
 
 - 返回每设备已受理 `seq` 的单调高水位。
-- 初始值为 0；不得回退。
+- 初始值为 0；不得回退；只由 `BeginAccepted` 推进。
 - 该水位由已受理的 `seq` 物化，不依赖记录是否仍存在；清理过期记录不得降低该水位。
 
 ## STORE-DEVICES-01 `LoadDevices` / `SaveDevices`
 
 - `LoadDevices` 在空库返回空切片与 nil 错误。
 - `SaveDevices` 按设备 upsert；不得删除未出现在入参中的设备。设备移除由内核的状态协调逻辑负责。
+- `SaveDevices` 只更新设备状态记录，不得推进或修改幂等水位；`DeviceState.LastSeq` 与 `Store.LastSeq` 是两份数据，其一致性由内核协调，Store 不做隐式同步。
 - 持久化的设备状态至少包含在线状态、最后成功时间、最后 `seq` 与更新时间。
 
 ## STORE-SNAPSHOT-01 `LoadSnapshot` / `SaveSnapshot`
