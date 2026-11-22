@@ -49,3 +49,13 @@
 - **`Sleep(period)` 循环**：漂移累积，跑一天就偏几分钟。
 - **missed tick 补跑**：连续补跑造成 tick 拥挤，抖动反而更差。
 - **链路级唯一超时**：一台离线从站会吞掉整条总线的采集窗口。
+
+## Amendment（2026-11-22）
+
+本 ADR 记录决策与理由；**规范正文**已迁移为：
+
+- 时间与调度：[`REQ-TIME-01`、`REQ-SCHED-01..04`](../spec/spec.md)
+- 质量、新鲜度与离线：[`REQ-QUALITY-01..05`](../spec/spec.md)
+- 测试判据：[`docs/testing.md`](../testing.md)
+
+上文中的接口片段是决策当时的形状，当前签名以 `internal/interfaces` 为准。本文不改写，以避免历史被追溯性修改。
