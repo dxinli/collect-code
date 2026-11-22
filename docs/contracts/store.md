@@ -28,7 +28,7 @@
 
 - 返回每设备已受理 `seq` 的单调高水位。
 - 初始值为 0；不得回退。
-- 清理过期记录不得降低该水位。
+- 该水位由已受理的 `seq` 物化，不依赖记录是否仍存在；清理过期记录不得降低该水位。
 
 ## STORE-DEVICES-01 `LoadDevices` / `SaveDevices`
 
@@ -63,7 +63,6 @@
 | 超过 2^53 的整数精度边界与替代表示 | pending 02b plan approval |
 | 设备列表与快照属性的返回顺序 | pending 02b plan approval |
 | `Close` 后各方法的错误语义与幂等性 | pending 02b plan approval |
-| `LastSeq` 与记录存在性相互独立的水位语义 | pending 02b plan approval |
 | `SaveSnapshot` 传入空切片时表示“空快照”还是“无操作” | pending 02b plan approval |
 | 空设备标识的前置条件与错误 | pending 02b plan approval |
 | 损坏记录的处理策略 | pending 02b plan approval |

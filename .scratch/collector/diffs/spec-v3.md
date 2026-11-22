@@ -127,7 +127,17 @@ spec-status: ok
 
 GitHub PR #10 的 `ci` 与 `gitleaks` 均通过。
 
-## 4. 已知未完成项
+## 4. 评审决策
+
+| 决策 | 选择 | 说明 |
+|---|---|---|
+| 1. 5044 语义范围 | A | 扩展 `EXT-CODE-01` 的 5044 为“未获得有效响应（含超时无响应、设备内部错误异常码）”；spec 表格不变 |
+| 2. `cmd_dropped{reason=superseded}` | A | 行为规则写入 `REQ-QUEUE-02`：只在确实撤销未下发条目或超限放弃入队时记录；理由留在 ADR-0005 |
+| 3. 上行去重窗口 1024 | C | 保留为固定软件常量（非硬件 ASSUMED）；A 需改 `internal/config` 与测试，超出本 PR 范围，另开 `spec-delta` + 实现 ticket；B 会误用硬件缺口台账 |
+| 4. 指标标签取值 | A | `result` ∈ {ok, fail, timeout}；`collector_link_ok` 取 0 或 1 |
+| 5. `LastSeq` pending 行 | A | 删除 pending 行；`STORE-LASTSEQ-01` 明确水位独立于记录存在性 |
+
+## 5. 已知未完成项
 
 - `docs/spec/spec.md` 仍为 `Status: proposed`；需用户单独批准 spec/contracts 内容后，再提交 `Status: accepted`。
 - 02b 仍 `on-hold`；A/B 未拍板；解冻必须先合并 `spec-delta/02b-store`。
