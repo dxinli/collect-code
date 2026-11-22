@@ -10,7 +10,7 @@
 | 项 | 决策 |
 |---|---|
 | 写 main 的方式 | C1：bot 建 PR，checks 过后自动合并；不改 `main` 保护规则 |
-| bot 身份 | 专用 GitHub App（`contents: write`、`pull-requests: write`） |
+| bot 身份 | 专用 GitHub App（`contents: write`、`pull-requests: write`、`issues: write`） |
 | auto-merge | 开启 `allow_auto_merge`；required approvals 已是 0 |
 | `done` 门禁 | `feat/*` 分支写 `done` 直接 CI 失败；只有 `chore/tickets-sync-*` 豁免 |
 
@@ -81,7 +81,7 @@ make hooks                       # 启用 .githooks/pre-commit
 | 文件 | 作用 |
 |---|---|
 | `tools/ticketgraph/*` | Go 工具：parse / graph / render / resolve / guard / complete |
-| `.scratch/collector/ticket-dependency.html` | 生成物，文件头标记 `GENERATED` |
+| `.scratch/collector/ticket-dependency.html` | 生成物，`<meta name="generator" content="tools/ticketgraph">` |
 | `Makefile` | `tickets`、`tickets-check`、`tickets-guard`、`tickets-accept`、`tickets-ci`、`hooks` |
 | `.github/workflows/ci.yml` | 加 `tickets-check` / `tickets-guard`；`.scratch/`-only PR 走快速路径 |
 | `.github/workflows/tickets-sync.yml` | 合并后 / `/accept` / dispatch 的确定性同步 |
@@ -131,10 +131,10 @@ ticketgraph guard     --dir .scratch/collector --event "$GITHUB_EVENT_PATH"
 
 ## 8. 一次性设置（用户操作）
 
-1. 创建 GitHub App `collect-code-tickets-bot`，权限 `Contents: Read and write`、`Pull requests: Read and write`、`Metadata: Read`；只安装到 `dxinli/collect-code`；不启用 webhook。
+1. 创建 GitHub App `collect-code-tickets-bot`，权限 `Contents: Read and write`、`Pull requests: Read and write`、`Issues: Read and write`、`Metadata: Read`；只安装到 `dxinli/collect-code`；不启用 webhook。
 2. 生成 private key；在 Actions secrets 添加 `TICKETS_APP_ID`、`TICKETS_APP_PRIVATE_KEY`。
 3. Settings → General → Pull requests → 开启 **Allow auto-merge**。
-4. 创建 label `tickets-sync`（workflow 也会在缺失时创建）。
+4. 创建 label `tickets-sync`（workflow 缺失时会用 `gh label create --force` 补建）。
 
 ## 9. 回填与验收
 

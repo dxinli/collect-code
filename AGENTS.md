@@ -33,7 +33,7 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 3. 普通 feature branch **不修改** `docs/spec/**`、`docs/contracts/**`、`VERSION`、`CHANGELOG`。
 4. 规范变更另开 `spec-delta/<topic>` 分支；该 PR 只改规范包与版本/变更记录，代码与测试随后单独提交并引用 `REQ-*` / 合同锚点。
 5. 计划评审前、开始实现前、提交 PR 前，运行 `make spec-status`；分支落后或规范包改动未带版本时必须先处理。
-6. PR 描述填写 `Spec-Version`、`Spec-Impact`、`REQ` 三项。
+6. PR 描述填写 `Spec-Version`、`Spec-Impact`、`REQ` 三项；ticket PR 另填 `Ticket:`（多个用逗号分隔）。
 7. 引用规范使用 `REQ-*`，引用合同使用合同锚点；不要用 `spec §N` 作为跨文档指针。历史文档中的旧引用保留并标 `(historical)`。
 8. 本文件只记录流程与硬约束，不复制规范正文；行为与格式以 spec/contracts 为准。
 
@@ -48,6 +48,9 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 5. **计划提交**：计划文档每个阶段均需要单独提交（`plan: ...`），不要混在一个提交。
 6. 未通过计划评审前：不写实现、不提交实现、不标 `done`、不开始下一个 ticket。
 7. **实现**：`/implement`（其他代理按计划实现）过程中，按照功能点分多次提交。
+8. **状态两阶段**：PR 阶段把 ticket 置为 `in-review`；`done` 只能由合并后的 `tickets-sync` bot 写入。`feat/*` 分支写 `done` 会被 `tickets-guard` 拒绝。
+9. **依赖图**：修改 `.scratch/collector/issues/*.md` 后必须运行 `make tickets` 重新生成 `ticket-dependency.html`；其他 feature 用 `TICKET_DIR=.scratch/<feature>`。`make tickets-check` 在 CI 中校验，`make hooks` 安装本地 pre-commit。
+10. **合并后**：合并会触发 `tickets-sync`，自动把 ticket 标为 `done`、重生成依赖图、创建并自动合并 `chore/tickets-sync-*` PR。需要重试时，在已合并 PR 评论 `/accept <ticket>`，或手动运行 `Ticket Sync` workflow。
 
 实现过程中若发现计划需要改变规则/范围/输出契约，停止实现，回到第 1–4 步重新评审；不得用“实现中发现”代替用户评审。
 
