@@ -86,6 +86,8 @@ type Store struct {
 	closed bool
 }
 
+var _ interfaces.Store = (*Store)(nil)
+
 // Open opens or creates the state database at path with a 5s lock timeout.
 // It creates the parent directory with mode 0750 when it is missing.
 func Open(path string) (*Store, error) {
