@@ -77,7 +77,7 @@ $ for f in $(git diff --name-only main...HEAD -- '.scratch/collector/issues/*.md
 (no output)
 ```
 
-未新增 `refs-migration-log` 或任何“旧编号 → 新锚点”的常驻映射层。历史引用只通过文件头显式标记或行内 `historical` 豁免；前向引用已改为 `REQ-*` / 合同锚点。
+未新增 `refs-migration-log` 或任何“旧编号 → 新锚点”的常驻映射层。历史 plans/tickets 使用显式 `spec-refs: historical-file` 文件头标记（必须在文件前 10 行内），因为直接改写验收或评论文本会违反 C3；非历史文件的裸引用按行检查，行内 `historical` 只豁免所在行。前向引用已改为 `REQ-*` / 合同锚点。
 
 **掩码 diff 结果**：比较时移除历史标记行与行内标记，并把 `spec §N`、`.scratch/collector/spec.md`、`docs/contracts/{store,simulator}.md` 归一为 `<REF>`。结果：
 
