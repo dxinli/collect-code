@@ -239,3 +239,188 @@ func encodeRecord(rec interfaces.Record) ([]byte, error) {
 	}
 	return value, nil
 }
+
+// BeginAccepted implements interfaces.Store.
+func (s *Store) BeginAccepted(ctx context.Context, rec interfaces.AcceptedRecord) error {
+	if err := checkCtx(ctx); err != nil {
+		return err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return errClosed
+	}
+
+	return s.db.Update(func(tx *bolt.Tx) error {
+		if err := checkCtx(ctx); err != nil {
+			return err
+		}
+		records := tx.Bucket(bucketRecords)
+		if records == nil {
+			return fmt.Errorf("bbolt store: missing %q bucket", bucketRecords)
+		}
+		rb, err := records.CreateBucketIfNotExists([]byte(rec.Device))
+		if err != nil {
+			return fmt.Errorf("bbolt store: create records bucket for %q: %w", rec.Device, err)
+		}
+		key := seqBE(rec.Seq)
+		if rb.Get(key) != nil {
+			return errAlreadyAccepted
+		}
+		value, err := encodeRecord(interfaces.Record{
+			Device:     rec.Device,
+			Seq:        rec.Seq,
+			ServiceID:  rec.ServiceID,
+			Phase:      interfaces.PhaseAccepted,
+			AcceptedAt: rec.At,
+		})
+		if err != nil {
+			return err
+		}
+		if err := rb.Put(key, value); err != nil {
+			return fmt.Errorf("bbolt store: write accepted record: %w", err)
+		}
+
+		watermarks := tx.Bucket(bucketLastSeq)
+		if watermarks == nil {
+			return fmt.Errorf("bbolt store: missing %q bucket", bucketLastSeq)
+		}
+		current, err := readWatermark(watermarks, rec.Device)
+		if err != nil {
+			return err
+		}
+		if rec.Seq > current {
+			if err := watermarks.Put([]byte(rec.Device), seqBE(rec.Seq)); err != nil {
+				return fmt.Errorf("bbolt store: write last_seq: %w", err)
+			}
+		}
+		return nil
+	})
+}
+
+// Finish implements interfaces.Store.
+func (s *Store) Finish(ctx context.Context, rec interfaces.FinalRecord) error {
+	if err := checkCtx(ctx); err != nil {
+		return err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return errClosed
+	}
+
+	return s.db.Update(func(tx *bolt.Tx) error {
+		if err := checkCtx(ctx); err != nil {
+			return err
+		}
+		records := tx.Bucket(bucketRecords)
+		if records == nil {
+			return errRecordNotFound
+		}
+		rb := records.Bucket([]byte(rec.Device))
+		if rb == nil {
+			return errRecordNotFound
+		}
+		key := seqBE(rec.Seq)
+		raw := rb.Get(key)
+		if raw == nil {
+			return errRecordNotFound
+		}
+		stored, err := decodeRecord(raw)
+		if err != nil {
+			return err
+		}
+		if stored.Phase == interfaces.PhaseFinal {
+			return errAlreadyFinal
+		}
+		stored.Phase = interfaces.PhaseFinal
+		stored.FinalAt = rec.At
+		stored.Code = rec.Code
+		stored.Msg = rec.Msg
+		stored.Data = rec.Data
+		value, err := encodeRecord(stored)
+		if err != nil {
+			return err
+		}
+		if err := rb.Put(key, value); err != nil {
+			return fmt.Errorf("bbolt store: write final record: %w", err)
+		}
+		return nil
+	})
+}
+
+// Lookup implements interfaces.Store.
+func (s *Store) Lookup(ctx context.Context, device string, seq uint64) (interfaces.Record, bool, error) {
+	if err := checkCtx(ctx); err != nil {
+		return interfaces.Record{}, false, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return interfaces.Record{}, false, errClosed
+	}
+
+	var rec interfaces.Record
+	var found bool
+	err := s.db.View(func(tx *bolt.Tx) error {
+		if err := checkCtx(ctx); err != nil {
+			return err
+		}
+		records := tx.Bucket(bucketRecords)
+		if records == nil {
+			return fmt.Errorf("bbolt store: missing %q bucket", bucketRecords)
+		}
+		rb := records.Bucket([]byte(device))
+		if rb == nil {
+			return nil
+		}
+		raw := rb.Get(seqBE(seq))
+		if raw == nil {
+			return nil
+		}
+		decoded, err := decodeRecord(raw)
+		if err != nil {
+			return err
+		}
+		rec = decoded
+		found = true
+		return nil
+	})
+	if err != nil {
+		return interfaces.Record{}, false, err
+	}
+	return rec, found, nil
+}
+
+// LastSeq implements interfaces.Store.
+func (s *Store) LastSeq(ctx context.Context, device string) (uint64, error) {
+	if err := checkCtx(ctx); err != nil {
+		return 0, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return 0, errClosed
+	}
+
+	var watermark uint64
+	err := s.db.View(func(tx *bolt.Tx) error {
+		if err := checkCtx(ctx); err != nil {
+			return err
+		}
+		watermarks := tx.Bucket(bucketLastSeq)
+		if watermarks == nil {
+			return fmt.Errorf("bbolt store: missing %q bucket", bucketLastSeq)
+		}
+		value, err := readWatermark(watermarks, device)
+		if err != nil {
+			return err
+		}
+		watermark = value
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return watermark, nil
+}
