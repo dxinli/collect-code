@@ -1,6 +1,6 @@
 # Spec v3.0.0：采集引擎行为契约
 
-- Status: proposed
+- Status: accepted
 - Version: 3.0.0
 - Supersedes: v2-draft（tag `spec-v2-draft`）
 - Normative: §1–§9

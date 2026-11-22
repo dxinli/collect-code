@@ -689,7 +689,7 @@ git show spec-v2-draft:.scratch/collector/spec.md
 
 - [x] `make ci` 全绿（含 `spec-check` 与 `spec-status`）。
 - [x] 第二轮复审 Blocker 与实施评审 B1–B10 已逐条处理（见 `.scratch/collector/diffs/spec-v3.md`）。
-- [ ] spec 内容经用户单独批准。
+- [x] spec 内容经用户单独批准（2026-11-23）。
 - [x] 用户明确“计划评审通过”后才实现。
 
 ---

@@ -91,7 +91,7 @@ $ for f in $(git diff --name-only main...HEAD -- '.scratch/collector/issues/*.md
 
 ## 3. 规范包与 CI 证据
 
-- `docs/spec/VERSION` = `3.0.0`；`docs/spec/spec.md` 为 `Status: proposed`。
+- `docs/spec/VERSION` = `3.0.0`；`docs/spec/spec.md` 已于 2026-11-23 经用户评审批准，`Status: accepted`。
 - tag `spec-v2-draft` 已推送；`make spec-archive` 可读取旧规范。
 - `spec-check.sh` 六项：lint、version、contracts、traceability、refs、links。
 - `spec-status.sh` 已接入 `make ci`：
@@ -146,7 +146,6 @@ GitHub PR #10 的 `ci` 与 `gitleaks` 均通过。
 
 ## 5. 已知未完成项
 
-- `docs/spec/spec.md` 仍为 `Status: proposed`；需用户单独批准 spec/contracts 内容后，再提交 `Status: accepted`。
 - 02b 仍 `on-hold`；A/B 未拍板；解冻必须先合并 `spec-delta/02b-store`。
 - `docs/traceability.md` 中大量条目仍是 `planned(ticket)`；对应实现落地后才改为 `covered`。
 - 06b 的实现与 ticket 验收未改；只迁移了契约归属与前向引用。
