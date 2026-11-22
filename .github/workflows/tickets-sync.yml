@@ -1,0 +1,257 @@
+name: Ticket Sync
+
+on:
+  pull_request_target:
+    types: [closed]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      ticket:
+        description: "Ticket ID(s), e.g. 02b or 01a,01b,01c"
+        required: false
+      pr:
+        description: "Optional merged PR number for the report"
+        required: false
+      dry_run:
+        description: "Print the diff only"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: tickets-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: |
+      (github.event_name == 'pull_request_target' &&
+        github.event.pull_request.merged == true &&
+        !startsWith(github.event.pull_request.head.ref, 'chore/tickets-sync-') &&
+        !contains(github.event.pull_request.labels.*.name, 'tickets-sync')) ||
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != null &&
+        contains(github.event.comment.body, '/accept') &&
+        !contains(github.event.issue.labels.*.name, 'tickets-sync') &&
+        (github.event.comment.author_association == 'OWNER' ||
+         github.event.comment.author_association == 'MEMBER' ||
+         github.event.comment.author_association == 'COLLABORATOR')) ||
+      github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Create GitHub App token
+        id: app
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.TICKETS_APP_ID }}
+          private-key: ${{ secrets.TICKETS_APP_PRIVATE_KEY }}
+          permissions: "contents: write,pull-requests: write,issues: write"
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.4"
+          cache: true
+
+      - name: Resolve PR and tickets
+        id: resolve
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pr }}
+          COMMENT_BODY: ${{ github.event.comment.body || '' }}
+          INPUT_TICKET: ${{ inputs.ticket || '' }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run || false }}
+        run: |
+          set -euo pipefail
+          echo "pr=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$INPUT_DRY_RUN" >> "$GITHUB_OUTPUT"
+
+          ticket_spec="$INPUT_TICKET"
+          branch=""
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            arg="$(printf '%s\n' "$COMMENT_BODY" | awk '$1=="/accept"{print $2; exit}')"
+            [ -n "$arg" ] && ticket_spec="$arg"
+          fi
+
+          if [ -n "$PR_NUMBER" ]; then
+            state="$(gh pr view "$PR_NUMBER" --json state -q .state)"
+            if [ "$state" != "MERGED" ]; then
+              gh pr comment "$PR_NUMBER" --body "tickets-sync: done 只能在合并后写；请先合并 PR。"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            branch="$(gh pr view "$PR_NUMBER" --json headRefName -q .headRefName)"
+          fi
+
+          if [ -z "$ticket_spec" ] && [ -n "$PR_NUMBER" ]; then
+            gh pr view "$PR_NUMBER" --json body -q .body > /tmp/pr-body.md
+            labels="$(gh pr view "$PR_NUMBER" --json labels -q '[.labels[].name] | join(",")')"
+            ticket_spec="$(GOFLAGS= go run ./tools/ticketgraph resolve --branch "$branch" --body-file /tmp/pr-body.md --labels "$labels")"
+          fi
+
+          if [ -z "$ticket_spec" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            case "$branch" in
+              feat/*)
+                gh pr comment "$PR_NUMBER" --body "tickets-sync: 没有识别到 ticket；跳过。请使用 /accept <ticket>，或在 PR 里填写 **Ticket:**。" ;;
+              *) echo "no ticket mapping; skipped" ;;
+            esac
+            exit 0
+          fi
+
+          echo "tickets=$ticket_spec" >> "$GITHUB_OUTPUT"
+          echo "resolved tickets: $ticket_spec"
+
+      - name: Complete tickets and regenerate
+        id: complete
+        if: steps.resolve.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          TICKETS: ${{ steps.resolve.outputs.tickets }}
+          PR_NUMBER: ${{ steps.resolve.outputs.pr }}
+        run: |
+          set -euo pipefail
+          pr_arg=()
+          [ -n "$PR_NUMBER" ] && pr_arg=(--pr "$PR_NUMBER")
+          result="$(GOFLAGS= go run ./tools/ticketgraph complete \
+            --dir .scratch/collector --ticket "$TICKETS" "${pr_arg[@]}" --json)"
+          printf '%s\n' "$result"
+          updated="$(printf '%s' "$result" | jq -r '.updated | join(",")')"
+          skipped="$(printf '%s' "$result" | jq -r '.skipped | map(.id + " (" + .reason + ")") | join(", ")')"
+          newly_ready="$(printf '%s' "$result" | jq -r '.newly_ready | join(", ")')"
+          echo "updated=$updated" >> "$GITHUB_OUTPUT"
+          echo "skipped=$skipped" >> "$GITHUB_OUTPUT"
+          echo "newly_ready=$newly_ready" >> "$GITHUB_OUTPUT"
+          GOFLAGS= go run ./tools/ticketgraph render --dir .scratch/collector
+
+          if [ -z "$updated" ]; then
+            if [ -n "$PR_NUMBER" ]; then
+              gh pr comment "$PR_NUMBER" --body "tickets-sync: 没有更新（${skipped:-nothing to do}）。"
+            fi
+          fi
+
+      - name: Create sync PR and enable auto-merge
+        id: syncpr
+        if: steps.resolve.outputs.skip != 'true' && steps.complete.outputs.updated != ''
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          APP_TOKEN: ${{ steps.app.outputs.token }}
+          APP_ID: ${{ secrets.TICKETS_APP_ID }}
+          TICKETS: ${{ steps.complete.outputs.updated }}
+          PR_NUMBER: ${{ steps.resolve.outputs.pr }}
+          DRY_RUN: ${{ steps.resolve.outputs.dry_run }}
+          NEWLY_READY: ${{ steps.complete.outputs.newly_ready }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "no file changes"
+            exit 0
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            git diff
+            echo "dry-run: no PR created"
+            exit 0
+          fi
+
+          if [ -n "$PR_NUMBER" ]; then suffix="after #${PR_NUMBER}"; else suffix="manual"; fi
+          spec_version="$(tr -d '[:space:]' < docs/spec/VERSION)"
+          branch="chore/tickets-sync-${GITHUB_RUN_ID}"
+
+          git config user.name "collect-code-tickets-bot[bot]"
+          git config user.email "${APP_ID}+collect-code-tickets-bot[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add .scratch
+          git commit -m "chore(tickets): mark ${TICKETS} done ${suffix}"
+          git push "https://x-access-token:${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${branch}"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+          cat > /tmp/sync-pr.md <<EOF
+          ## Spec
+
+          - **Spec-Version:** ${spec_version}
+          - **Spec-Impact:** none
+          - **REQ:** none
+          - **Ticket:** ${TICKETS}
+
+          ## Summary
+
+          Post-merge bookkeeping for ${suffix}.
+
+          - ${TICKETS} -> done
+          - regenerated .scratch/collector/ticket-dependency.html
+          - newly ready: ${NEWLY_READY:-none}
+
+          ## Evidence
+
+          - **Before:** ${TICKETS} in-review (or earlier state)
+            **After:** done on main after this PR
+
+          ## Merge Danger
+
+          **Door:** two-way
+
+          **Blast Radius:** tickets
+          EOF
+
+          url="$(gh pr create --base main --head "$branch" --title "chore(tickets): mark ${TICKETS} done ${suffix}" --body-file /tmp/sync-pr.md)"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          gh label create tickets-sync --color 0E8A16 --description "ticket-sync bot PR" --force
+          gh pr edit "$url" --add-label tickets-sync
+          gh pr merge "$url" --auto --squash --delete-branch
+
+      - name: Wait for sync PR merge
+        if: steps.syncpr.outputs.url != ''
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PR_URL: ${{ steps.syncpr.outputs.url }}
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 120); do
+            state="$(gh pr view "$PR_URL" --json state -q .state)"
+            case "$state" in
+              MERGED) echo "sync PR merged"; exit 0 ;;
+              CLOSED) echo "sync PR closed without merge" >&2; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "timed out waiting for the sync PR to merge" >&2
+          exit 1
+
+      - name: Comment on the original PR
+        if: steps.syncpr.outputs.url != '' && steps.resolve.outputs.pr != ''
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PR_NUMBER: ${{ steps.resolve.outputs.pr }}
+          SYNC_URL: ${{ steps.syncpr.outputs.url }}
+          UPDATED: ${{ steps.complete.outputs.updated }}
+          NEWLY_READY: ${{ steps.complete.outputs.newly_ready }}
+        run: |
+          body="tickets-sync: ${UPDATED} -> done. Sync PR: ${SYNC_URL}"
+          if [ -n "$NEWLY_READY" ]; then
+            body="${body}
+          newly ready: ${NEWLY_READY}"
+          fi
+          gh pr comment "$PR_NUMBER" --body "$body"
+
+      - name: Report failure
+        if: failure() && steps.resolve.outputs.pr != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.resolve.outputs.pr }}
+        run: |
+          gh pr comment "$PR_NUMBER" --body "tickets-sync failed. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
