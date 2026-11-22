@@ -70,3 +70,14 @@
 - **sqlite**：Go 绑定依赖 cgo，与 `CGO_ENABLED=0` 静态编译冲突（AGENTS.md 硬约束）。
 - **Modbus 也做「至少一次重发」**：在写入语义未确认前有物理风险。
 - **不限队列的 LoRa 重发**：Class A 离线时队列塞满，设备上线先执行最旧指令。
+
+## Amendment（2026-11-22）
+
+本 ADR 记录决策与理由；**规范正文**已迁移为：
+
+- 至多一次受理、两阶段状态、分级确认：[`REQ-INVOKE-01..05`](../spec/spec.md)
+- 队列合并与缓存：[`REQ-QUEUE-01..03`、`REQ-CACHE-01..02`](../spec/spec.md)
+- Store 规范语义：[`docs/contracts/store.md`](../contracts/store.md)
+- 外部 code / seq / stage：[`docs/contracts/external.md`](../contracts/external.md)
+
+决策 4a 中的接口片段是当时的七个方法。当前冻结签名以 `internal/interfaces/store.go` 为准（已含 `LoadSnapshot`、`SaveSnapshot`、`DeleteExpired` 与 `Close`）；bbolt 实现位于 `internal/store/bbolt`，不在 `internal/core/store`。本文不改写，以避免历史被追溯性修改。
