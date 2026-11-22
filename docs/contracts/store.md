@@ -23,6 +23,7 @@
 - 未知键返回 `found=false` 与 nil 错误。
 - 已知键返回完整记录；调用方据 `phase` 区分“受理未完成”与“已有终态”。
 - `phase=accepted` 表示终态未知；重启后对这类键必须回 `4004`，不得重放。
+- 记录损坏时按“损坏记录”节返回错误，不得当作正常记录返回。
 
 ## STORE-LASTSEQ-01 `LastSeq`
 
@@ -32,7 +33,7 @@
 
 ## STORE-DEVICES-01 `LoadDevices` / `SaveDevices`
 
-- `LoadDevices` 在空库返回空切片与 nil 错误。
+- `LoadDevices` 在空库返回空切片与 nil 错误；返回顺序不作保证，调用方不得依赖顺序。
 - `SaveDevices` 按设备 upsert；不得删除未出现在入参中的设备。设备移除由内核的状态协调逻辑负责。
 - `SaveDevices` 只更新设备状态记录，不得推进或修改幂等水位；`DeviceState.LastSeq` 与 `Store.LastSeq` 是两份数据，其一致性由内核协调，Store 不做隐式同步。
 - 持久化的设备状态至少包含在线状态、最后成功时间、最后 `seq` 与更新时间。
@@ -40,6 +41,9 @@
 ## STORE-SNAPSHOT-01 `LoadSnapshot` / `SaveSnapshot`
 
 - `LoadSnapshot` 对未知设备返回 `found=false`；对已知设备返回属性副本，调用方修改返回值不得影响存储。
+- `LoadSnapshot` 保留保存时的属性顺序。
+- `Property.Quality` 是不透明字符串；Store 不校验、不转换，原样往返。
+- `SaveSnapshot(nil)` 等价于保存空快照；随后 `LoadSnapshot` 返回 `found=true` 与非 nil 空切片，而不是 `found=false`。
 - `SaveSnapshot` 必须原子替换单个设备的快照；不得让读者看到半更新的快照。
 - 快照只保留每设备最新值，不保留历史序列。
 
@@ -51,21 +55,25 @@
 
 ## STORE-CLOSE-01 `Close`
 
-- 关闭后资源必须释放；再次关闭的语义以冻结合同测试为准。
-- 进行中的调用在关闭后的行为必须在 02b 批准后固定，调用方不得提前依赖未批准语义。
+- `Close` 必须幂等：首次成功后，再次 `Close` 返回 nil。
+- `Close` 之后，所有带 ctx 的方法必须返回 `ErrClosed`，不得再访问底层 DB 或内部数据。
+- `Close` 与在途调用并发时不得 panic 或死锁；实现必须用锁保护关闭状态。
 
-## 02b 待批准语义（pending）
+## 持久化值语义
 
-以下条目属于 02b 实现补充，**尚未批准**。在 `spec-delta/02b-store` 合并前，调用方不得依赖这些行为；本文件也不在其中选择方案。
+- `Data` 与 `Property.Value` 经 JSON 语义往返：数字解码为 `float64`；`nil` 保持 `nil`；嵌套对象/数组为 `map[string]any`/`[]any`；`Data` 内的 `time.Time` 变为 RFC3339 字符串。
+- 时间型字段（`AcceptedAt`、`FinalAt`、`LastSuccessAt`、`UpdatedAt`、`At`）按时刻比较；零值 `time.Time{}` 可往返。
+- 调用方不得用 `reflect.DeepEqual` 或 `==` 比较往返后的值；必须按 JSON 语义或时刻比较。
+- 绝对值超过 `2^53` 的整数经 `any` 往返会丢精度；需要在 `Data`/`Value` 中保留大整数时必须先转为字符串。
 
-| 条目 | 状态 |
-|---|---|
-| JSON 往返语义：持久化值经过 JSON 语义，整数可能变为浮点数；时间按时刻比较；禁止用 `reflect.DeepEqual` 或 `==` 比较往返结果 | pending 02b plan approval |
-| 超过 2^53 的整数精度边界与替代表示 | pending 02b plan approval |
-| 设备列表与快照属性的返回顺序 | pending 02b plan approval |
-| `Close` 后各方法的错误语义与幂等性 | pending 02b plan approval |
-| `SaveSnapshot` 传入空切片时表示“空快照”还是“无操作” | pending 02b plan approval |
-| 空设备标识的前置条件与错误 | pending 02b plan approval |
-| 损坏记录的处理策略 | pending 02b plan approval |
+## 输入前置条件
 
-02b 的解冻流程：用户先对 02b 计划中的未决选择拍板；从 main 开 `spec-delta/02b-store` 更新本文件与版本/变更记录；评审合并后，02b 才可继续实现。实现提交不得再修改本文件。02a/02b 计划是来源记录，不是新工作的必读权威。
+- `device` 必须非空；空 `device` 不在本合同范围内，Store 不承诺跨实现一致的错误。
+- `seq` 由云端分配；Store 不额外校验 `seq` 的业务单调性，只按 `(device, seq)` 存取。
+
+## 损坏记录
+
+- 无法按合同解码的记录、或 `phase` 不是 `accepted`/`final` 的记录，视为损坏。
+- 读取路径遇到损坏记录必须返回错误，不得当作正常记录返回。
+- `DeleteExpired` 遇到损坏记录必须使整个事务回滚，不得部分删除或跳过。
+- 内存实现没有公开路径产生损坏记录；其行为不作为跨实现一致性要求。

@@ -2,6 +2,18 @@
 
 本文件记录规范包（`docs/spec/spec.md` + `docs/contracts/**`）的版本变更。行为变更必须在此列出涉及的 `REQ-*` 与合同锚点；编辑性修订也必须升 patch 并记录。
 
+## 3.1.0 — 2026-11-23
+
+**类型**：minor（增补 Store 合同语义；不改接口签名与产品行为）。
+
+- 解析 02b 的三个未决项：`Close` 后行为、`SaveSnapshot(nil)`、`Quality`/`Phase` 读取校验，均采纳 A。
+- 明确 `STORE-CLOSE-01`：`Close` 幂等；Close 后带 ctx 方法返回 `ErrClosed`。
+- 明确 `STORE-SNAPSHOT-01`：`SaveSnapshot(nil)` 等价空快照；`Quality` 原样透传；保留属性顺序。
+- 明确持久化值语义：JSON 往返与精度边界。
+- 明确输入前置条件：`device` 非空；`seq` 不校验业务单调性。
+- 明确损坏记录：读取 fail-fast；`DeleteExpired` 回滚。
+- 移除 `docs/contracts/store.md` 的 02b pending 表；02b 解冻后可继续实现。
+
 ## 3.0.0 — 2026-11-22
 
 > 3.0.0 是当前规范包版本；评审修订折叠在本条目，发布后不再追加。
