@@ -215,6 +215,7 @@ docs/spec/spec.md
    REQ-SCHED-02       单设备 deadline、missed_tick
    REQ-SCHED-03       链路内串行、互不拖死
    REQ-SCHED-04       设备采集周期/链路 tick/节点上报周期关系
+   REQ-UPLINK-01      ChirpStack 上行去重（deduplicationId / devEui+fCnt，内存窗口 1024）
 4. 服务调用语义
    REQ-INVOKE-01      (device, seq) 至多一次受理
    REQ-INVOKE-02      两阶段 accepted→final；终态未知 4004
@@ -268,7 +269,7 @@ docs/spec/spec.md
 | `spec.md:324-455` §3 接口 | Go 签名、Clock/Store 缝隙 | `internal/interfaces`；语义 → `REQ-TIME-01`、`REQ-SEAM-01/02` |
 | `spec.md:456-546` §4 报文 | Topic/JSON/code/事件 | `external.md`；事件语义 → `REQ-EVENT-*` |
 | `spec.md:547-564` §5.1 质量 | 真值表 | `REQ-QUALITY-01..05` |
-| `spec.md:565-581` §5 可靠性 | 幂等/重试/队列/缓存 | `REQ-INVOKE-*`、`REQ-QUEUE-*`、`REQ-CACHE-*`；理由 → ADR |
+| `spec.md:565-581` §5 可靠性 | 幂等/重试/队列/缓存/上行去重 | `REQ-INVOKE-*`、`REQ-QUEUE-*`、`REQ-CACHE-*`、`REQ-UPLINK-01`；理由 → ADR |
 | `spec.md:582-592` §5.2 健康 | 端点/指标 | `REQ-OPS-02` |
 | `spec.md:593-602` §6 子命令 | run/config-check/simulate/... | `REQ-CLI-01` |
 | `spec.md:604-619` §7 模拟器 | 能力要求、端点 | `simulator.md`；能力 → `REQ-SIM-01` |
