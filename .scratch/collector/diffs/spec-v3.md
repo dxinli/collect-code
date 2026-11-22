@@ -79,6 +79,14 @@ $ for f in $(git diff --name-only main...HEAD -- '.scratch/collector/issues/*.md
 
 未新增 `refs-migration-log` 或任何“旧编号 → 新锚点”的常驻映射层。历史引用只通过文件头显式标记或行内 `historical` 豁免；前向引用已改为 `REQ-*` / 合同锚点。
 
+**掩码 diff 结果**：比较时移除历史标记行与行内标记，并把 `spec §N`、`.scratch/collector/spec.md`、`docs/contracts/{store,simulator}.md` 归一为 `<REF>`。结果：
+
+- `plans/01b.md`、`plans/01c.md`、`plans/02a.md`、`diffs/06b.md`、`issues/01b`、`issues/01c`、`issues/06b`：无差异（仅历史标记）。
+- `plans/02b.md`、`issues/02b`：差异集中在 `spec §3` → `store` 合同、解冻流程与 `docs/testing.md` 指向；A/B 选择未变。
+- `plans/06b.md`：差异集中在引用目标改为 `simulator` 合同 / `REQ-OPS-02`；实现事实与计划决定未变。
+
+没有发现状态、验收、提交哈希或计划决策的语义变化。
+
 ## 3. 规范包与 CI 证据
 
 - `docs/spec/VERSION` = `3.0.0`；`docs/spec/spec.md` 为 `Status: proposed`。
