@@ -1153,21 +1153,21 @@ func testCloseWhileWritesInFlight(t *testing.T, h Harness) {
 					if errors.Is(err, interfaces.ErrClosed) {
 						return
 					}
-					errCh <- fmt.Errorf("BeginAccepted: %w", err)
+					errCh <- fmt.Errorf("beginAccepted: %w", err)
 					return
 				}
 				if err := st.Finish(ctx(), interfaces.FinalRecord{Device: device, Seq: seq, Code: 200, At: baseTime}); err != nil {
 					if errors.Is(err, interfaces.ErrClosed) {
 						return
 					}
-					errCh <- fmt.Errorf("Finish: %w", err)
+					errCh <- fmt.Errorf("finish: %w", err)
 					return
 				}
 				if _, _, err := st.Lookup(ctx(), device, seq); err != nil {
 					if errors.Is(err, interfaces.ErrClosed) {
 						return
 					}
-					errCh <- fmt.Errorf("Lookup: %w", err)
+					errCh <- fmt.Errorf("lookup: %w", err)
 					return
 				}
 			}
