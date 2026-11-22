@@ -25,6 +25,12 @@ done
 check_root() {
 	local root="$1" forbidden="$2"
 	[ -d "$root" ] || return 0
+	local pkgs
+	if ! pkgs="$(go list ./"$root"/... 2>/dev/null)"; then
+		echo "FAIL: go list ./$root/... failed" >&2
+		fail=1
+		return
+	fi
 	while IFS= read -r pkg; do
 		[ -n "$pkg" ] || continue
 		local deps hits
@@ -39,7 +45,7 @@ check_root() {
 			printf '%s\n' "$hits" >&2
 			fail=1
 		fi
-	done < <(go list ./"$root"/... 2>/dev/null || true)
+	done <<< "$pkgs"
 }
 
 # check_store_root inspects direct imports, not the transitive closure:
@@ -51,12 +57,15 @@ check_root() {
 check_store_root() {
 	local root="$1" allow_bbolt="$2"
 	[ -d "$root" ] || return 0
-	local pkgs
-	if ! pkgs="$(go list ./"$root"/... 2>&1)"; then
-		echo "FAIL: go list ./$root/... failed: $pkgs" >&2
+	local pkgs errfile
+	errfile="$(mktemp)"
+	if ! pkgs="$(go list ./"$root"/... 2>"$errfile")"; then
+		echo "FAIL: go list ./$root/... failed: $(tr '\n' ' ' <"$errfile")" >&2
+		rm -f "$errfile"
 		fail=1
 		return
 	fi
+	rm -f "$errfile"
 	while IFS= read -r pkg; do
 		[ -n "$pkg" ] || continue
 		local imports bad bad_external
