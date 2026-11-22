@@ -4,6 +4,8 @@
 
 ## 3.0.0 — 2026-11-22
 
+> 3.0.0 尚未合并或发布；评审修订折叠在本条目，合并后不再追加。
+
 **类型**：major（规范结构重写；行为不变）。
 
 - 以 `docs/spec/spec.md` 取代 `.scratch/collector/spec.md` 的 v2-draft；旧内容冻结于 tag `spec-v2-draft`。

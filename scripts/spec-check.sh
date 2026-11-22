@@ -185,7 +185,8 @@ spec_refs() {
     case "$f" in
       .scratch/collector/plans/spec-v3.md) continue ;;
     esac
-    if head -n 10 "$f" | grep -q 'spec-refs: historical-file'; then
+    if head -n 10 "$f" | grep -q 'spec-refs: historical-file' \
+      && head -n 10 "$f" | grep -q '历史文档'; then
       continue
     fi
     bad=$(awk 'BEGIN{f=0} /^```/{f=!f; next} !f{

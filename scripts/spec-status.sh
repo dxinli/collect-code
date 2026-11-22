@@ -49,12 +49,18 @@ if [ -n "$local_version" ] && [ -n "$base_version" ] && [ "$local_version" != "$
   fi
 fi
 
+case "$branch" in
+  spec-delta/*)
+    [ -z "$code_changed" ] || { echo "spec-status: FAIL: spec-delta must not change code: $code_changed" >&2; exit 1; }
+    [ -n "$spec_changed" ] || { echo "spec-status: FAIL: spec-delta must change docs/spec or docs/contracts" >&2; exit 1; }
+    ;;
+esac
+
 if [ -n "$spec_changed" ]; then
   case "$branch" in
     spec-delta/*)
       echo "$changed" | grep -qx 'docs/spec/VERSION' || { echo "spec-status: FAIL: spec-delta must update docs/spec/VERSION" >&2; exit 1; }
       echo "$changed" | grep -qx 'docs/spec/CHANGELOG.md' || { echo "spec-status: FAIL: spec-delta must update docs/spec/CHANGELOG.md" >&2; exit 1; }
-      [ -z "$code_changed" ] || { echo "spec-status: FAIL: spec-delta must not change code: $code_changed" >&2; exit 1; }
       if [ "$has_base_version" -eq 1 ]; then
         if [ "$(git show "$base:docs/spec/VERSION" | tr -d '[:space:]')" = "$(tr -d '[:space:]' < docs/spec/VERSION)" ]; then
           echo "spec-status: FAIL: spec-delta changed the package but VERSION did not" >&2

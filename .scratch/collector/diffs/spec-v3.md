@@ -1,5 +1,7 @@
 # spec-v3 实施 diff 说明
 
+> **历史文档（historical）**：本文记录 v2→v3 的迁移证据；文中的 `spec §N` 与旧路径是冻结版本的历史引用。
+
 <!-- spec-refs: historical-file -->
 
 **范围**：`main@461121c` .. `docs/spec-v3`（spec 管理化方案落地）。
@@ -123,3 +125,4 @@ GitHub PR #10 的 `ci` 与 `gitleaks` 均通过。
 - 02b 仍 `on-hold`；A/B 未拍板；解冻必须先合并 `spec-delta/02b-store`。
 - `docs/traceability.md` 中大量条目仍是 `planned(ticket)`；对应实现落地后才改为 `covered`。
 - 06b 的实现与 ticket 验收未改；只迁移了契约归属与前向引用。
+- 合并后自测：从 main 开临时分支修改规范包，`make spec-status` 应 exit 2；`spec-delta/*` 夹带代码应 exit 1。本 PR 内已用 `SPEC_BASE=<含 VERSION 的提交>` 模拟过该路径。

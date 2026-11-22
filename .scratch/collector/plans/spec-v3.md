@@ -215,7 +215,6 @@ docs/spec/spec.md
    REQ-SCHED-02       单设备 deadline、missed_tick
    REQ-SCHED-03       链路内串行、互不拖死
    REQ-SCHED-04       设备采集周期/链路 tick/节点上报周期关系
-   REQ-UPLINK-01      ChirpStack 上行去重（deduplicationId / devEui+fCnt，内存窗口 1024）
 4. 服务调用语义
    REQ-INVOKE-01      (device, seq) 至多一次受理
    REQ-INVOKE-02      两阶段 accepted→final；终态未知 4004
@@ -232,6 +231,7 @@ docs/spec/spec.md
    REQ-EVENT-01       事件触发与去重语义（枚举表在 external.md）
    REQ-EVENT-02       episode 与 dedup_key
    REQ-EVENT-03       事件与属性两条通道
+   REQ-UPLINK-01      ChirpStack 上行去重（deduplicationId / devEui+fCnt，内存窗口 1024）
 7. 外部契约摘要
    链接 docs/contracts/external.md
 8. 运维与 CLI
@@ -720,3 +720,4 @@ git show spec-v2-draft:.scratch/collector/spec.md
 4. 02b 保持 `on-hold`；
 5. 06b worktree/branch 在启用门禁前退役（已完成：本地 worktree、本地分支与 `origin` 分支均已删除）；
 6. 所有实现提交经 PR，不直接 push main。
+7. 合并后自测：从 main 开临时分支修改规范包，`make spec-status` 应 exit 2；`spec-delta/*` 夹带代码应 exit 1。bootstrap PR 内用 `SPEC_BASE=<含 VERSION 的提交>` 模拟该路径。
