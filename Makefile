@@ -79,7 +79,7 @@ spec-archive:
 	./scripts/spec-archive.sh
 
 # Single entry point for local and CI: same checks, no drift.
-ci: check test-race lint spec-check
+ci: check test-race lint spec-check spec-status
 
 clean:
 	rm -rf $(DIST)

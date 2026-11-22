@@ -7,7 +7,8 @@
 **类型**：major（规范结构重写；行为不变）。
 
 - 以 `docs/spec/spec.md` 取代 `.scratch/collector/spec.md` 的 v2-draft；旧内容冻结于 tag `spec-v2-draft`。
-- 建立稳定 `REQ-*`：`REQ-SCOPE-01`、`REQ-TIME-01`、`REQ-SEAM-01..02`、`REQ-QUALITY-01..05`、`REQ-SCHED-01..04`、`REQ-INVOKE-01..05`、`REQ-QUEUE-01..03`、`REQ-CACHE-01..02`、`REQ-EVENT-01..03`、`REQ-OPS-01..03`、`REQ-CLI-01`、`REQ-SIM-01`。
+- 建立稳定 `REQ-*`：`REQ-SCOPE-01`、`REQ-TIME-01`、`REQ-SEAM-01..02`、`REQ-QUALITY-01..05`、`REQ-SCHED-01..04`、`REQ-UPLINK-01`、`REQ-INVOKE-01..05`、`REQ-QUEUE-01..03`、`REQ-CACHE-01..02`、`REQ-EVENT-01..03`、`REQ-OPS-01..03`、`REQ-CLI-01`、`REQ-SIM-01`。
+- 评审修订：补回 LoRaWAN 上行去重语义 `REQ-UPLINK-01`、LoRa 按上报窗口计时的语义，以及 `/metrics` 的固定指标名与标签。
 - 拆分合同：`docs/contracts/external.md`、`config.md`、`store.md`、`simulator.md`。
 - 拆分支撑文档：`docs/testing.md`、`docs/traceability.md`、`docs/architecture.md`。
 - 删除旧规范中的实现代码、配置样例、报文样例、决策编号、评审记录与 ticket 编号；这些事实分别归入代码、合同、ADR 与 tickets。

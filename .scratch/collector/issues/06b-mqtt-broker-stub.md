@@ -2,6 +2,8 @@
 
 > **历史文档（historical）**：文中的 spec 引用是 v2-draft 的历史记录；当前模拟器契约见 `docs/contracts/simulator.md`。
 
+<!-- spec-refs: historical-file -->
+
 **What to build:** 一条命令起可被真实二进制连接的假云端，并能注入下行。
 
 **Blocked by:** 01a

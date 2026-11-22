@@ -29,6 +29,29 @@ changed_files() {
   } | sed '/^$/d' | sort -u
 }
 
+# Expand range shorthands such as REQ-INVOKE-03/04 and REQ-QUALITY-02..04.
+expand_refs() {
+  while IFS= read -r tok; do
+    [ -n "$tok" ] || continue
+    case "$tok" in
+      REQ-*-[0-9][0-9]..[0-9][0-9]|REQ-*-[0-9][0-9]/[0-9][0-9])
+        prefix="${tok%..*}"
+        prefix="${prefix%/*}"
+        end="${tok##*..}"
+        end="${end##*/}"
+        base="${prefix%-*}"
+        start="${prefix##*-}"
+        s=$((10#$start))
+        e=$((10#$end))
+        for ((i=s; i<=e; i++)); do
+          printf '%s-%02d\n' "$base" "$i"
+        done
+        ;;
+      *) printf '%s\n' "$tok" ;;
+    esac
+  done | sort -u
+}
+
 spec_lint() {
   local spec=docs/spec/spec.md
   [ -f "$spec" ] || fail "missing $spec"
@@ -162,11 +185,13 @@ spec_refs() {
     case "$f" in
       .scratch/collector/plans/spec-v3.md) continue ;;
     esac
-    if grep -qE '[(（]historical[)）]' "$f"; then
+    if head -n 10 "$f" | grep -q 'spec-refs: historical-file'; then
       continue
     fi
-    bad=$(awk 'BEGIN{f=0} /^```/{f=!f; next} !f{print FNR": "$0}' "$f" \
-      | grep -E 'spec[[:space:]]*§|\.scratch/collector/spec\.md' || true)
+    bad=$(awk 'BEGIN{f=0} /^```/{f=!f; next} !f{
+      if (tolower($0) ~ /historical/ || tolower($0) ~ /policy-example/) next
+      if ($0 ~ /spec[[:space:]]*§/ || $0 ~ /\.scratch\/collector\/spec\.md/) print FNR": "$0
+    }' "$f" || true)
     [ -z "$bad" ] || fail "unmarked historical spec reference in $f:\n$bad"
   done < <(git -c core.quotePath=false ls-files '.scratch/collector/plans/*.md' '.scratch/collector/issues/*.md' '.scratch/collector/diffs/*.md' 'docs/代码走读/*.md')
 
@@ -175,8 +200,8 @@ spec_refs() {
     grep -oE 'REQ-[A-Z]+-[0-9]{2}' docs/spec/spec.md
     grep -rhoE '(EXT|STORE|SIM)-[A-Z0-9]+-[0-9]{2}|CFG-[A-Z0-9]+(-[0-9]{2})?' docs/contracts/*.md
   } | sort -u )
-  refs=$(grep -rhoE 'REQ-[A-Z]+-[0-9]{2}|(EXT|STORE|SIM)-[A-Z0-9]+-[0-9]{2}|CFG-[A-Z0-9]+(-[0-9]{2})?' \
-    .scratch/collector docs/代码走读 2>/dev/null | sort -u || true)
+  refs=$(grep -rhoE 'REQ-[A-Z]+-[0-9]{2}(\.\.|/)[0-9]{2}|REQ-[A-Z]+-[0-9]{2}|(EXT|STORE|SIM)-[A-Z0-9]+-[0-9]{2}|CFG-[A-Z0-9]+(-[0-9]{2})?' \
+    .scratch/collector docs/代码走读 2>/dev/null | expand_refs || true)
   while IFS= read -r id; do
     [ -n "$id" ] || continue
     grep -qx "$id" <<< "$defined" || fail "plan/ticket references unknown anchor $id"

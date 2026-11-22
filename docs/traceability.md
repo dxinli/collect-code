@@ -12,7 +12,7 @@ CI 只失败于“既无归属也无计划”的条目。实现 PR 落地测试�
 
 | ID | 状态 | 证据 / 承接 |
 |---|---|---|
-| REQ-SCOPE-01 | covered | `docs/产品定型.md` §1–§3、§9 |
+| REQ-SCOPE-01 | not-applicable | 产品范围由 `docs/产品定型.md` §1–§3、§9 定义，无可执行测试 |
 | REQ-TIME-01 | covered | 02a；`scripts/check-time.sh` |
 | REQ-SEAM-01 | covered | 02a；`scripts/check-deps.sh` |
 | REQ-SEAM-02 | planned(02b) | `internal/interfaces/store.go` 已冻结；bbolt 合同测试待 02b |
@@ -25,6 +25,7 @@ CI 只失败于“既无归属也无计划”的条目。实现 PR 落地测试�
 | REQ-SCHED-02 | planned(03a) | `03a-scheduler-phase` |
 | REQ-SCHED-03 | planned(03a) | `03a-scheduler-phase` |
 | REQ-SCHED-04 | planned(03a) | `03a-scheduler-phase` |
+| REQ-UPLINK-01 | planned(13) | `13-lorawan-uplink`；ChirpStack 去重标识与内存窗口 |
 | REQ-INVOKE-01 | planned(09) | `09-service-invocation` |
 | REQ-INVOKE-02 | planned(10) | `10-idempotency-terminal` |
 | REQ-INVOKE-03 | planned(14a) | `14a-lorawan-downlink-ab` |

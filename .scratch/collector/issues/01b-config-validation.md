@@ -2,6 +2,8 @@
 
 > **历史文档（historical）**：文中的 spec 引用是 v2-draft 的历史记录；当前行为规范见 `docs/spec/spec.md`，配置合同见 `docs/contracts/config.md`。
 
+<!-- spec-refs: historical-file -->
+
 **What to build:** 改错配置能立刻知道哪一行哪条规则错，并且不靠人读日志猜。
 
 **Blocked by:** 01a

@@ -2,7 +2,9 @@
 
 > **历史文档（historical）**：文中的 `spec §N` 是 v2-draft 的历史引用；当前行为规范见 `docs/spec/spec.md`，配置合同见 `docs/contracts/config.md`。
 
-**What to build:** 补齐四类“配置写得出来但运行期必坏”的语义检查；这些规则不在 spec §2 明写，01b 计划评审决定移出，单独成单。
+<!-- spec-refs: historical-file -->
+
+**What to build:** 补齐四类“配置写得出来但运行期必坏”的语义检查；这些规则不在 spec §2 明写，01b 计划评审决定移出，单独成单。 <!-- historical -->
 
 **Blocked by:** 01b
 
@@ -13,7 +15,7 @@
 - [x] `event.trigger.type == "point_changed"` 时，`trigger.point` 必须在 profile 点位集合中且可读；沿用 01b P1=A 的 `points ∪ payload.decode(读) ∪ payload.encode(写)` 口径
 - [x] `service.writes[].from` 必须形如 `params.<name>`，且 `<name>` 已在 `service.params` 声明
 - [x] 每条规则一个合法用例 + 一个非法用例；规则号从 V70 起，不占用 01b 的 V01–V63
-- [x] 更新 spec §2 校验规则；如摘要需要展示新字段，再更新摘要与 golden
+- [x] 更新 spec §2 校验规则；如摘要需要展示新字段，再更新摘要与 golden <!-- historical -->
 - [x] 不实现运行时行为；只做 `config-check` 校验
 
 ## Comments
