@@ -1,4 +1,4 @@
-# Spec v3.0.0：采集引擎行为契约
+# Spec：采集引擎行为契约
 
 - Status: accepted
 - Version: 3.1.0
