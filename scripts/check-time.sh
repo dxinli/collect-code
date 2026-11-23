@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Enforce ADR-0003 decision 5: kernel and driver code take time only from the
-# injected Clock, and business deadlines never use context.WithTimeout.
+# Enforce ADR-0003 decision 5: kernel, driver and channel code take time only
+# from the injected Clock, and business deadlines never use
+# context.WithTimeout/WithDeadline.
 set -u
 
-roots=(internal/core internal/drivers)
+roots=(internal/core internal/drivers internal/channels)
 pattern='\b(time\.(Now|Since|Until|NewTicker|NewTimer|Tick|After|AfterFunc|Sleep)|context\.(WithTimeout|WithDeadline))[[:space:]]*\('
 
 hits=""
@@ -21,14 +22,14 @@ alias_hits="$(grep -rnE --include='*.go' '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:
 
 if [ -n "$hits" ] || [ -n "$alias_hits" ]; then
 	if [ -n "$hits" ]; then
-		echo "direct time/context-deadline calls are forbidden in core/drivers:" >&2
+		echo "direct time/context-deadline calls are forbidden in core/drivers/channels:" >&2
 		printf '%s' "$hits" >&2
 	fi
 	if [ -n "$alias_hits" ]; then
-		echo "aliased time/context imports are forbidden in core/drivers:" >&2
+		echo "aliased time/context imports are forbidden in core/drivers/channels:" >&2
 		printf '%s\n' "$alias_hits" >&2
 	fi
 	exit 1
 fi
 
-echo "OK: no direct time or context deadline calls in core/drivers"
+echo "OK: no direct time or context deadline calls in core/drivers/channels"
