@@ -71,15 +71,6 @@ that contains `Closes #<issue>`.
 
 **PRs as a request surface: no.** `/triage` only looks at issues in this repo.
 
-## Ready-to-start view
-
-```bash
-make tickets
-```
-
-lists open `ready-for-agent` issues whose blockers are all closed, plus the
-blocked ones and their open blockers. It requires an authenticated `gh`.
-
 ## Complete-ticket walkthroughs
 
 A complete ticket group (every ticket sharing a numeric prefix: `01a/01b/01c`,
