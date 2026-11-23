@@ -101,6 +101,13 @@ drivers_forbidden="${common}|${MODULE}/internal/core(/|$)"
 check_root internal/core "$core_forbidden"
 check_root internal/drivers "$drivers_forbidden"
 
+# The channel implementation is a concrete northbound transport: it may use
+# interfaces and topics, but never the kernel, drivers, simulator or test-only
+# packages. topics is a pure helper and may not import this module at all.
+check_root internal/topics "${MODULE}/"
+channels_forbidden="${common}|${MODULE}/internal/(drivers|core)(/|$)"
+check_root internal/channels "$channels_forbidden"
+
 # interfaces stays a pure contract: it imports nothing from this module.
 check_root internal/interfaces "${MODULE}/"
 

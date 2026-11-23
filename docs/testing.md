@@ -13,9 +13,11 @@
 
 假时钟无法注入独立进程，因此 L3/L4 必须用真实时钟。“24 小时稳定性”不属于单 ticket 验收，它是发布门禁。
 
+**L2 例外（05a MQTT 通道）**：paho 的 socket、CONNECT/CONNACK、KeepAlive 与 PUBACK 使用真实定时器，无法注入假时钟。05a 把可确定性的部分（连接状态机、退避、Status 时间、SUBACK 重试、publish 等待上限、投递阻塞上限）放在 L1，用 `internal/testutil/fakeclock` 驱动；L2 用真实时钟和有界轮询覆盖真实 socket、LWT、断线与重连，测试在 `internal/channels/mqtt/l2_test.go`。这是对下表 L2 行“假时钟”的明确例外，不是降低验收。
+
 ## 假时钟
 
-- 内核与驱动构造时必须接收时间抽象；由 `scripts/check-time.sh` 静态检查直接调用与别名 import，不接受人工清单。
+- 内核、驱动与北向通道构造时必须接收时间抽象；由 `scripts/check-time.sh` 静态检查直接调用与别名 import，不接受人工清单。协议库内部（如 paho 的 KeepAlive）使用真实时间的边界见 ADR-0003 与 05a 计划。
 - 业务超时不得用运行时上下文截止时间；上下文只做取消传播。
 - 测试必须提供可设当前时间、可推进、可触发到期 ticker/timer 的假时钟；所有样本时间必须由同一个假时钟产出。
 - 必须确定性验证：相位不累积、missed tick 跳过、单设备截止时间放弃、服务超时窗口、缓存淘汰。

@@ -20,6 +20,7 @@ cmd/collect-code
 2. 具体实现的构造与装配只发生在 `cmd/collect-code` 与 `internal/app`。
 3. `internal/interfaces` 不依赖仓库内其他业务包。
 4. 依赖方向由 `scripts/check-deps.sh` 的传递闭包检查强制执行；时间规则由 `scripts/check-time.sh` 强制执行。
+5. `internal/topics` 是纯函数包，供 `internal/channels/**` 与 `internal/adapters/**` 共用；不得反向依赖具体通道、适配器或内核。
 
 ## 内核组件
 
@@ -50,6 +51,7 @@ cmd/collect-code
 cmd/collect-code/            # 入口、子命令、具体实现的装配
 internal/app/                # 进程装配、simulate 启动、集成测试
 internal/interfaces/         # Driver/Channel/Adapter/Clock/Store 与通用类型
+internal/topics/             # 纯函数：Topic/client-id 模板渲染与 MQTT topic/filter 校验
 internal/core/engine/        # 最小内核接线（时钟、生命周期）
 internal/core/scheduler/     # 相位锁定 tick、链路内串行、单设备截止时间
 internal/config/             # 四层 YAML 解析、校验、诊断、摘要

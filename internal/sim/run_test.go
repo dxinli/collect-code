@@ -86,9 +86,9 @@ func TestRunManifestAndShutdown(t *testing.T) {
 	}
 
 	client := dialMQTT(t, mqttAddr, "run-1")
-	client.subscribe("v1/#", 1)
-	client.publish("v1/run", []byte(`{"run":1}`), 1, false)
-	msg, err := client.readPublish(3 * time.Second)
+	client.Subscribe("v1/#", 1)
+	client.Publish("v1/run", []byte(`{"run":1}`), 1, false)
+	msg, err := client.ReadPublish(3 * time.Second)
 	if err != nil {
 		t.Fatalf("read publish: %v", err)
 	}
