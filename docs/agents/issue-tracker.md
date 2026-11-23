@@ -16,8 +16,9 @@ operations. Plans and diff notes stay under `.scratch/`.
 - **Ticket ID**: the title starts with the stable ID, e.g. `05a: MQTT 通道`;
   the body starts with `**Ticket:** 05a` so scripts can find it after a title
   edit.
-- **Plan and diff**: `.scratch/<feature>/plans/<id>.md` and
-  `.scratch/<feature>/diffs/<id>.md`; link the plan from the issue body.
+- **Plan and diff**: a ticket's implementation plan lives in its PR body (Plan
+  section); diff notes stay at `.scratch/<feature>/diffs/<id>.md`. Historical
+  tickets may link an archived plan under `.scratch/<feature>/plans/<id>.md`.
 
 ## Triage labels
 
@@ -63,7 +64,8 @@ Create a GitHub issue.
 
 ## When a skill says "fetch the relevant ticket"
 
-Read it with `gh issue view` and follow any `**Plan:**` link into `.scratch/`.
+Read it with `gh issue view`; the implementation plan is in the ticket PR
+that contains `Closes #<issue>`.
 
 ## Pull requests as a triage surface
 

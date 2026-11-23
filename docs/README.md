@@ -11,7 +11,7 @@
 3. [docs/contracts/](contracts/)：按领域读取外部报文、配置、Store、模拟器契约。
 4. [docs/adr/](adr/)：只读与当前变更相关的决策与理由。
 5. [GLOSSARY.md](../GLOSSARY.md)：术语。
-6. 当前 ticket：GitHub Issues；计划与 diff 说明：`.scratch/collector/plans/`、`.scratch/collector/diffs/`。
+6. 当前 ticket：GitHub Issues；实施计划：ticket PR body；历史计划与 diff 说明：`.scratch/collector/plans/`、`.scratch/collector/diffs/`。
 
 **默认不读**：历史 tag、已实现 ticket 的计划正文、`docs/代码走读/`。它们用于追溯，不是当前行为权威。
 
