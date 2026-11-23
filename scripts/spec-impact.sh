@@ -40,5 +40,5 @@ echo
 echo "Tickets/plans referencing the current anchors:"
 {
   grep -rhoE 'REQ-[A-Z]+-[0-9]{2}|(EXT|STORE|SIM)-[A-Z0-9]+-[0-9]{2}|CFG-[A-Z0-9]+(-[0-9]{2})?' \
-    .scratch/collector 2>/dev/null || true
+    .scratch 2>/dev/null || true
 } | sort | uniq -c | sort -nr | sed 's/^/  /'

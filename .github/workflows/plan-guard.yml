@@ -1,5 +1,8 @@
 name: plan-guard
-on: pull_request
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:
   contents: read
@@ -10,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Block code commits while plan-review
+      - name: Enforce plan-review file scope
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -19,18 +22,36 @@ jobs:
           LABELS=$(gh pr view "$PR_NUMBER" -R "$REPO" --json labels \
             --jq '[.labels[].name] | join(",")')
           if [[ "$LABELS" != *plan-review* ]]; then
-            echo "✅ 非 plan-review 状态，跳过检查"; exit 0
+            echo "✅ 非 plan-review 状态，跳过 plan 检查"
+            exit 0
           fi
 
-          # 获取本 PR 相对 base 的所有 commit
-          COMMITS=$(gh pr view "$PR_NUMBER" -R "$REPO" \
-            --json commits --jq '.commits[].messageHeadline')
-
-          # 白名单：空认领 commit 和纯文档 commit 允许
-          BAD=$(echo "$COMMITS" | grep -vE \
-            '^chore: claim ticket|^docs:|^\[plan' || true)
+          FILES=$(gh pr diff "$PR_NUMBER" -R "$REPO" --name-only || true)
+          BAD=$(printf '%s\n' "$FILES" | grep -vE \
+            '^(docs/|\.scratch/|AGENTS\.md$|CLAUDE\.md$|GLOSSARY\.md$)' || true)
 
           if [ -n "$BAD" ]; then
-            echo "::error::plan-review 期间出现代码 commit：$BAD"
+            echo "::error::plan-review 期间只允许文档、计划与 agent 指令改动；发现："
+            printf '%s\n' "$BAD"
             exit 1
           fi
+          echo "✅ plan-review 期间没有代码改动"
+
+      - name: Require a closing issue on ticket PRs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          case "$HEAD_REF" in
+            feat/*|hotfix/*) ;;
+            *) echo "✅ $HEAD_REF 不是 feat/hotfix，跳过 ticket 链接检查"; exit 0 ;;
+          esac
+
+          BODY=$(gh pr view "$PR_NUMBER" -R "$REPO" --json body --jq .body)
+          if ! printf '%s\n' "$BODY" | grep -qE 'Closes[[:space:]]+#[0-9]+'; then
+            echo "::error::$HEAD_REF PR 正文必须包含 'Closes #<issue>'"
+            exit 1
+          fi
+          echo "✅ ticket 链接存在"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Spec package checks. Subcommands: lint | version | contracts | traceability | refs | links | all
+# Spec package checks. Subcommands: lint | version | contracts | traceability | refs | covers | links | all
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
@@ -53,8 +53,16 @@ expand_refs() {
 }
 
 spec_lint() {
-  local spec=docs/spec/spec.md
+  local spec=docs/spec/spec.md ver
   [ -f "$spec" ] || fail "missing $spec"
+
+  ver=$(tr -d '[:space:]' < docs/spec/VERSION 2>/dev/null || true)
+  [ -n "$ver" ] || fail "missing docs/spec/VERSION"
+  grep -Fqx -- "- Version: $ver" "$spec" \
+    || fail "spec Version line does not match docs/spec/VERSION ($ver)"
+  if head -n 1 "$spec" | grep -qE 'v[0-9]+\.[0-9]+\.[0-9]+'; then
+    note "warning: spec title embeds a version; docs/spec/VERSION is the single source"
+  fi
 
   if grep -nE '^```(json|yaml|yml|go|golang|bash|sh|text)' "$spec" >/dev/null; then
     grep -nE '^```(json|yaml|yml|go|golang|bash|sh|text)' "$spec" >&2 || true
@@ -148,12 +156,16 @@ spec_contracts() {
   note "contracts ok"
 }
 
-spec_traceability() {
-  local defined rows duplicates
-  defined=$( {
+defined_anchors() {
+  {
     grep -oE 'REQ-[A-Z]+-[0-9]{2}' docs/spec/spec.md
     grep -rhoE '(EXT|STORE|SIM)-[A-Z0-9]+-[0-9]{2}|CFG-[A-Z0-9]+(-[0-9]{2})?' docs/contracts/*.md
-  } | sort -u )
+  } | sort -u
+}
+
+spec_traceability() {
+  local defined rows duplicates
+  defined=$(defined_anchors)
 
   rows=$(grep -E '^\| (REQ|EXT|CFG|STORE|SIM)-[A-Z0-9-]+ \|' docs/traceability.md \
     | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/,"",$2); gsub(/^[ \t]+|[ \t]+$/,"",$3); print $2"|"$3}')
@@ -182,9 +194,6 @@ spec_refs() {
   local f bad
   while IFS= read -r f; do
     [ -n "$f" ] || continue
-    case "$f" in
-      .scratch/collector/plans/spec-v3.md) continue ;;
-    esac
     if head -n 10 "$f" | grep -q 'spec-refs: historical-file' \
       && head -n 10 "$f" | grep -q '历史文档'; then
       continue
@@ -194,7 +203,7 @@ spec_refs() {
       if ($0 ~ /spec[[:space:]]*§/ || $0 ~ /\.scratch\/collector\/spec\.md/) print FNR": "$0
     }' "$f" || true)
     [ -z "$bad" ] || fail "unmarked historical spec reference in $f:\n$bad"
-  done < <(git -c core.quotePath=false ls-files '.scratch/collector/plans/*.md' '.scratch/collector/diffs/*.md' 'docs/代码走读/*.md')
+  done < <(git -c core.quotePath=false ls-files '.scratch' 'docs/代码走读' | grep -E '\.md$' || true)
 
   local defined refs id
   defined=$( {
@@ -202,13 +211,35 @@ spec_refs() {
     grep -rhoE '(EXT|STORE|SIM)-[A-Z0-9]+-[0-9]{2}|CFG-[A-Z0-9]+(-[0-9]{2})?' docs/contracts/*.md
   } | sort -u )
   refs=$(grep -rhoE 'REQ-[A-Z]+-[0-9]{2}(\.\.|/)[0-9]{2}|REQ-[A-Z]+-[0-9]{2}|(EXT|STORE|SIM)-[A-Z0-9]+-[0-9]{2}|CFG-[A-Z0-9]+(-[0-9]{2})?' \
-    .scratch/collector docs/代码走读 2>/dev/null | expand_refs || true)
+    .scratch docs/代码走读 2>/dev/null | expand_refs || true)
   while IFS= read -r id; do
     [ -n "$id" ] || continue
     grep -qx "$id" <<< "$defined" || fail "plan/diff references unknown anchor $id"
   done <<< "$refs"
 
   note "refs ok"
+}
+
+spec_covers() {
+  local defined id bad=0
+  defined=$(defined_anchors)
+  while IFS= read -r id; do
+    [ -n "$id" ] || continue
+    if ! grep -qx "$id" <<< "$defined"; then
+      echo "spec-check: FAIL: Covers references unknown anchor $id" >&2
+      bad=1
+    fi
+    if grep -q "| $id | not-applicable |" docs/traceability.md; then
+      echo "spec-check: FAIL: Covers uses not-applicable anchor $id" >&2
+      bad=1
+    fi
+  done < <(
+    grep -rhoE 'Covers:.*' --include='*_test.go' internal 2>/dev/null \
+      | grep -oE 'REQ-[A-Z]+-[0-9]{2}(\.\.|/)[0-9]{2}|REQ-[A-Z]+-[0-9]{2}|(EXT|STORE|SIM)-[A-Z0-9]+-[0-9]{2}|CFG-[A-Z0-9]+(-[0-9]{2})?' \
+      | expand_refs | sort -u || true
+  )
+  [ "$bad" -eq 0 ] || exit 1
+  note "covers ok"
 }
 
 spec_links() {
@@ -236,6 +267,7 @@ case "${1:-all}" in
   contracts) spec_contracts ;;
   traceability) spec_traceability ;;
   refs) spec_refs ;;
+  covers) spec_covers ;;
   links) spec_links ;;
   all)
     spec_lint
@@ -243,7 +275,8 @@ case "${1:-all}" in
     spec_contracts
     spec_traceability
     spec_refs
+    spec_covers
     spec_links
     ;;
-  *) echo "usage: $0 [lint|version|contracts|traceability|refs|links|all]" >&2; exit 2 ;;
+  *) echo "usage: $0 [lint|version|contracts|traceability|refs|covers|links|all]" >&2; exit 2 ;;
 esac

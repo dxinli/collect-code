@@ -30,7 +30,7 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 
 1. `main` 是规范的唯一写入点；所有规范变更经 PR。
 2. 当前行为规范是 `docs/spec/spec.md`，合同在 `docs/contracts/`；`.scratch/` 只放 diff 说明与归档计划，新 ticket 的实施计划在 PR body。
-3. 普通 feature branch **不修改** `docs/spec/**`、`docs/contracts/**`、`VERSION`、`CHANGELOG`。
+3. 普通 feature branch **不修改** `docs/spec/**`（含 `docs/spec/VERSION`、`docs/spec/CHANGELOG.md`）与 `docs/contracts/**`。
 4. 规范变更另开 `spec-delta/<topic>` 分支；该 PR 只改规范包与版本/变更记录，代码与测试随后单独提交并引用 `REQ-*` / 合同锚点。
 5. 计划评审前、开始实现前、提交 PR 前，运行 `make spec-status`；分支落后或规范包改动未带版本时必须先处理。
 6. PR 描述填写 `Spec-Version`、`Spec-Impact`、`REQ` 三项；ticket PR 在正文写 `Closes #<issue>`，由 GitHub 在合并时自动关闭。ticket ID 以 issue 标题前缀和正文 `**Ticket:**` 为准。

@@ -8,7 +8,6 @@ import (
 	"github.com/dxinli/collect-code/internal/drivers/modbus/pdu"
 )
 
-// Covers: REQ-SCOPE-01
 func TestEncodeRequestGolden(t *testing.T) {
 	tests := []struct {
 		name string
@@ -33,7 +32,6 @@ func TestEncodeRequestGolden(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestDecodeRequestGolden(t *testing.T) {
 	tests := []struct {
 		name string
@@ -58,7 +56,6 @@ func TestDecodeRequestGolden(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestEncodeResponseGolden(t *testing.T) {
 	tests := []struct {
 		name string
@@ -84,7 +81,6 @@ func TestEncodeResponseGolden(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestDecodeResponseGolden(t *testing.T) {
 	tests := []struct {
 		name string

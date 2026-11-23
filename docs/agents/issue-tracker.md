@@ -1,7 +1,8 @@
 # Issue tracker: GitHub
 
 Issues for this repo live as GitHub issues. Use the `gh` CLI for all
-operations. Plans and diff notes stay under `.scratch/`.
+operations. A ticket's implementation plan lives in its PR body; diff notes
+and archived plans stay under `.scratch/` (see `.scratch/README.md`).
 
 ## Conventions
 
@@ -14,7 +15,7 @@ operations. Plans and diff notes stay under `.scratch/`.
   `--remove-label "..."`.
 - **Close**: `gh issue close <number> --reason completed` (or `not planned`).
 - **Ticket ID**: the title starts with the stable ID, e.g. `05a: MQTT 通道`;
-  the body starts with `**Ticket:** 05a` so scripts can find it after a title
+  the body starts with `**Ticket:** 05a` so the stable ID survives a title
   edit.
 - **Plan and diff**: a ticket's implementation plan lives in its PR body (Plan
   section); diff notes stay at `.scratch/<feature>/diffs/<id>.md`. Historical
@@ -22,8 +23,9 @@ operations. Plans and diff notes stay under `.scratch/`.
 
 ## Triage labels
 
-Issues move through the five state labels and carry one of the two category
-labels. The mapping and transition rules are in
+Issues move through the five triage state labels and carry one of the two
+category labels. Execution uses `in-progress`; a completed issue gets `done`.
+`plan-review` is PR-only. The mapping and transition rules are in
 [`triage-labels.md`](triage-labels.md). The canonical skill is the `triage`
 skill; invoke it as `/triage` when you want it to drive a triage session.
 
@@ -55,6 +57,9 @@ Closes #31
 
 That is the whole post-merge workflow. There is no ticket-sync bot and no
 `Merged:` field; the issue timeline and its `closed` state are the record.
+
+The required `guard` check enforces this on `feat/*` and `hotfix/*` PRs. It
+also rejects code-file changes while a PR carries the `plan-review` label.
 
 Plan-only PRs do not need a `Closes` line.
 

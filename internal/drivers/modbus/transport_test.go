@@ -15,7 +15,6 @@ import (
 
 var _ modbus.Conn = net.Conn(nil)
 
-// Covers: REQ-SCOPE-01
 func TestDialTCPFailureIsLinkDown(t *testing.T) {
 	conn, err := modbus.DialTCP(context.Background(), "not a valid address")
 	if conn != nil {
@@ -26,7 +25,6 @@ func TestDialTCPFailureIsLinkDown(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestDialTCPNilContext(t *testing.T) {
 	var ctx context.Context
 	if _, err := modbus.DialTCP(ctx, "127.0.0.1:1"); err == nil {
@@ -34,7 +32,6 @@ func TestDialTCPNilContext(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestNewTCPClientLoopback(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -64,7 +61,6 @@ func TestNewTCPClientLoopback(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestNewRTUClientWrapsConn(t *testing.T) {
 	clock := fakeclock.New(testStart)
 	defer clock.Close()
