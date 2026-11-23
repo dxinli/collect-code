@@ -58,6 +58,9 @@ Closes #31
 That is the whole post-merge workflow. There is no ticket-sync bot and no
 `Merged:` field; the issue timeline and its `closed` state are the record.
 
+The required `guard` check enforces this on `feat/*` and `hotfix/*` PRs. It
+also rejects code-file changes while a PR carries the `plan-review` label.
+
 Plan-only PRs do not need a `Closes` line.
 
 ## When a skill says "publish to the issue tracker"
