@@ -187,13 +187,13 @@ func TestBrokerBindsEphemeralLoopbackAndManifest(t *testing.T) {
 func TestBrokerAuthAllowsConnectPublishSubscribe(t *testing.T) {
 	s := newTestSim(t, 16, nil)
 	sub := dialMQTT(t, s.broker.Address(), "sub-1")
-	if code := sub.subscribe("v1/#", 1); code == 0x80 {
+	if code := sub.Subscribe("v1/#", 1); code == 0x80 {
 		t.Fatalf("SUBACK return code = 0x%02x", code)
 	}
 	pub := dialMQTT(t, s.broker.Address(), "pub-1")
-	pub.publish("v1/x", []byte(`{"n":1}`), 1, false)
+	pub.Publish("v1/x", []byte(`{"n":1}`), 1, false)
 
-	msg, err := sub.readPublish(3 * time.Second)
+	msg, err := sub.ReadPublish(3 * time.Second)
 	if err != nil {
 		t.Fatalf("read publish: %v", err)
 	}
@@ -208,8 +208,8 @@ func TestBrokerAuthAllowsConnectPublishSubscribe(t *testing.T) {
 func TestCaptureQoS0AndQoS1(t *testing.T) {
 	s := newTestSim(t, 16, nil)
 	c := dialMQTT(t, s.broker.Address(), "capture-1")
-	c.publish("v1/a", []byte(`{"n":0}`), 0, false)
-	c.publish("v1/b", []byte(`{"n":1}`), 1, true)
+	c.Publish("v1/a", []byte(`{"n":0}`), 0, false)
+	c.Publish("v1/b", []byte(`{"n":1}`), 1, true)
 
 	messages, dropped := waitCapture(t, s, func(messages []sim.CapturedMessage, _ uint64) bool {
 		return len(messages) >= 2
@@ -243,7 +243,7 @@ func TestInvokePublishesExactBytes(t *testing.T) {
 	s := newTestSim(t, 16, nil)
 	const topic = "v1/irrigation/VALVE-0001/service/invoke"
 	sub := dialMQTT(t, s.broker.Address(), "invoke-sub")
-	sub.subscribe(topic, 1)
+	sub.Subscribe(topic, 1)
 
 	payload := `{"msg_id":"m1","type":"service.invoke","device_sn":"VALVE-0001","service_id":"set_opening","seq":17,"params":{"opening":50},"timeout_ms":600000,"issued_ts":1763400000000}`
 	body := fmt.Sprintf(`{"topic":%q,"payload":%s,"qos":1}`, topic, payload)
@@ -255,7 +255,7 @@ func TestInvokePublishesExactBytes(t *testing.T) {
 		t.Fatalf("bytes = %v, want %d", doc["bytes"], len(payload))
 	}
 
-	msg, err := sub.readPublish(3 * time.Second)
+	msg, err := sub.ReadPublish(3 * time.Second)
 	if err != nil {
 		t.Fatalf("read publish: %v", err)
 	}
@@ -281,8 +281,8 @@ func TestInvokeQoSRetain(t *testing.T) {
 	}
 
 	sub := dialMQTT(t, s.broker.Address(), "retain-sub")
-	sub.subscribe(topic, 0)
-	msg, err := sub.readPublish(3 * time.Second)
+	sub.Subscribe(topic, 0)
+	msg, err := sub.ReadPublish(3 * time.Second)
 	if err != nil {
 		t.Fatalf("read retained publish: %v", err)
 	}
@@ -338,7 +338,7 @@ func TestInvokeValidation(t *testing.T) {
 func TestHTTPCaptured(t *testing.T) {
 	s := newTestSim(t, 8, nil)
 	c := dialMQTT(t, s.broker.Address(), "http-capture")
-	c.publish("v1/http", []byte(`{"n":7}`), 1, false)
+	c.Publish("v1/http", []byte(`{"n":7}`), 1, false)
 	waitCapture(t, s, func(messages []sim.CapturedMessage, _ uint64) bool {
 		return len(messages) >= 1
 	}, 2*time.Second)
@@ -365,7 +365,7 @@ func TestCaptureCapacityIntegration(t *testing.T) {
 	s := newTestSim(t, 2, nil)
 	c := dialMQTT(t, s.broker.Address(), "capacity")
 	for i := 1; i <= 5; i++ {
-		c.publish(fmt.Sprintf("v1/%d", i), fmt.Appendf(nil, `{"n":%d}`, i), 0, false)
+		c.Publish(fmt.Sprintf("v1/%d", i), fmt.Appendf(nil, `{"n":%d}`, i), 0, false)
 	}
 	messages, _ := waitCapture(t, s, func(messages []sim.CapturedMessage, dropped uint64) bool {
 		return len(messages) == 2 && dropped == 3
@@ -388,7 +388,7 @@ func TestBrokerDisconnectKicksClients(t *testing.T) {
 	if doc["hold_until"] != nil {
 		t.Fatalf("hold_until = %v, want null", doc["hold_until"])
 	}
-	client.expectClosed(2 * time.Second)
+	client.ExpectClosed(2 * time.Second)
 	waitConnect(t, s.broker.Address(), "kick-1", 3*time.Second)
 }
 

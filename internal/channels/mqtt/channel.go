@@ -17,16 +17,12 @@ import (
 )
 
 const (
-	// connectTimeout bounds one TCP/TLS connect and the post-cancel cleanup.
-	connectTimeout = 10 * time.Second
 	// writeTimeout bounds paho's outbound queue wait.
 	writeTimeout = 5 * time.Second
 	// disconnectQuiesce lets paho write DISCONNECT before dropping the socket.
 	// A zero quiesce races with the comms worker and occasionally triggers the
 	// broker-side will.
 	disconnectQuiesce = 250 * time.Millisecond
-	// publishWait bounds a connected QoS1 publish that never receives PUBACK.
-	publishWait = 10 * time.Second
 	// subscribeBuffer is the per-subscription delivery buffer.
 	subscribeBuffer = 16
 	// deliveryBlockTimeout bounds one slow delivery before the subscription is
@@ -37,7 +33,15 @@ const (
 	subscribeRetry = 5 * time.Second
 )
 
-var errDuplicateFilter = errors.New("mqtt: filter is already subscribed")
+var (
+	errDuplicateFilter = errors.New("mqtt: filter is already subscribed")
+
+	// connectTimeout bounds one TCP/TLS connect and the post-cancel cleanup.
+	// It is a variable only so integration tests can shorten a silent connect.
+	connectTimeout = 10 * time.Second
+	// publishWait bounds a connected QoS1 publish that never receives PUBACK.
+	publishWait = 10 * time.Second
+)
 
 // Channel is the production northbound transport.
 type Channel struct {
