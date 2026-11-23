@@ -1,6 +1,6 @@
 # 01 main 分支保护与 agent 推送策略（实施计划）
 
-- **状态**：待评审；**未执行任何平台、CI 或代码变更**
+- **状态**：待评审；**过渡窗口内由用户本人临时关闭 `enforce_admins`，其余平台、CI 与代码变更未执行**
 - **基线**：`origin/main` `b07d617`（PR #58 合入后）
 - **工作分支**：`plan/main-protection`
 - **目的**：记录“agent 不得直推 main、本人可直推”的目标方案，以及为什么现在先不做
@@ -8,7 +8,8 @@
 - **用户决策（2026-11-23）**：
   1. 暂不落地规则集/CI/设置层的硬约束；
   2. 本地 Claude Code 的直推约束先不做；
-  3. 先出计划文档，等文档调整稳定后再执行。
+  3. 先出计划文档，等文档调整稳定后再执行；
+  4. **过渡期例外（2026-11-23 追加）**：临时放宽 main 保护以便本人直接调文档，采用最小改动 `enforce_admins=false`，由用户本人执行；文档稳定后立即恢复。
 
 ---
 
@@ -149,6 +150,38 @@
 
 > 无论选哪种过渡方案，都必须先保存当前 protection JSON（见附录 A），并优先“先建后删”。
 
+### 5.1 已选过渡方案（2026-11-23）
+
+用户选择：**由本人执行最小改动，关闭 `enforce_admins`**。当前 protection JSON 已保存（附录 A）。
+
+```bash
+# 放宽：允许 admin 直推 main
+gh api -X DELETE repos/dxinli/collect-code/branches/main/protection/enforce_admins
+
+# 验证：应输出 false
+gh api repos/dxinli/collect-code/branches/main/protection --jq .enforce_admins.enabled
+
+# 文档稳定后恢复：重新开启 admin 约束
+gh api -X POST repos/dxinli/collect-code/branches/main/protection/enforce_admins
+
+# 恢复后验证：应输出 true
+gh api repos/dxinli/collect-code/branches/main/protection --jq .enforce_admins.enabled
+```
+
+执行者与原因：
+
+- 该命令是安全削弱操作，agent 侧的自动权限分类器已拒绝执行；
+- 由用户本人在会话输入框用 `!` 前缀执行，或在自己的终端执行；
+- agent 只负责验证与记录，不代为关闭。
+
+窗口期代价：
+
+- admin（本人）可直推、强推、删除 `main`；
+- 使用本人 PAT 的 agent（含当前 `claude.yml` 的 `CLAUDE_GITHUB_TOKEN`）同样绕过；
+- 其他 actor 仍受 PR + `ci`/`gitleaks` 约束。
+
+退出条件：文档调整完成且用户说“恢复保护”后，立即执行 POST 恢复并验证 `enforce_admins=true`。窗口期内不创建规则集、不改 CI、不改 `claude.yml`。
+
 ---
 
 ## 6. 实施步骤（文档稳定后执行）
@@ -233,7 +266,7 @@
 |---|---|---|---|
 | Q1 | agent 的 PR 是否需要本人 1 个 approve 才能合并？ | 0（CI 绿即可）/ 1（人工 gate） | 未决 |
 | Q2 | 本地 Claude Code 的直推约束？ | 软约束 / 凭据隔离 / 不做 | 用户已选“先不做” |
-| Q3 | 文档调整期间是否临时放宽当前 protection？ | 保持现状 / `enforce_admins=false` / 提前落地规则集 / 移除 checks | 未决，默认保持现状 |
+| Q3 | 文档调整期间是否临时放宽当前 protection？ | 保持现状 / `enforce_admins=false` / 提前落地规则集 / 移除 checks | 已决：本人临时关闭 `enforce_admins`（§5.1） |
 | Q4 | 远程 agent 复用 `TICKETS_APP` 还是新建专用 App？ | 复用 / 新建 | 未决 |
 | Q5 | 规则集建立后是否保留 `strict_required_status_checks_policy`？ | 保留 / 关闭 | 未决，默认保留 |
 
@@ -336,7 +369,9 @@ gh api -X PUT repos/dxinli/collect-code/branches/main/protection \
 
 在用户明确说“按计划执行”之前：
 
-1. 不创建/修改/删除任何规则集或 branch protection；
+1. 不创建/修改/删除任何规则集；
 2. 不修改 `ci.yml`、`claude.yml`、`AGENTS.md`；
 3. 不新增 `.githooks/**` 或 `.claude/settings.json`；
 4. 本文档只作为评审材料。
+
+**例外（§5.1）**：用户本人已于过渡窗口内关闭 `enforce_admins`；该操作由用户执行，agent 不代为执行，且文档稳定后必须恢复。
