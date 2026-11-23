@@ -71,7 +71,10 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 ### 收尾
 
 - 全部完成后：跑测试 → 自查 → `gh pr ready`。
-- auto-merge 负责合并，`Closes #N` 自动关 issue。
+- 统一使用 `gh pr merge --auto --squash` 预约合并，**不要判断 CI 状态、
+  不要手动合并**——合并时机由 GitHub 决定。
+- 如果 auto-merge 长时间未合并（CI 红/冲突），留评论说明卡点后停止，
+  等待人工介入。不要尝试其他合并方式。
 
 ### 纪律
 
