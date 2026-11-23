@@ -3,7 +3,13 @@
 - **Spec-Version:** <!-- docs/spec/VERSION at HEAD, e.g. 3.0.0 -->
 - **Spec-Impact:** <!-- none | patch | minor | major; "none" for code-only changes -->
 - **REQ:** <!-- REQ-* and contract anchors touched, or "none" -->
-- **Ticket:** <!-- ticket ID(s) delivered by this PR, e.g. 02b or 01a,01b,01c; omit for non-ticket changes -->
+
+## Ticket
+
+<!-- Ticket PRs: replace the line below with the issue number, e.g. "Closes #31".
+     Non-ticket changes: delete this section. -->
+
+Closes #
 
 ## Summary
 

@@ -132,3 +132,12 @@ Body 首行写 `**Ticket:** <id>`，保证脚本稳定解析。
 - **离线不可用**：`make tickets` 需要 `gh` 登录；计划和代码仍在本地
 - **通知噪音**：一次性创建 33 个 issue，仅仓库 owner 收到
 - **`.scratch` 只读历史**：删除的 33 个文件仍可从 git 历史恢复
+
+## 实施结果
+
+- 导入 33 个 issue（#25–#57），其中 9 个已合并的 issue 立即 close。
+- 建立 62 条原生 `blockedBy` 边；抽查 `03b` 的 open blocker 为 0。
+- `make tickets` 与迁移前基线一致：6 ready（03b、06a、11、12a、17a、19a）、17 blocked、1 needs-info。
+- `make ci` 通过；`spec-check` 不再扫描已删除的 `.scratch/collector/issues/`。
+- `tickets-sync` label 已删除。
+- `TICKETS_APP_*` secrets 保留未删，由用户决定是否清理。

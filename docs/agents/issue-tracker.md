@@ -1,96 +1,88 @@
-# Issue tracker: Local Markdown
+# Issue tracker: GitHub
 
-Issues and plans for this repo live as markdown files in `.scratch/`.
+Issues for this repo live as GitHub issues. Use the `gh` CLI for all
+operations. Plans and diff notes stay under `.scratch/`.
 
 ## Conventions
 
-- One feature per directory: `.scratch/<feature-slug>/`
-- The current behavior spec is `docs/spec/spec.md`; contracts are under `docs/contracts/`. `.scratch/<feature-slug>/` holds issues and plans only.
-- Implementation issues are one file per ticket at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`, never a single combined tickets file
-- Triage state is recorded as a `Status:` line near the top of each issue file
-- Comments and conversation history append to the bottom of the file under a `## Comments` heading
+- **Create an issue**: `gh issue create --template ticket.md`, or
+  `gh issue create --title "05a: ..." --body-file ... --label enhancement`.
+- **Read an issue**: `gh issue view <number> --json number,title,body,labels,comments`.
+- **List issues**: `gh issue list --state open --label ready-for-agent --json number,title,body,labels`.
+- **Comment**: `gh issue comment <number> --body "..."`.
+- **Apply / remove labels**: `gh issue edit <number> --add-label "..."` /
+  `--remove-label "..."`.
+- **Close**: `gh issue close <number> --reason completed` (or `not planned`).
+- **Ticket ID**: the title starts with the stable ID, e.g. `05a: MQTT 通道`;
+  the body starts with `**Ticket:** 05a` so scripts can find it after a title
+  edit.
+- **Plan and diff**: `.scratch/<feature>/plans/<id>.md` and
+  `.scratch/<feature>/diffs/<id>.md`; link the plan from the issue body.
+
+## Triage labels
+
+Issues move through the five state labels and carry one of the two category
+labels. The mapping and transition rules are in
+[`triage-labels.md`](triage-labels.md). The canonical skill is the `triage`
+skill; invoke it as `/triage` when you want it to drive a triage session.
+
+## Dependencies
+
+Use GitHub's native issue dependencies. An issue is startable when every
+blocker is closed.
+
+```bash
+gh issue edit <child> --add-blocked-by <blocker>,<blocker>
+gh api repos/<owner>/<repo>/issues/<n> --jq .issue_dependencies_summary.blocked_by
+```
+
+`issue_dependencies_summary.blocked_by` counts only **open** blockers; `0`
+means startable. `gh issue view <n> --json blockedBy` lists closed blockers
+too, so filter them by state if you use it.
+
+Fallback when native dependencies are unavailable: put
+`Blocked by: #<n>, #<n>` at the top of the child body.
+
+## Pull requests
+
+Ticket PRs must contain the closing keyword so GitHub closes the issue when
+the PR merges:
+
+```md
+Closes #31
+```
+
+That is the whole post-merge workflow. There is no ticket-sync bot and no
+`Merged:` field; the issue timeline and its `closed` state are the record.
+
+Plan-only PRs do not need a `Closes` line.
 
 ## When a skill says "publish to the issue tracker"
 
-Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed).
+Create a GitHub issue.
 
 ## When a skill says "fetch the relevant ticket"
 
-Read the file at the referenced path. The user will normally pass the path or the issue number directly.
+Read it with `gh issue view` and follow any `**Plan:**` link into `.scratch/`.
 
-## Ticket state and automation
+## Pull requests as a triage surface
 
-`Status:` uses the five mattpocock triage labels:
+**PRs as a request surface: no.** `/triage` only looks at issues in this repo.
 
-- `needs-triage`: not yet triaged.
-- `needs-info`: missing information.
-- `ready-for-agent`: fully specified, AFK-ready.
-- `ready-for-human`: needs a human decision or action.
-- `wontfix`: not going to be done.
-
-Lifecycle is recorded with two optional fields, not Status:
-
-- `**PR:** #N`: written when the PR opens; derived state `in-review`.
-- `**Merged:** #N`: written by the post-merge bot; derived state `done`.
-
-Dependencies are computed: `ready now` = `ready-for-agent` + all dependencies
-merged; `blocked` = `ready-for-agent` + an unmerged dependency. `in-review` and
-all `needs-*` / `ready-for-human` / `wontfix` states keep dependents blocked.
-
-`feat/*` PRs must declare the delivered ticket in the PR body:
-
-```md
-- **Ticket:** 02b
-- **Ticket:** 01a,01b,01c
-```
-
-A `ticket:<id>` label also works; the branch name `feat/<id>-` is the fallback.
-
-Commands:
+## Ready-to-start view
 
 ```bash
-make tickets                         # generate .scratch/collector/ticket-dependency.html locally
-make tickets TICKET_DIR=.scratch/<feature>
-make tickets-guard                   # reject Merged on feat/* PRs (CI)
-make tickets-pr TICKET=05a PR=19     # record **PR:** #19 when the PR opens
-make tickets-accept TICKET=02b       # record Merged locally
+make tickets
 ```
 
-When a ticket PR opens, run `make tickets-pr` (or add `**PR:** #N` manually)
-and commit the issue file. The post-merge bot writes `**Merged:** #N`; do not
-write either field from a feature branch except `PR:`.
-
-`ticket-dependency.html` is a **local, gitignored** view. Do not commit it;
-the post-merge bot only writes `**Merged:**`, not the HTML.
-
-Merge is the completion signal. The workflow runs on `push` to `main`, finds
-the merged PR associated with the commit, and writes `**Merged:** #N`. The
-generated dependency page is local-only. To retry after a failure, comment
-`/accept 02b` on the merged PR, or run the `Ticket Sync` workflow with
-`ticket=02b`:
-
-```bash
-gh workflow run tickets-sync.yml -f ticket=02b
-```
-
-Only the bot writes `Merged:`; `tickets-guard` fails a `feat/*` PR whose ticket
-is already merged.
+lists open `ready-for-agent` issues whose blockers are all closed, plus the
+blocked ones and their open blockers. It requires an authenticated `gh`.
 
 ## Complete-ticket walkthroughs
 
-A complete ticket is every ticket sharing a numeric prefix (`01a/01b/01c`,
-`02a/02b`, `06a/06b`); a single ticket such as `07` is its own group. Once
-every member is merged (`**Merged:**` set), a committed
-`docs/代码走读/<NN>-*.md` must exist. The
-document covers the link path (with a diagram), component or object
-relationships (with a dependency diagram), and timing (with a sequence diagram
-where applicable).
-
-The check runs after merge, not on the PR: the `walkthroughs` job in
-`Ticket Sync` runs on every push to `main` and fails while a complete group has
-no committed walkthrough. It neither changes `done` nor blocks dependents.
-Untracked drafts do not count. Check locally with:
-
-```bash
-make tickets-walkthrough
-```
+A complete ticket group (every ticket sharing a numeric prefix: `01a/01b/01c`,
+`02a/02b`, `06a/06b`) is closed once all its issues are closed. At that point a
+committed `docs/代码走读/<NN>-*.md` is expected: the link path with a diagram,
+component relationships with a dependency diagram, and timing with a sequence
+diagram where applicable. This is a review artifact, not a CI gate; check the
+tracked files with `git ls-files 'docs/代码走读/*.md'`.
