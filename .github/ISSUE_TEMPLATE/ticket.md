@@ -5,7 +5,6 @@ labels: needs-triage
 ---
 
 **Ticket:** <!-- stable ID, e.g. 05a -->
-**Plan:** <!-- .scratch/collector/plans/05a.md, if a plan exists -->
 
 **What to build:**
 
