@@ -29,6 +29,8 @@ func main() {
 		err = cmdResolve(os.Args[2:])
 	case "guard":
 		err = cmdGuard(os.Args[2:])
+	case "verify-walkthrough":
+		err = cmdVerifyWalkthrough(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 		return
@@ -55,6 +57,7 @@ commands:
   ready       list tickets whose dependencies are done
   resolve     resolve ticket IDs from a PR body/labels/branch or event
   guard       enforce "feat/* cannot write done"
+  verify-walkthrough  fail when a complete ticket has no committed walkthrough
 
 common flags:
   --dir .scratch/collector   feature directory
