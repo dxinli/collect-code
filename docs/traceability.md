@@ -49,7 +49,7 @@ CI 只失败于“既无归属也无计划”的条目。实现 PR 落地测试�
 
 | ID | 状态 | 证据 / 承接 |
 |---|---|---|
-| EXT-TOPIC-01 | planned(05a) | `05a-mqtt-channel` |
+| EXT-TOPIC-01 | planned(05b) | 05a 已覆盖 node_state/client_id 渲染与校验（`internal/topics`、`internal/channels/mqtt`）；property/service/event/invoke 模板由 `05b-uplink-adapter` 完成 |
 | EXT-PROP-01 | planned(05b) | `05b-uplink-adapter` |
 | EXT-INVOKE-01 | planned(09) | `09-service-invocation` |
 | EXT-SEQ-01 | planned(09) | `09-service-invocation` |
@@ -58,7 +58,7 @@ CI 只失败于“既无归属也无计划”的条目。实现 PR 落地测试�
 | EXT-EVENT-01 | planned(11) | `11-eventbus` |
 | EXT-DEDUP-01 | planned(11) | `11-eventbus` |
 | EXT-TARGET-01 | planned(09) | `09-service-invocation` |
-| EXT-LWT-01 | planned(05a) | `05a-mqtt-channel` |
+| EXT-LWT-01 | covered | 05a；`internal/channels/mqtt/l2_test.go`（LWT topic/payload/retain/QoS 经 `/_sim/captured` 精确断言；graceful Close 不触发） |
 | CFG-LAYERS-01 | covered | 01a；`internal/config/load_test.go` |
 | CFG-VALIDATION-01 | covered | 01b/01c；`internal/config/validate_test.go`、golden corpus |
 | CFG-V73 | covered | 01c；V70–V73 单测与 golden |
@@ -76,4 +76,4 @@ CI 只失败于“既无归属也无计划”的条目。实现 PR 落地测试�
 | SIM-CAPTURE-01 | covered | 06b；`internal/sim/capture_test.go` |
 | SIM-INVOKE-01 | covered | 06b；`internal/sim/mqtt_test.go` |
 | SIM-CONTROL-01 | covered | 06b；`internal/sim/control_test.go`、`internal/sim/mqtt_test.go` |
-| SIM-SECURITY-01 | covered | 06b；`internal/sim/mqttclient_test.go`（独立 MQTT 客户端） |
+| SIM-SECURITY-01 | covered | 06b/05a；`internal/testutil/mqttclient/client.go`（独立 MQTT 3.1.1 客户端，06b 与 05a 测试共用，不 import broker/paho） |
