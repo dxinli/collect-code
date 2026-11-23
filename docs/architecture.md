@@ -16,7 +16,7 @@ cmd/collect-code
 
 规则：
 
-1. `internal/core/**` 只依赖 `internal/interfaces` 与只读配置模型；不得 import 任何具体驱动、通道、适配器或 bbolt 实现。
+1. `internal/core/**` 只依赖 `internal/interfaces`、`internal/logging`（共享结构化日志工具，不含具体实现）与只读配置模型；不得 import 任何具体驱动、通道、适配器或 bbolt 实现。
 2. 具体实现的构造与装配只发生在 `cmd/collect-code` 与 `internal/app`。
 3. `internal/interfaces` 不依赖仓库内其他业务包。
 4. 依赖方向由 `scripts/check-deps.sh` 的传递闭包检查强制执行；时间规则由 `scripts/check-time.sh` 强制执行。
@@ -51,6 +51,7 @@ cmd/collect-code/            # 入口、子命令、具体实现的装配
 internal/app/                # 进程装配、simulate 启动、集成测试
 internal/interfaces/         # Driver/Channel/Adapter/Clock/Store 与通用类型
 internal/core/engine/        # 最小内核接线（时钟、生命周期）
+internal/core/scheduler/     # 相位锁定 tick、链路内串行、单设备截止时间
 internal/config/             # 四层 YAML 解析、校验、诊断、摘要
 internal/clock/realclock/    # 唯一直接使用运行时时间的包
 internal/logging/            # JSON 结构化日志与脱敏
