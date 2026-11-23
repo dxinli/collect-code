@@ -295,3 +295,23 @@ jobs:
           PR_NUMBER: ${{ steps.resolve.outputs.pr }}
         run: |
           gh pr comment "$PR_NUMBER" --body "tickets-sync failed. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  walkthroughs:
+    name: walkthroughs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.4"
+          cache: true
+
+      - name: Verify complete-ticket walkthroughs
+        run: GOFLAGS= go run ./tools/ticketgraph verify-walkthrough --dir .scratch/collector
