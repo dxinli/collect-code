@@ -11,7 +11,7 @@
 3. [docs/contracts/](contracts/)：按领域读取外部报文、配置、Store、模拟器契约。
 4. [docs/adr/](adr/)：只读与当前变更相关的决策与理由。
 5. [GLOSSARY.md](../GLOSSARY.md)：术语。
-6. 当前 ticket 与计划：`.scratch/collector/issues/`、`.scratch/collector/plans/`。
+6. 当前 ticket：GitHub Issues；计划与 diff 说明：`.scratch/collector/plans/`、`.scratch/collector/diffs/`。
 
 **默认不读**：历史 tag、已实现 ticket 的计划正文、`docs/代码走读/`。它们用于追溯，不是当前行为权威。
 
@@ -31,7 +31,7 @@
 | 架构与包布局 | [docs/architecture.md](architecture.md) | 依赖方向与包职责 |
 | 测试分层与判据 | [docs/testing.md](testing.md) | L1–L4、假时钟、崩溃恢复 |
 | 追踪状态 | [docs/traceability.md](traceability.md) | `REQ/锚点 → test/ticket` |
-| 单票验收 | `.scratch/collector/issues/**` | 不改写历史状态 |
+| 单票验收 | GitHub Issues | 合并即关闭；历史状态用评论追溯 |
 | 流程与交付规则 | [AGENTS.md](../AGENTS.md) | 不在规范中重复 |
 
 ## 规范包与版本

@@ -14,11 +14,7 @@ LDFLAGS := -s -w \
 
 GOBUILD := GOFLAGS= CGO_ENABLED=0 go build -trimpath -buildvcs=false -buildmode=exe -ldflags "$(LDFLAGS)"
 
-.PHONY: build build-linux-amd64 build-linux-arm64 build-all verify-static build-linux-packages test test-race vet fmt-check print-check deps-check time-check go-fix-check lint check ci spec-check spec-status spec-impact spec-archive tickets tickets-guard tickets-pr tickets-walkthrough tickets-accept tickets-ci clean
-
-TICKET_DIR ?= .scratch/collector
-TICKET ?=
-PR ?=
+.PHONY: build build-linux-amd64 build-linux-arm64 build-all verify-static build-linux-packages test test-race vet fmt-check print-check deps-check time-check go-fix-check lint check ci spec-check spec-status spec-impact spec-archive tickets clean
 
 build:
 	@mkdir -p $(DIST)
@@ -54,7 +50,7 @@ vet:
 	GOFLAGS= go vet ./...
 
 fmt-check:
-	@files="$$(gofmt -l cmd internal tools)"; \
+	@files="$$(gofmt -l cmd internal)"; \
 	if [ -n "$$files" ]; then echo "gofmt needed:"; echo "$$files"; exit 1; fi
 
 print-check:
@@ -89,27 +85,10 @@ spec-archive:
 	./scripts/spec-archive.sh
 
 tickets:
-	GOFLAGS= go run ./tools/ticketgraph render --dir $(TICKET_DIR)
-
-tickets-guard:
-	GOFLAGS= go run ./tools/ticketgraph guard --dir $(TICKET_DIR)
-
-tickets-pr:
-	@if [ -z "$(TICKET)" ] || [ -z "$(PR)" ]; then echo "usage: make tickets-pr TICKET=05a PR=19"; exit 1; fi
-	GOFLAGS= go run ./tools/ticketgraph set-pr --dir $(TICKET_DIR) --ticket "$(TICKET)" --pr "$(PR)"
-
-tickets-walkthrough:
-	GOFLAGS= go run ./tools/ticketgraph verify-walkthrough --dir $(TICKET_DIR)
-
-tickets-accept:
-	@if [ -z "$(TICKET)" ]; then echo "usage: make tickets-accept TICKET=02b"; exit 1; fi
-	GOFLAGS= go run ./tools/ticketgraph complete --dir $(TICKET_DIR) --ticket "$(TICKET)"
-	GOFLAGS= go run ./tools/ticketgraph render --dir $(TICKET_DIR)
-
-tickets-ci: tickets-guard spec-status
+	./scripts/tickets-ready.sh
 
 # Single entry point for local and CI: same checks, no drift.
-ci: check test-race lint spec-check spec-status tickets-guard
+ci: check test-race lint spec-check spec-status
 
 clean:
 	rm -rf $(DIST)

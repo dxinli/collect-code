@@ -6,7 +6,7 @@
 
 ### Issue tracker
 
-Issues and plans live under `.scratch/<feature-slug>/`. The current behavior spec is `docs/spec/spec.md`; contracts are under `docs/contracts/`. See `docs/agents/issue-tracker.md`.
+Issues live in GitHub Issues; plans and diff notes live under `.scratch/<feature-slug>/`. Triage labels are mapped in `docs/agents/triage-labels.md`. The current behavior spec is `docs/spec/spec.md`; contracts are under `docs/contracts/`. See `docs/agents/issue-tracker.md`.
 
 ### Domain docs
 
@@ -29,15 +29,17 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 ## 规范与文档（硬约束）
 
 1. `main` 是规范的唯一写入点；所有规范变更经 PR。
-2. 当前行为规范是 `docs/spec/spec.md`，合同在 `docs/contracts/`；`.scratch/` 只放 issues 与 plans。
+2. 当前行为规范是 `docs/spec/spec.md`，合同在 `docs/contracts/`；`.scratch/` 只放 plans 与 diffs。
 3. 普通 feature branch **不修改** `docs/spec/**`、`docs/contracts/**`、`VERSION`、`CHANGELOG`。
 4. 规范变更另开 `spec-delta/<topic>` 分支；该 PR 只改规范包与版本/变更记录，代码与测试随后单独提交并引用 `REQ-*` / 合同锚点。
 5. 计划评审前、开始实现前、提交 PR 前，运行 `make spec-status`；分支落后或规范包改动未带版本时必须先处理。
-6. PR 描述填写 `Spec-Version`、`Spec-Impact`、`REQ` 三项；ticket PR 另填 `Ticket:`（多个用逗号分隔）。
+6. PR 描述填写 `Spec-Version`、`Spec-Impact`、`REQ` 三项；ticket PR 在正文写 `Closes #<issue>`，由 GitHub 在合并时自动关闭。ticket ID 以 issue 标题前缀和正文 `**Ticket:**` 为准。
 7. 引用规范使用 `REQ-*`，引用合同使用合同锚点；不要用 `spec §N` 作为跨文档指针。历史文档中的旧引用保留并标 `(historical)`。
 8. 本文件只记录流程与硬约束，不复制规范正文；行为与格式以 spec/contracts 为准。
 
 ## Ticket 交付流程（硬约束）
+
+每个 ticket 是 GitHub issue；处于 `ready-for-agent` 后才进入下面的计划流程。issue 正文即 agent brief（What to build、验收标准、Out of scope）。
 
 每个 ticket 开始实现之前，必须按顺序完成：
 
@@ -46,11 +48,11 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 3. **交用户评审**：把交叉评审后的结果交给用户；无法把握的点给 A/B 两案和推荐，由用户拍板。用户每提出一次问题，修改后按照格式提交。
 4. **用户明确说“计划评审通过”**：只有得到这句明确确认，才可以开始写代码。
 5. **计划提交**：计划文档每个阶段均需要单独提交（`plan: ...`），不要混在一个提交。
-6. 未通过计划评审前：不写实现、不提交实现、不标 `done`、不开始下一个 ticket。
+6. 未通过计划评审前：不写实现、不提交实现、不关闭 issue、不开始下一个 ticket。
 7. **实现**：`/implement`（其他代理按计划实现）过程中，按照功能点分多次提交。
-8. **Triage + 生命周期**：`Status:` 只用 5 个 triage 标签：`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`。PR 阶段写 `**PR:** #N`；合并后 `tickets-sync` bot 写 `**Merged:** #N`。`in-review` / `done` 是派生状态；`feat/*` 分支写 `Merged:` 会被 `tickets-guard` 拒绝。
-9. **依赖图**：`ticket-dependency.html` 是本地生成物，**不入库**（已在 `.gitignore`）。需要查看时运行 `make tickets`（其他 feature 用 `TICKET_DIR=.scratch/<feature>`）；不要提交它。`tickets-guard` 在 CI 中校验状态，`tickets-check` / pre-commit 已移除。
-10. **合并后**：合并会触发 `tickets-sync`，自动写 `**Merged:** #N`、创建并自动合并 `chore/tickets-sync-*` PR。需要重试时，在已合并 PR 评论 `/accept <ticket>`，或手动运行 `Ticket Sync` workflow。
+8. **Triage + 生命周期**：每个 triaged issue 恰好一个 state label（`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`）和一个 category label（`bug`、`enhancement`）。生命周期就是 issue 的 open/closed；PR 写 `Closes #N`，合并即关闭。不再有 `Status:`、`PR:`、`Merged:` 字段。
+9. **依赖与视图**：依赖用 GitHub 原生 blocked-by。`make tickets` 列出 blocker 全部关闭的 `ready-for-agent` issue；不再生成依赖 HTML。
+10. **合并后**：GitHub 按 `Closes #N` 自动关闭 issue，没有 bot、没有 sync PR。完整 ticket 组的代码走读是评审交付物，不再是 CI 门槛。
 
 实现过程中若发现计划需要改变规则/范围/输出契约，停止实现，回到第 1–4 步重新评审；不得用“实现中发现”代替用户评审。
 

@@ -194,7 +194,7 @@ spec_refs() {
       if ($0 ~ /spec[[:space:]]*§/ || $0 ~ /\.scratch\/collector\/spec\.md/) print FNR": "$0
     }' "$f" || true)
     [ -z "$bad" ] || fail "unmarked historical spec reference in $f:\n$bad"
-  done < <(git -c core.quotePath=false ls-files '.scratch/collector/plans/*.md' '.scratch/collector/issues/*.md' '.scratch/collector/diffs/*.md' 'docs/代码走读/*.md')
+  done < <(git -c core.quotePath=false ls-files '.scratch/collector/plans/*.md' '.scratch/collector/diffs/*.md' 'docs/代码走读/*.md')
 
   local defined refs id
   defined=$( {
@@ -205,7 +205,7 @@ spec_refs() {
     .scratch/collector docs/代码走读 2>/dev/null | expand_refs || true)
   while IFS= read -r id; do
     [ -n "$id" ] || continue
-    grep -qx "$id" <<< "$defined" || fail "plan/ticket references unknown anchor $id"
+    grep -qx "$id" <<< "$defined" || fail "plan/diff references unknown anchor $id"
   done <<< "$refs"
 
   note "refs ok"

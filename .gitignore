@@ -1,5 +1,4 @@
 .scratch/*/tmp/
-.scratch/*/ticket-dependency.html
 *.log
 /bin/
 /dist/
