@@ -59,7 +59,10 @@ jobs:
         with:
           app-id: ${{ secrets.TICKETS_APP_ID }}
           private-key: ${{ secrets.TICKETS_APP_PRIVATE_KEY }}
-          permissions: "contents: write,pull-requests: write,issues: write"
+          # v1 takes one input per permission; a `permissions` map is not supported.
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
 
       - name: Set up Go
         uses: actions/setup-go@v7
