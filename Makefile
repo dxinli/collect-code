@@ -14,7 +14,7 @@ LDFLAGS := -s -w \
 
 GOBUILD := GOFLAGS= CGO_ENABLED=0 go build -trimpath -buildvcs=false -buildmode=exe -ldflags "$(LDFLAGS)"
 
-.PHONY: build build-linux-amd64 build-linux-arm64 build-all verify-static test test-race vet fmt-check print-check deps-check time-check go-fix-check lint check ci spec-check spec-status spec-impact spec-archive tickets tickets-check tickets-guard tickets-accept tickets-ci hooks clean
+.PHONY: build build-linux-amd64 build-linux-arm64 build-all verify-static test test-race vet fmt-check print-check deps-check time-check go-fix-check lint check ci spec-check spec-status spec-impact spec-archive tickets tickets-check tickets-guard tickets-walkthrough tickets-accept tickets-ci hooks clean
 
 TICKET_DIR ?= .scratch/collector
 TICKET ?=
@@ -89,6 +89,9 @@ tickets-check:
 
 tickets-guard:
 	GOFLAGS= go run ./tools/ticketgraph guard --dir $(TICKET_DIR)
+
+tickets-walkthrough:
+	GOFLAGS= go run ./tools/ticketgraph verify-walkthrough --dir $(TICKET_DIR)
 
 tickets-accept:
 	@if [ -z "$(TICKET)" ]; then echo "usage: make tickets-accept TICKET=02b"; exit 1; fi

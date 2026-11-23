@@ -63,11 +63,3 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 3. 每个 ticket 开始时切分支（基于 main 分支创建）；ticket 完成实现后创建 PR，等用户审核。
 4. 每个 feat 分支不能混入不同的 ticket；如果 ticket 未完成或者有问题但 PR 已合并，开一个 hotfix 分支。
 5. 单仓无法完成的工作（如并行任务）使用 worktree 方式。
-
-## 代码走读
-
-针对每个完整 ticket（如 01a、01b、01c 合起来才算一个 ticket，而非单个子 ticket）生成一份代码走读设计：
-
-1. 链路（包含图）
-2. 组件或者说对象关系（包含依赖图）
-3. 时序（包含时序图），如果有的话

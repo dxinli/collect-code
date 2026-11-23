@@ -59,3 +59,21 @@ gh workflow run tickets-sync.yml -f ticket=02b
 
 Only the bot writes `done`; `tickets-guard` fails a `feat/*` PR whose ticket is
 already `done`.
+
+## Complete-ticket walkthroughs
+
+A complete ticket is every ticket sharing a numeric prefix (`01a/01b/01c`,
+`02a/02b`, `06a/06b`); a single ticket such as `07` is its own group. Once
+every member is `done`, a committed `docs/代码走读/<NN>-*.md` must exist. The
+document covers the link path (with a diagram), component or object
+relationships (with a dependency diagram), and timing (with a sequence diagram
+where applicable).
+
+The check runs after merge, not on the PR: the `walkthroughs` job in
+`Ticket Sync` runs on every push to `main` and fails while a complete group has
+no committed walkthrough. It neither changes `done` nor blocks dependents.
+Untracked drafts do not count. Check locally with:
+
+```bash
+make tickets-walkthrough
+```
