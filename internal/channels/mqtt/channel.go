@@ -65,7 +65,12 @@ type Channel struct {
 	connCancel context.CancelFunc
 
 	subOpMu   sync.Mutex
-	cleanupWG sync.WaitGroup
+	cleanupMu sync.Mutex
+	// cleanupClosed is guarded by cleanupMu. Once set, registerCleanup runs
+	// the function directly instead of adding to cleanupWG, so Go never races
+	// with Wait.
+	cleanupClosed bool
+	cleanupWG     sync.WaitGroup
 }
 
 // New validates opts and starts the channel. It does not wait for the first
@@ -350,6 +355,12 @@ func (c *Channel) Close() error {
 	for _, sub := range subs {
 		_ = sub.Close()
 	}
+
+	// Stop accepting new tracked cleanup before waiting; a cleanup that races
+	// with this point runs directly in registerCleanup instead.
+	c.cleanupMu.Lock()
+	c.cleanupClosed = true
+	c.cleanupMu.Unlock()
 	c.cleanupWG.Wait()
 	if started {
 		<-c.runDone
@@ -547,9 +558,18 @@ func (c *Channel) removeSubscription(sub *subscription) {
 	c.mu.Unlock()
 }
 
-// registerCleanup runs fn in a goroutine tracked by Close.
+// registerCleanup runs fn in a goroutine tracked by Close. After Close has
+// stopped accepting tracked cleanup, fn runs directly so it cannot race the
+// WaitGroup with a late Add.
 func (c *Channel) registerCleanup(fn func()) {
+	c.cleanupMu.Lock()
+	if c.cleanupClosed {
+		c.cleanupMu.Unlock()
+		fn()
+		return
+	}
 	c.cleanupWG.Go(fn)
+	c.cleanupMu.Unlock()
 }
 
 func (c *Channel) redact(s string) string {
