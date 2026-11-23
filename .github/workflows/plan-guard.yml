@@ -26,7 +26,7 @@ jobs:
             exit 0
           fi
 
-          FILES=$(gh pr diff "$PR_NUMBER" -R "$REPO" --name-only)
+          FILES=$(gh pr diff "$PR_NUMBER" -R "$REPO" --name-only || true)
           BAD=$(printf '%s\n' "$FILES" | grep -vE \
             '^(docs/|\.scratch/|AGENTS\.md$|CLAUDE\.md$|GLOSSARY\.md$)' || true)
 
