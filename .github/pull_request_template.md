@@ -1,6 +1,6 @@
 ## Spec
 
-- **Spec-Version:** <!-- docs/spec/VERSION at HEAD, e.g. 3.0.0 -->
+- **Spec-Version:** <!-- docs/spec/VERSION at HEAD; no example version here -->
 - **Spec-Impact:** <!-- none | patch | minor | major; "none" for code-only changes -->
 - **REQ:** <!-- REQ-* and contract anchors touched, or "none" -->
 
