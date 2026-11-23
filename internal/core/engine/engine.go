@@ -1,6 +1,6 @@
 // Package engine holds the kernel lifecycle component. It reads time only
 // through the injected Clock, proving the time seam is wired; the scheduler
-// attaches inside Run in 03a.
+// is a peer component wired when drivers exist.
 package engine
 
 import (

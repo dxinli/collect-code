@@ -20,11 +20,11 @@ CI 只失败于“既无归属也无计划”的条目。实现 PR 落地测试�
 | REQ-QUALITY-02 | planned(03b) | `03b-state-freshness` |
 | REQ-QUALITY-03 | planned(03b) | `03b-state-freshness` |
 | REQ-QUALITY-04 | planned(03b) | `03b-state-freshness` |
-| REQ-QUALITY-05 | planned(03b) | `03b-state-freshness`；边界判据见 `docs/testing.md` |
-| REQ-SCHED-01 | planned(03a) | `03a-scheduler-phase` |
-| REQ-SCHED-02 | planned(03a) | `03a-scheduler-phase` |
-| REQ-SCHED-03 | planned(03a) | `03a-scheduler-phase` |
-| REQ-SCHED-04 | planned(03a) | `03a-scheduler-phase` |
+| REQ-QUALITY-05 | planned(03b) | `03b-state-freshness` 负责新鲜度与离线；03a 已覆盖 read deadline 的严格大于边界（`TestReadDeadlineBoundary`、`TestResultOrTimeoutStrictDeadline`）；判据见 `docs/testing.md` |
+| REQ-SCHED-01 | covered | 03a；`TestRunPhaseLocked24Hours`、`TestPlannedTimesDoNotAccumulate`、`TestMissedTickBoundary`、`TestMissedTickSkipsBacklog`、`TestMissedTickCountsAndLogs` |
+| REQ-SCHED-02 | covered | 03a；`TestReadDeadlineMarksDeviceBadAndContinues`、`TestReadDeadlineBoundary`、`TestReadsAreSerialWithinLink`、`TestPerDeviceDeadlineIsIndependent`。03a 不重试；驱动侧不重试归 04b |
+| REQ-SCHED-03 | planned(04b) | 03a 已覆盖链路隔离与 missed/timeout/failure 计数（`TestLinksRunIndependently`、`TestStatsReadFailures`）；LinkStatus 状态机归 `04b-modbus-read-quality` |
+| REQ-SCHED-04 | covered | 03a；`TestGCDDuration`、`TestDueDeviceIndexes`、`TestZeroDueTickCountsButDoesNotRead`、`TestNewRejectsInvalidPlan` |
 | REQ-UPLINK-01 | planned(13) | `13-lorawan-uplink`；ChirpStack 去重标识与内存窗口 |
 | REQ-INVOKE-01 | planned(09) | `09-service-invocation` |
 | REQ-INVOKE-02 | planned(10) | `10-idempotency-terminal` |
