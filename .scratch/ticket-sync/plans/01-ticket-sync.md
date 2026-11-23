@@ -1,8 +1,9 @@
 # ticket-sync 实施计划
 
 - **状态：** 用户 2026-11-23 明确“不需要评审 plan，刚才已经过了，直接实现”；计划按已确认决策直接进入实现。
+- **v2（2026-11-23）：** `ticket-dependency.html` 改为本地生成物（gitignore），不再提交；`tickets-check` 和 pre-commit 已移除，CI 只保留 `tickets-guard`。状态模型不变。
 - **分支：** `chore/ticket-sync`（基于 main）。
-- **目标：** ticket 状态只在合并后由确定性脚本写成 `done`，并同步生成依赖图；`@claude` 不再承担记账。
+- **目标：** ticket 状态只在合并后由确定性脚本写成 `done`；依赖图由 `make tickets` 在本地生成，不入库；`@claude` 不再承担记账。
 - **非目标：** 不改 `docs/spec/**`、`docs/contracts/**`、`VERSION`、`CHANGELOG`；不改采集引擎行为；不引入新的运行时依赖。
 
 ## 1. 已确认决策
@@ -60,11 +61,11 @@ ready-for-agent ──(实现完成，开 PR)──> in-review ──(合并)─
 ### 3.4 本地
 
 ```bash
-make tickets-accept TICKET=02b   # 改工作区 + 重新生成 HTML，需自行提交/PR
-make tickets-check               # 校验 HTML 与 issues 一致
-make tickets                     # 只重新生成
-make hooks                       # 启用 .githooks/pre-commit
+make tickets-accept TICKET=02b   # 本地改状态 + 生成 HTML（HTML 不入库）
+make tickets                     # 只生成本地 HTML
 ```
+
+`ticket-dependency.html` 已被 `.gitignore`，`make tickets` 只用于本地查看。
 
 ### 3.5 不触发 / 拒绝
 
@@ -83,12 +84,11 @@ make hooks                       # 启用 .githooks/pre-commit
 | 文件 | 作用 |
 |---|---|
 | `tools/ticketgraph/*` | Go 工具：parse / graph / render / resolve / guard / complete |
-| `.scratch/collector/ticket-dependency.html` | 生成物，`<meta name="generator" content="tools/ticketgraph">` |
-| `Makefile` | `tickets`、`tickets-check`、`tickets-guard`、`tickets-accept`、`tickets-ci`、`hooks` |
-| `.github/workflows/ci.yml` | 加 `tickets-check` / `tickets-guard`；`.scratch/`-only PR 走快速路径 |
+| `.scratch/collector/ticket-dependency.html` | **本地生成物，gitignored，不入库** |
+| `Makefile` | `tickets`、`tickets-guard`、`tickets-accept`、`tickets-ci` |
+| `.github/workflows/ci.yml` | 加 `tickets-guard`；`.scratch/`-only PR 走快速路径 |
 | `.github/workflows/tickets-sync.yml` | 合并后 / `/accept` / dispatch 的确定性同步 |
 | `.github/pull_request_template.md` | 增加 `**Ticket:**` |
-| `.githooks/pre-commit` | issue 变更但 HTML 未重生成时拒绝提交 |
 | `docs/agents/issue-tracker.md` | 状态机、命令、触发方式 |
 | `AGENTS.md` | 固化“PR=in-review、合并后 bot 写 done、feat 分支禁止 done” |
 | `.scratch/ticket-sync/issues/01-ticket-sync.md` | 本工作自身的 ticket |
@@ -106,21 +106,21 @@ ticketgraph guard     --dir .scratch/collector --event "$GITHUB_EVENT_PATH"
 
 - 解析 `**Status:**`、`**Blocked by:**`、`**Note:**`；`Blocked by: None...` 视为无依赖；`19b + 外部 P0 资料` 只取 `19b`，外部条件记录在备注。
 - 计算：done / in-review / ready / blocked / on-hold / needs-info、依赖深度、波次、关键路径、直接解锁、传递影响、新解锁集合。
-- HTML 确定性：不写 `time.Now()`，按 ticket ID 自然排序；`--check` 逐字节比较。
+- HTML 确定性：不写 `time.Now()`，按 ticket ID 自然排序；`--check` 只用于本地排查。
 - 渲染复用现有版式，新增 `in-review`、`on-hold` 状态；`ready now` 只含依赖已完成的 `ready-for-agent`。
 - 首次渲染修正现有漂移（02a 已 done、02b 回填 done）。
 
 ## 6. CI 门禁
 
-- `tickets-check`：生成结果与提交的 HTML 不一致 → 失败。
 - `tickets-guard`：
   - 只在 PR 事件运行；
   - `chore/tickets-sync-*` 跳过；
   - `feat/*` 或显式 ticket 映射：任一 ticket 为 `done` → 失败；
   - `feat/*` 无映射 → 失败；
   - `on-hold`/`needs-info` 只警告。
-- `.scratch/`-only PR（bot PR）跳过 Go build/test/lint/race，只跑 `tickets-check`、`tickets-guard`、`spec-status`；job 名仍是 `ci`，不新增 required context。
+- `.scratch/`-only PR（bot PR）跳过 Go build/test/lint/race，只跑 `tickets-guard`、`spec-status`；job 名仍是 `ci`，不新增 required context。
 - `fmt-check` 扩展为检查 `cmd internal tools`。
+- 不再有 `tickets-check`；HTML 不入库，所以不会出现生成文件冲突。
 
 ## 7. 合并后 workflow 细节
 
@@ -145,10 +145,10 @@ ticketgraph guard     --dir .scratch/collector --event "$GITHUB_EVENT_PATH"
 
 - 02b 已合并（PR #12），但 main 上仍是 `ready-for-agent`；实现完成后用 `complete` 回填为 `done`，并生成新的 HTML。
 - 验收：
-  - `make tickets-check` 通过；
+  - `make tickets` 能生成本地 HTML；
   - `go test ./...`、`go vet ./...`、`gofmt`、`go fix` 通过；
   - `tickets-guard` 对 `feat/*` + `done` 的夹具失败，对 bot 分支跳过；
-  - HTML 统计与 issue 文件一致（02a/02b/06b 等 done，03a/04a/05a/11/12a/19a ready）；
+  - 本地 HTML 统计与 issue 文件一致（02a/02b/06b 等 done，03a/04a/05a/11/12a/19a ready）；
   - `tickets-sync.yml` 在合并后能生成 bot PR 并自动合并（合并后首次用 `workflow_dispatch` dry-run 验证）。
 
 ## 10. 实施顺序
@@ -156,7 +156,7 @@ ticketgraph guard     --dir .scratch/collector --event "$GITHUB_EVENT_PATH"
 1. plan + ticket 提交；
 2. parse / graph / render + 测试；
 3. 回填 02b + 生成 HTML；
-4. Makefile + CI 门禁 + pre-commit + PR 模板；
+4. Makefile + CI 门禁 + PR 模板；
 5. `tickets-sync.yml`；
 6. 文档（issue-tracker、AGENTS）；
 7. 本地检查全部通过，提交 PR。

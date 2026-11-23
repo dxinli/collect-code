@@ -39,19 +39,20 @@ A `ticket:<id>` label also works; the branch name `feat/<id>-` is the fallback.
 Commands:
 
 ```bash
-make tickets                         # regenerate .scratch/collector/ticket-dependency.html
+make tickets                         # generate .scratch/collector/ticket-dependency.html locally
 make tickets TICKET_DIR=.scratch/<feature>
-make tickets-check                   # fail if the committed HTML is stale
 make tickets-guard                   # reject done on feat/* PRs (CI)
-make tickets-accept TICKET=02b       # mark done + regenerate (local)
-make hooks                           # enable .githooks/pre-commit
+make tickets-accept TICKET=02b       # mark done locally
 ```
 
+`ticket-dependency.html` is a **local, gitignored** view. Do not commit it;
+the post-merge bot only updates ticket status, not the HTML.
+
 Merge is the completion signal. The workflow runs on `push` to `main`, finds
-the merged PR associated with the commit, marks the ticket(s) `done`,
-regenerates the HTML, opens a `chore/tickets-sync-*` PR, and auto-merges it
-after checks. To retry after a failure, comment `/accept 02b` on the merged PR,
-or run the `Ticket Sync` workflow with `ticket=02b`:
+the merged PR associated with the commit, and marks the ticket(s) `done`. The
+generated dependency page is local-only. To retry after a failure, comment
+`/accept 02b` on the merged PR, or run the `Ticket Sync` workflow with
+`ticket=02b`:
 
 ```bash
 gh workflow run tickets-sync.yml -f ticket=02b

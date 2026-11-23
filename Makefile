@@ -14,7 +14,7 @@ LDFLAGS := -s -w \
 
 GOBUILD := GOFLAGS= CGO_ENABLED=0 go build -trimpath -buildvcs=false -buildmode=exe -ldflags "$(LDFLAGS)"
 
-.PHONY: build build-linux-amd64 build-linux-arm64 build-all verify-static build-linux-packages test test-race vet fmt-check print-check deps-check time-check go-fix-check lint check ci spec-check spec-status spec-impact spec-archive tickets tickets-check tickets-guard tickets-walkthrough tickets-accept tickets-ci hooks clean
+.PHONY: build build-linux-amd64 build-linux-arm64 build-all verify-static build-linux-packages test test-race vet fmt-check print-check deps-check time-check go-fix-check lint check ci spec-check spec-status spec-impact spec-archive tickets tickets-guard tickets-walkthrough tickets-accept tickets-ci clean
 
 TICKET_DIR ?= .scratch/collector
 TICKET ?=
@@ -90,9 +90,6 @@ spec-archive:
 tickets:
 	GOFLAGS= go run ./tools/ticketgraph render --dir $(TICKET_DIR)
 
-tickets-check:
-	GOFLAGS= go run ./tools/ticketgraph render --dir $(TICKET_DIR) --check
-
 tickets-guard:
 	GOFLAGS= go run ./tools/ticketgraph guard --dir $(TICKET_DIR)
 
@@ -104,14 +101,10 @@ tickets-accept:
 	GOFLAGS= go run ./tools/ticketgraph complete --dir $(TICKET_DIR) --ticket "$(TICKET)"
 	GOFLAGS= go run ./tools/ticketgraph render --dir $(TICKET_DIR)
 
-tickets-ci: tickets-check tickets-guard spec-status
-
-hooks:
-	git config core.hooksPath .githooks
-	@echo "hooks enabled: core.hooksPath=.githooks"
+tickets-ci: tickets-guard spec-status
 
 # Single entry point for local and CI: same checks, no drift.
-ci: check test-race lint spec-check spec-status tickets-check tickets-guard
+ci: check test-race lint spec-check spec-status tickets-guard
 
 clean:
 	rm -rf $(DIST)
