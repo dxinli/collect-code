@@ -273,10 +273,10 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
     <p class="lede">采集引擎 全部 ticket 的依赖、当前可做任务与并行波次。状态取自 <span class="mono">.scratch/collector/issues/*.md</span>，依赖取自每个 ticket 的 <span class="mono">Blocked by</span>。本页由脚本生成，不再手工维护。</p>
     <div class="stat-grid">
       <div class="stat total"><span class="stat-num">33</span><span class="stat-label">全部 ticket</span></div>
-      <div class="stat done"><span class="stat-num">7</span><span class="stat-label">已完成</span></div>
-      <div class="stat in-review"><span class="stat-num">1</span><span class="stat-label">in review</span></div>
-      <div class="stat ready"><span class="stat-num">6</span><span class="stat-label">现在可做</span></div>
-      <div class="stat blocked"><span class="stat-num">18</span><span class="stat-label">依赖未满足</span></div>
+      <div class="stat done"><span class="stat-num">8</span><span class="stat-label">已完成</span></div>
+      <div class="stat in-review"><span class="stat-num">0</span><span class="stat-label">in review</span></div>
+      <div class="stat ready"><span class="stat-num">7</span><span class="stat-label">现在可做</span></div>
+      <div class="stat blocked"><span class="stat-num">17</span><span class="stat-label">依赖未满足</span></div>
       <div class="stat on-hold"><span class="stat-num">0</span><span class="stat-label">暂停</span></div>
       <div class="stat needs-info"><span class="stat-num">1</span><span class="stat-label">需要信息</span></div>
     </div>
@@ -327,6 +327,14 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <div class="now-facts">
     <span><span class="label">直接解锁</span> <span class="mono">14b, 15b</span></span>
     <span><span class="label">传递影响</span> <span class="mono">5</span> 个</span>
+  </div>
+</article><article class="now-card ready">
+  <div class="ticket-top"><span class="tid">06a</span><span class="pill ready">ready now</span></div>
+  <h3>Modbus 从站与故障控制</h3>
+  <p>依赖已全部完成；直接解锁 1 个，传递影响 3 个。</p>
+  <div class="now-facts">
+    <span><span class="label">直接解锁</span> <span class="mono">07</span></span>
+    <span><span class="label">传递影响</span> <span class="mono">3</span> 个</span>
   </div>
 </article><article class="now-card ready">
   <div class="ticket-top"><span class="tid">17a</span><span class="pill ready">ready now</span></div>
@@ -415,8 +423,8 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <h4>调度相位与单设备 deadline</h4>
   <p class="meta"><span class="label">←</span> 02a</p>
 </article>
-<article class="ticket in-review">
-  <div class="ticket-top"><span class="tid">04a</span><span class="pill in-review">in review</span></div>
+<article class="ticket done">
+  <div class="ticket-top"><span class="tid">04a</span><span class="pill done">done</span></div>
   <h4>Modbus PDU 与三种传输</h4>
   <p class="meta"><span class="label">←</span> 02a</p>
 </article>
@@ -442,8 +450,8 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <h4>设备状态、新鲜度与离线</h4>
   <p class="meta"><span class="label">←</span> 02a,03a</p>
 </article>
-<article class="ticket blocked">
-  <div class="ticket-top"><span class="tid">06a</span><span class="pill blocked">blocked</span></div>
+<article class="ticket ready">
+  <div class="ticket-top"><span class="tid">06a</span><span class="pill ready">ready now</span></div>
   <h4>Modbus 从站与故障控制</h4>
   <p class="meta"><span class="label">←</span> 04a</p>
 </article>
@@ -616,7 +624,7 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <td class="mono id-cell">04a</td>
   <td>Modbus PDU 与三种传输</td>
   <td class="mono deps-cell">02a</td>
-  <td><span class="pill in-review">in review</span></td>
+  <td><span class="pill done">done</span></td>
   <td class="mono unlocks-cell">04b, 06a</td>
 </tr><tr>
   <td class="mono id-cell">04b</td>
@@ -640,7 +648,7 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <td class="mono id-cell">06a</td>
   <td>Modbus 从站与故障控制</td>
   <td class="mono deps-cell">04a</td>
-  <td><span class="pill blocked">blocked</span></td>
+  <td><span class="pill ready">ready now</span></td>
   <td class="mono unlocks-cell">07</td>
 </tr><tr>
   <td class="mono id-cell">06b</td>
