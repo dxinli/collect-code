@@ -13,7 +13,6 @@ import (
 )
 
 type mqttTestClient = mqttclient.Client
-type mqttTestMessage = mqttclient.Message
 
 func dialMQTT(t *testing.T, addr, clientID string) *mqttTestClient {
 	t.Helper()
