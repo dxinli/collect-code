@@ -49,7 +49,7 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 6. 未通过计划评审前：不写实现、不提交实现、不标 `done`、不开始下一个 ticket。
 7. **实现**：`/implement`（其他代理按计划实现）过程中，按照功能点分多次提交。
 8. **状态两阶段**：PR 阶段把 ticket 置为 `in-review`；`done` 只能由合并后的 `tickets-sync` bot 写入。`feat/*` 分支写 `done` 会被 `tickets-guard` 拒绝。
-9. **依赖图**：修改 `.scratch/collector/issues/*.md` 后必须运行 `make tickets` 重新生成 `ticket-dependency.html`；其他 feature 用 `TICKET_DIR=.scratch/<feature>`。`make tickets-check` 在 CI 中校验，`make hooks` 安装本地 pre-commit。
+9. **依赖图**：`ticket-dependency.html` 是本地生成物，**不入库**（已在 `.gitignore`）。需要查看时运行 `make tickets`（其他 feature 用 `TICKET_DIR=.scratch/<feature>`）；不要提交它。`tickets-guard` 在 CI 中校验状态，`tickets-check` / pre-commit 已移除。
 10. **合并后**：合并会触发 `tickets-sync`，自动把 ticket 标为 `done`、重生成依赖图、创建并自动合并 `chore/tickets-sync-*` PR。需要重试时，在已合并 PR 评论 `/accept <ticket>`，或手动运行 `Ticket Sync` workflow。
 
 实现过程中若发现计划需要改变规则/范围/输出契约，停止实现，回到第 1–4 步重新评审；不得用“实现中发现”代替用户评审。
