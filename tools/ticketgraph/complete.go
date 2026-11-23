@@ -35,15 +35,15 @@ func completeTickets(dir string, ids []string, pr int) (completeOutput, error) {
 		if t == nil {
 			return completeOutput{}, fmt.Errorf("unknown ticket %q", id)
 		}
-		switch t.Status {
-		case StatusDone:
-			out.Skipped = append(out.Skipped, skipInfo{ID: id, Reason: "already done"})
-			continue
-		case StatusOnHold, StatusNeedsInfo:
-			out.Skipped = append(out.Skipped, skipInfo{ID: id, Reason: "status is " + string(t.Status)})
+		if t.IsMerged() {
+			out.Skipped = append(out.Skipped, skipInfo{ID: id, Reason: "already merged"})
 			continue
 		}
-		if err := setStatus(t.Path, StatusDone); err != nil {
+		mergedValue := "manual"
+		if pr > 0 {
+			mergedValue = fmt.Sprintf("#%d", pr)
+		}
+		if err := setMerged(t.Path, mergedValue); err != nil {
 			return completeOutput{}, err
 		}
 		out.Updated = append(out.Updated, id)

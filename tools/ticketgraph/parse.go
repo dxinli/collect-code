@@ -12,6 +12,8 @@ import (
 var (
 	titleRe    = regexp.MustCompile(`(?m)^#\s+([0-9]{2}[a-z]?)\s*:\s*(.+)$`)
 	statusRe   = regexp.MustCompile(`(?m)^\*\*Status:\*\*[ \t]*(.*)$`)
+	prRe       = regexp.MustCompile(`(?m)^\*\*PR:\*\*[ \t]*(.*)$`)
+	mergedRe   = regexp.MustCompile(`(?m)^\*\*Merged:\*\*[ \t]*(.*)$`)
 	blockedRe  = regexp.MustCompile(`(?m)^\*\*Blocked by:\*\*[ \t]*(.*)$`)
 	whatRe     = regexp.MustCompile(`(?m)^\*\*What to build:\*\*[ \t]*(.*)$`)
 	noteRe     = regexp.MustCompile(`(?m)^\*\*Note:\*\*[ \t]*(.*)$`)
@@ -45,7 +47,13 @@ func parseIssue(path string) (*Ticket, error) {
 	}
 	t.Status = Status(strings.TrimSpace(sm[1]))
 	if !knownStatuses[t.Status] {
-		return nil, fmt.Errorf("%s: unknown status %q", path, t.Status)
+		return nil, fmt.Errorf("%s: unknown status %q (expected one of the five triage labels)", path, t.Status)
+	}
+	if m := prRe.FindStringSubmatch(text); m != nil {
+		t.PR = strings.TrimSpace(m[1])
+	}
+	if m := mergedRe.FindStringSubmatch(text); m != nil {
+		t.Merged = strings.TrimSpace(m[1])
 	}
 	if bm := blockedRe.FindStringSubmatch(text); bm != nil {
 		t.BlockedRaw = strings.TrimSpace(bm[1])
@@ -132,3 +140,36 @@ func setStatus(path string, status Status) error {
 	replaced = append(replaced, data[loc[1]:]...)
 	return os.WriteFile(path, replaced, 0o644)
 }
+
+// setField replaces a **Label:** line, or inserts it after the Status line.
+func setField(path, label, value string) error {
+	re := regexp.MustCompile(`(?m)^\*\*` + regexp.QuoteMeta(label) + `:\*\*[ \t]*(.*)$`)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	matches := re.FindAllIndex(data, -1)
+	var out []byte
+	switch len(matches) {
+	case 1:
+		loc := matches[0]
+		out = append(out, data[:loc[0]]...)
+		out = append(out, "**"+label+":** "+value...)
+		out = append(out, data[loc[1]:]...)
+	case 0:
+		sm := statusRe.FindIndex(data)
+		if sm == nil {
+			return fmt.Errorf("%s: missing '**Status:**' line", path)
+		}
+		out = append(out, data[:sm[1]]...)
+		out = append(out, '\n', '\n')
+		out = append(out, "**"+label+":** "+value...)
+		out = append(out, data[sm[1]:]...)
+	default:
+		return fmt.Errorf("%s: expected at most one **%s:** line, found %d", path, label, len(matches))
+	}
+	return os.WriteFile(path, out, 0o644)
+}
+
+func setPR(path, value string) error     { return setField(path, "PR", value) }
+func setMerged(path, value string) error { return setField(path, "Merged", value) }

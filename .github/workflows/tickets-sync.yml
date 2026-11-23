@@ -96,7 +96,7 @@ jobs:
           elif [ -n "$PR_NUMBER" ]; then
             state="$(gh pr view "$PR_NUMBER" --json state -q .state)"
             if [ "$state" != "MERGED" ]; then
-              gh pr comment "$PR_NUMBER" --body "tickets-sync: done 只能在合并后写；请先合并 PR。"
+              gh pr comment "$PR_NUMBER" --body "tickets-sync: **Merged:** 只能在合并后写；请先合并 PR。"
               echo "skip=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
@@ -157,7 +157,7 @@ jobs:
           permission-pull-requests: write
           permission-issues: write
 
-      - name: Complete tickets
+      - name: Record merged
         id: complete
         if: steps.resolve.outputs.skip != 'true'
         env:
@@ -215,7 +215,7 @@ jobs:
           git config user.email "${APP_ID}+collect-code-tickets-bot[bot]@users.noreply.github.com"
           git switch -c "$branch"
           git add .scratch
-          git commit -m "chore(tickets): mark ${TICKETS} done ${suffix}"
+          git commit -m "chore(tickets): record ${TICKETS} merged ${suffix}"
           git push "https://x-access-token:${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${branch}"
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
 
@@ -231,13 +231,13 @@ jobs:
 
           Post-merge bookkeeping for ${suffix}.
 
-          - ${TICKETS} -> done
+          - ${TICKETS} -> merged
           - newly ready: ${NEWLY_READY:-none}
 
           ## Evidence
 
-          - **Before:** ${TICKETS} in-review (or earlier state)
-            **After:** done on main after this PR
+          - **Before:** ${TICKETS} PR open / not merged
+            **After:** merged on main after this PR
 
           ## Merge Danger
 
@@ -246,7 +246,7 @@ jobs:
           **Blast Radius:** tickets
           EOF
 
-          url="$(gh pr create --base main --head "$branch" --title "chore(tickets): mark ${TICKETS} done ${suffix}" --body-file /tmp/sync-pr.md)"
+          url="$(gh pr create --base main --head "$branch" --title "chore(tickets): record ${TICKETS} merged ${suffix}" --body-file /tmp/sync-pr.md)"
           echo "url=$url" >> "$GITHUB_OUTPUT"
           gh label create tickets-sync --color 0E8A16 --description "ticket-sync bot PR" --force
           gh pr edit "$url" --add-label tickets-sync
@@ -279,7 +279,7 @@ jobs:
           UPDATED: ${{ steps.complete.outputs.updated }}
           NEWLY_READY: ${{ steps.complete.outputs.newly_ready }}
         run: |
-          body="tickets-sync: ${UPDATED} -> done. Sync PR: ${SYNC_URL}"
+          body="tickets-sync: ${UPDATED} -> merged. Sync PR: ${SYNC_URL}"
           if [ -n "$NEWLY_READY" ]; then
             body="${body}
           newly ready: ${NEWLY_READY}"

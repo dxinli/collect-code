@@ -8,7 +8,9 @@
 
 **Blocked by:** 01a
 
-**Status:** done
+**Status:** ready-for-agent
+
+**Merged:** historical
 
 - [x] 校验规则编号为 V01…；每条规则有一个合法用例与一个非法用例
 - [x] 诊断统一格式 `file:line:col: rule_id: message`；跨文件引用错误定位到引用字段所在文件行

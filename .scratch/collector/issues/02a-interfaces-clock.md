@@ -4,7 +4,9 @@
 
 **Blocked by:** 01a
 
-**Status:** done
+**Status:** ready-for-agent
+
+**Merged:** historical
 
 - [x] `interfaces` 冻结 Driver/Channel/UplinkAdapter/DownlinkAdapter/Clock/Store 与通用类型
 - [x] FakeClock 支持 Now/Advance/NewTicker/NewTimer/Sleep；覆盖到期顺序、Stop、零/负 duration、goroutine 泄漏

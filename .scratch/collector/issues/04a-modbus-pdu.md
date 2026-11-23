@@ -4,7 +4,9 @@
 
 **Blocked by:** 02a
 
-**Status:** done
+**Status:** ready-for-agent
+
+**Merged:** historical
 
 - [ ] 三种传输 framing 可切换，PDU 编解码共用
 - [ ] golden PDU：03/04/06/16 与异常响应；CRC16 正确

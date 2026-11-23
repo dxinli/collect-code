@@ -10,17 +10,17 @@ import (
 
 func TestMissingWalkthroughs(t *testing.T) {
 	tickets := []*Ticket{
-		{ID: "01a", Status: StatusDone},
-		{ID: "01b", Status: StatusDone},
-		{ID: "02a", Status: StatusDone},
-		{ID: "02b", Status: StatusDone},
-		{ID: "03a", Status: StatusDone},
-		{ID: "03b", Status: StatusInReview},
-		{ID: "04", Status: StatusDone},
-		{ID: "05", Status: StatusDone},
-		{ID: "06", Status: StatusDone},
-		{ID: "07a", Status: StatusDone},
-		{ID: "07b", Status: StatusDone},
+		{ID: "01a", Status: StatusReadyForAgent, Merged: "historical"},
+		{ID: "01b", Status: StatusReadyForAgent, Merged: "historical"},
+		{ID: "02a", Status: StatusReadyForAgent, Merged: "historical"},
+		{ID: "02b", Status: StatusReadyForAgent, Merged: "historical"},
+		{ID: "03a", Status: StatusReadyForAgent, Merged: "historical"},
+		{ID: "03b", Status: StatusReadyForAgent, PR: "#3"},
+		{ID: "04", Status: StatusReadyForAgent, Merged: "historical"},
+		{ID: "05", Status: StatusReadyForAgent, Merged: "historical"},
+		{ID: "06", Status: StatusReadyForAgent, Merged: "historical"},
+		{ID: "07a", Status: StatusReadyForAgent, Merged: "historical"},
+		{ID: "07b", Status: StatusReadyForAgent, Merged: "historical"},
 	}
 	committed := []string{
 		"docs/代码走读/01-base.md",
@@ -42,8 +42,8 @@ func TestMissingWalkthroughs(t *testing.T) {
 
 func TestMissingWalkthroughsAllCovered(t *testing.T) {
 	tickets := []*Ticket{
-		{ID: "02a", Status: StatusDone},
-		{ID: "02b", Status: StatusDone},
+		{ID: "02a", Status: StatusReadyForAgent, Merged: "historical"},
+		{ID: "02b", Status: StatusReadyForAgent, Merged: "historical"},
 	}
 	missing, checked := missingWalkthroughs(tickets, defaultWalkthroughDocs, []string{
 		"docs/代码走读/02-interfaces.md",
@@ -89,8 +89,8 @@ func TestCommittedFilesIgnoresUntracked(t *testing.T) {
 func TestVerifyWalkthroughCommand(t *testing.T) {
 	root := t.TempDir()
 	ticketDir := filepath.Join(root, ".scratch", "collector")
-	writeIssue(t, ticketDir, "02a-first.md", "# 02a: First\n\n**Status:** done\n")
-	writeIssue(t, ticketDir, "02b-second.md", "# 02b: Second\n\n**Status:** done\n\n**Blocked by:** 02a\n")
+	writeIssue(t, ticketDir, "02a-first.md", "# 02a: First\n\n**Status:** ready-for-agent\n\n**Merged:** historical\n")
+	writeIssue(t, ticketDir, "02b-second.md", "# 02b: Second\n\n**Status:** ready-for-agent\n\n**Merged:** historical\n\n**Blocked by:** 02a\n")
 	runGit(t, root, "init", "-q")
 	runGit(t, root, "add", "-A")
 	runGit(t, root, "-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "init")

@@ -27,8 +27,12 @@
   --ready-soft: #f6e4cd;
   --blocked: #6c7a72;
   --blocked-soft: #e5e9e4;
-  --hold: #6c7a72;
-  --hold-soft: #e5e9e4;
+  --triage: #6b5b95;
+  --triage-soft: #e8e3f3;
+  --human: #8a6d3b;
+  --human-soft: #f3ead7;
+  --wont: #7a6a6a;
+  --wont-soft: #e9e3e3;
   --needs: #9a3f3f;
   --needs-soft: #f3dddd;
   --shadow: 0 1px 0 rgba(24, 33, 28, .04);
@@ -54,8 +58,12 @@
     --ready-soft: #3a2a18;
     --blocked: #8a988f;
     --blocked-soft: #232d27;
-    --hold: #8a988f;
-    --hold-soft: #232d27;
+    --triage: #b9a9d6;
+    --triage-soft: #2a2440;
+    --human: #d6b98c;
+    --human-soft: #3a2f1c;
+    --wont: #b09a9a;
+    --wont-soft: #2f2727;
     --needs: #e08a8a;
     --needs-soft: #3a2020;
     --shadow: none;
@@ -79,8 +87,12 @@
   --ready-soft: #3a2a18;
   --blocked: #8a988f;
   --blocked-soft: #232d27;
-  --hold: #8a988f;
-  --hold-soft: #232d27;
+  --triage: #b9a9d6;
+  --triage-soft: #2a2440;
+  --human: #d6b98c;
+  --human-soft: #3a2f1c;
+  --wont: #b09a9a;
+  --wont-soft: #2f2727;
   --needs: #e08a8a;
   --needs-soft: #3a2020;
   --shadow: none;
@@ -132,7 +144,9 @@ p { margin: 0; }
 .stat.in-review { border-top-color: var(--inreview); }
 .stat.ready { border-top-color: var(--ready); }
 .stat.blocked { border-top-color: var(--blocked); }
-.stat.on-hold { border-top-color: var(--hold); }
+.stat.needs-triage { border-top-color: var(--triage); }
+.stat.ready-for-human { border-top-color: var(--human); }
+.stat.wontfix { border-top-color: var(--wont); }
 .stat.needs-info { border-top-color: var(--needs); }
 .stat-num {
   display: block;
@@ -176,7 +190,9 @@ section { margin-top: 34px; }
 .pill.in-review { color: var(--inreview); background: var(--inreview-soft); }
 .pill.ready { color: var(--ready); background: var(--ready-soft); }
 .pill.blocked { color: var(--blocked); background: var(--blocked-soft); }
-.pill.on-hold { color: var(--hold); background: var(--hold-soft); }
+.pill.needs-triage { color: var(--triage); background: var(--triage-soft); }
+.pill.ready-for-human { color: var(--human); background: var(--human-soft); }
+.pill.wontfix { color: var(--wont); background: var(--wont-soft); }
 .pill.needs-info { color: var(--needs); background: var(--needs-soft); }
 .chain {
   display: flex;
@@ -201,7 +217,9 @@ section { margin-top: 34px; }
 .chain-node.done { border-bottom-color: var(--done); }
 .chain-node.in-review { border-bottom-color: var(--inreview); }
 .chain-node.ready { border-bottom-color: var(--ready); }
-.chain-node.on-hold { border-bottom-color: var(--hold); }
+.chain-node.needs-triage { border-bottom-color: var(--triage); }
+.chain-node.ready-for-human { border-bottom-color: var(--human); }
+.chain-node.wontfix { border-bottom-color: var(--wont); }
 .chain-node.needs-info { border-bottom-color: var(--needs); }
 .chain-title { color: var(--muted); font-size: .7rem; line-height: 1.25; }
 .chain-arrow { flex: 0 0 auto; align-self: center; padding: 0 6px; color: var(--muted); font-size: 1.1rem; }
@@ -235,7 +253,9 @@ section { margin-top: 34px; }
 .ticket.done { border-left-color: var(--done); }
 .ticket.in-review { border-left-color: var(--inreview); }
 .ticket.ready { border-left-color: var(--ready); }
-.ticket.on-hold { border-left-color: var(--hold); }
+.ticket.needs-triage { border-left-color: var(--triage); }
+.ticket.ready-for-human { border-left-color: var(--human); }
+.ticket.wontfix { border-left-color: var(--wont); }
 .ticket.needs-info { border-left-color: var(--needs); }
 .ticket .meta { color: var(--muted); font-family: var(--font-mono); font-size: .68rem; overflow-wrap: anywhere; }
 .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
@@ -273,20 +293,24 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
     <p class="lede">{{.Feature}} 全部 ticket 的依赖、当前可做任务与并行波次。状态取自 <span class="mono">{{.Source}}</span>，依赖取自每个 ticket 的 <span class="mono">Blocked by</span>。本页由脚本生成，不再手工维护。</p>
     <div class="stat-grid">
       <div class="stat total"><span class="stat-num">{{.Total}}</span><span class="stat-label">全部 ticket</span></div>
-      <div class="stat done"><span class="stat-num">{{.Done}}</span><span class="stat-label">已完成</span></div>
+      <div class="stat done"><span class="stat-num">{{.Done}}</span><span class="stat-label">已合并</span></div>
       <div class="stat in-review"><span class="stat-num">{{.InReview}}</span><span class="stat-label">in review</span></div>
       <div class="stat ready"><span class="stat-num">{{.Ready}}</span><span class="stat-label">现在可做</span></div>
       <div class="stat blocked"><span class="stat-num">{{.Blocked}}</span><span class="stat-label">依赖未满足</span></div>
-      <div class="stat on-hold"><span class="stat-num">{{.OnHold}}</span><span class="stat-label">暂停</span></div>
-      <div class="stat needs-info"><span class="stat-num">{{.NeedsInfo}}</span><span class="stat-label">需要信息</span></div>
+      <div class="stat needs-triage"><span class="stat-num">{{.NeedsTriage}}</span><span class="stat-label">needs-triage</span></div>
+      <div class="stat needs-info"><span class="stat-num">{{.NeedsInfo}}</span><span class="stat-label">needs-info</span></div>
+      <div class="stat ready-for-human"><span class="stat-num">{{.ReadyForHuman}}</span><span class="stat-label">ready-for-human</span></div>
+      <div class="stat wontfix"><span class="stat-num">{{.WontFix}}</span><span class="stat-label">wontfix</span></div>
     </div>
     <div class="legend">
-      <span><span class="pill done">done</span> 已完成（合并后写入）</span>
-      <span><span class="pill in-review">in review</span> 实现完成、未合并</span>
+      <span><span class="pill done">done</span> 已合并（Merged）</span>
+      <span><span class="pill in-review">in review</span> PR 已开、未合并</span>
       <span><span class="pill ready">ready now</span> 依赖已全部完成</span>
       <span><span class="pill blocked">blocked</span> 仍有前置未完成</span>
-      <span><span class="pill on-hold">on-hold</span> 暂停</span>
+      <span><span class="pill needs-triage">needs-triage</span> 尚未分级</span>
       <span><span class="pill needs-info">needs-info</span> 需要外部信息</span>
+      <span><span class="pill ready-for-human">ready-for-human</span> 需要人决定</span>
+      <span><span class="pill wontfix">wontfix</span> 不做</span>
     </div>
   </header>
 
@@ -338,7 +362,7 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <section>
     <div class="section-head">
       <div><p class="eyebrow">Inventory</p><h2>依赖明细</h2></div>
-      <p class="section-note">共 {{.Total}} 个 ticket。状态列是“依赖状态”，不是 issue 文件的 Status 字段；done/in-review/on-hold/needs-info 直接来自 Status。</p>
+      <p class="section-note">共 {{.Total}} 个 ticket。状态列是“依赖状态”；done 来自 **Merged:**，in review 来自 **PR:**，needs-triage/needs-info/ready-for-human/wontfix 来自 **Status:**。</p>
     </div>
     <div class="table-wrap">
       <table>
@@ -360,7 +384,7 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
     <div class="section-head">
       <div><p class="eyebrow">Reading</p><h2>怎么读这张图</h2></div>
     </div>
-    <p class="note"><span class="mono">ready now</span> 只看依赖是否 done，且 ticket 状态是 ready-for-agent；<span class="mono">in review</span> 表示实现完成但尚未合并，依赖方仍 blocked。波次取最长路径深度，所以同一波次里可能有早已完成的节点。关键路径是最长链，不代表唯一路径；并行侧线越早完成，后续汇合点越早解锁。</p>
+    <p class="note"><span class="mono">ready now</span> 只看依赖是否 done，且 ticket 状态是 ready-for-agent；<span class="mono">in review</span> 表示 PR 已开、尚未合并；<span class="mono">needs-triage</span> / <span class="mono">needs-info</span> / <span class="mono">ready-for-human</span> / <span class="mono">wontfix</span> 是人工 triage 状态，依赖方仍 blocked。波次取最长路径深度，所以同一波次里可能有早已完成的节点。关键路径是最长链，不代表唯一路径；并行侧线越早完成，后续汇合点越早解锁。</p>
   </section>
 
   <footer>

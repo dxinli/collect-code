@@ -20,12 +20,22 @@ Read the file at the referenced path. The user will normally pass the path or th
 
 ## Ticket state and automation
 
-`Status:` is a two-phase state:
+`Status:` uses the five mattpocock triage labels:
 
-- `ready-for-agent`: dependencies are done; work can start.
-- `in-review`: implementation is complete and a PR is open; **dependents stay blocked**.
-- `done`: written only after the PR is merged, by the `tickets-sync` bot.
-- `on-hold` / `needs-info`: human decisions; the bot never flips these.
+- `needs-triage`: not yet triaged.
+- `needs-info`: missing information.
+- `ready-for-agent`: fully specified, AFK-ready.
+- `ready-for-human`: needs a human decision or action.
+- `wontfix`: not going to be done.
+
+Lifecycle is recorded with two optional fields, not Status:
+
+- `**PR:** #N`: written when the PR opens; derived state `in-review`.
+- `**Merged:** #N`: written by the post-merge bot; derived state `done`.
+
+Dependencies are computed: `ready now` = `ready-for-agent` + all dependencies
+merged; `blocked` = `ready-for-agent` + an unmerged dependency. `in-review` and
+all `needs-*` / `ready-for-human` / `wontfix` states keep dependents blocked.
 
 `feat/*` PRs must declare the delivered ticket in the PR body:
 
@@ -41,15 +51,20 @@ Commands:
 ```bash
 make tickets                         # generate .scratch/collector/ticket-dependency.html locally
 make tickets TICKET_DIR=.scratch/<feature>
-make tickets-guard                   # reject done on feat/* PRs (CI)
-make tickets-accept TICKET=02b       # mark done locally
+make tickets-guard                   # reject Merged on feat/* PRs (CI)
+make tickets-pr TICKET=05a PR=19     # record **PR:** #19 when the PR opens
+make tickets-accept TICKET=02b       # record Merged locally
 ```
 
+When a ticket PR opens, run `make tickets-pr` (or add `**PR:** #N` manually)
+and commit the issue file. The post-merge bot writes `**Merged:** #N`; do not
+write either field from a feature branch except `PR:`.
+
 `ticket-dependency.html` is a **local, gitignored** view. Do not commit it;
-the post-merge bot only updates ticket status, not the HTML.
+the post-merge bot only writes `**Merged:**`, not the HTML.
 
 Merge is the completion signal. The workflow runs on `push` to `main`, finds
-the merged PR associated with the commit, and marks the ticket(s) `done`. The
+the merged PR associated with the commit, and writes `**Merged:** #N`. The
 generated dependency page is local-only. To retry after a failure, comment
 `/accept 02b` on the merged PR, or run the `Ticket Sync` workflow with
 `ticket=02b`:
@@ -58,14 +73,15 @@ generated dependency page is local-only. To retry after a failure, comment
 gh workflow run tickets-sync.yml -f ticket=02b
 ```
 
-Only the bot writes `done`; `tickets-guard` fails a `feat/*` PR whose ticket is
-already `done`.
+Only the bot writes `Merged:`; `tickets-guard` fails a `feat/*` PR whose ticket
+is already merged.
 
 ## Complete-ticket walkthroughs
 
 A complete ticket is every ticket sharing a numeric prefix (`01a/01b/01c`,
 `02a/02b`, `06a/06b`); a single ticket such as `07` is its own group. Once
-every member is `done`, a committed `docs/代码走读/<NN>-*.md` must exist. The
+every member is merged (`**Merged:**` set), a committed
+`docs/代码走读/<NN>-*.md` must exist. The
 document covers the link path (with a diagram), component or object
 relationships (with a dependency diagram), and timing (with a sequence diagram
 where applicable).

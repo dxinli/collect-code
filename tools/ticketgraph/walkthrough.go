@@ -36,7 +36,7 @@ func cmdVerifyWalkthrough(args []string) error {
 	return nil
 }
 
-// missingWalkthroughs returns the numeric ticket groups that are fully done
+// missingWalkthroughs returns the numeric ticket groups that are fully merged
 // but have no committed <NN>-*.md file directly under docsDir. A group is the
 // numeric prefix shared by sub-tickets (01a/01b/01c, 02a/02b, 06a/06b); a
 // single ticket such as 07 forms its own group.
@@ -52,7 +52,7 @@ func missingWalkthroughs(tickets []*Ticket, docsDir string, committed []string) 
 	for n, members := range groups {
 		done := true
 		for _, member := range members {
-			if member.Status != StatusDone {
+			if !member.IsMerged() {
 				done = false
 				break
 			}

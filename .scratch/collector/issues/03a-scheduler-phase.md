@@ -4,7 +4,9 @@
 
 **Blocked by:** 02a
 
-**Status:** done
+**Status:** ready-for-agent
+
+**Merged:** historical
 
 - [x] 假时钟推进 24 h（60 s 周期）得到 1440 个 tick，相邻计划间隔恒为 period
 - [x] `next = start + k*period` 不累积；missed_tick 计数与日志字段可断言
