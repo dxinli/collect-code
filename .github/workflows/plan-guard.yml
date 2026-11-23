@@ -1,0 +1,34 @@
+name: plan-guard
+on: pull_request
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Block code commits while plan-review
+        env:
+          GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+        run: |
+          LABELS=$(gh pr view "$PR_NUMBER" -R "$REPO" --json labels \
+            --jq '[.labels[].name] | join(",")')
+          if [[ "$LABELS" != *plan-review* ]]; then
+            echo "✅ 非 plan-review 状态，跳过检查"; exit 0
+          fi
+
+          # 获取本 PR 相对 base 的所有 commit
+          COMMITS=$(gh pr view "$PR_NUMBER" -R "$REPO" \
+            --json commits --jq '.commits[].messageHeadline')
+
+          # 白名单：空认领 commit 和纯文档 commit 允许
+          BAD=$(echo "$COMMITS" | grep -vE \
+            '^chore: claim ticket|^docs:|^\[plan' || true)
+
+          if [ -n "$BAD" ]; then
+            echo "::error::plan-review 期间出现代码 commit：$BAD"
+            exit 1
+          fi
+        # 用 gh api 判断 commit 是否改了非 md 文件（更严格版，可选）

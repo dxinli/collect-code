@@ -39,24 +39,45 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 
 ## Ticket 交付流程（硬约束）
 
-每个 ticket 是 GitHub issue；处于 `ready-for-agent` 后才进入下面的计划流程。issue 正文即 agent brief（What to build、验收标准、Out of scope）。
+认领 `ready-for-agent` 的 issue 时，遵循以下流程。
 
-每个 ticket 开始实现之前，必须按顺序完成：
+### 元指令（每张工单必做）
 
-1. **Plan**：用 `/plan`（其他代理使用等效的计划模式）生成实施计划；使用干净上下文（新会话或子代理），并切换模型（平台支持时）。计划文档提交，提交格式：`plan: 01a 实施计划（待评审）`
-2. **独立评审**：用另一个模型、干净上下文评审计划；评审人必须自己读 spec/ticket/ADR/代码，不能只看计划自述。计划文档提交，提交格式：`plan: 01a 计划 v2（按独立评审修订）`
-3. **交用户评审**：把交叉评审后的结果交给用户；无法把握的点给 A/B 两案和推荐，由用户拍板。用户每提出一次问题，修改后按照格式提交。
-4. **用户明确说“计划评审通过”**：只有得到这句明确确认，才可以开始写代码。
-5. **计划提交**：计划文档每个阶段均需要单独提交（`plan: ...`），不要混在一个提交。
-6. 未通过计划评审前：不写实现、不提交实现、不关闭 issue、不开始下一个 ticket。
-7. **实现**：`/implement`（其他代理按计划实现）过程中，按照功能点分多次提交。
-8. **Triage + 生命周期**：每个 triaged issue 恰好一个 state label（`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`）和一个 category label（`bug`、`enhancement`）。生命周期就是 issue 的 open/closed；PR 写 `Closes #N`，合并即关闭。不再有 `Status:`、`PR:`、`Merged:` 字段。
-9. **依赖与视图**：依赖用 GitHub 原生 blocked-by。`make tickets` 列出 blocker 全部关闭的 `ready-for-agent` issue；不再生成依赖 HTML。
-10. **合并后**：GitHub 按 `Closes #N` 自动关闭 issue，没有 bot、没有 sync PR。完整 ticket 组的代码走读是评审交付物，不再是 CI 门槛。
+完成一张工单的收尾后，在该 issue 留评论：
 
-实现过程中若发现计划需要改变规则/范围/输出契约，停止实现，回到第 1–4 步重新评审；不得用“实现中发现”代替用户评审。
+> 📋 流程反馈：本次流程中哪一步最卡 / 哪条规则最没用。
+> 若无摩擦，写"无"。连续多次"无"时流程将固化升级。
 
-流程违规的处理：回退全部未提交实现，恢复到上一个已交付提交，按本流程从 Plan 重新执行。流程规则文档（如本文件）本身应最早处理并单独提交。
+这是流程的采样机制，你的反馈直接决定 AGENTS.md 的演进方向。
+
+### 认领
+
+- 原子换标签：`ready-for-agent` → `in-progress`，并在 issue 评论认领。
+  换标签失败 = 被抢，跳过换下一张。
+- 立即开分支 + **draft PR**，body 首行含 `Closes #N`。
+
+### Plan
+
+- PR body 分两节：**Plan**（目标/改动清单/Non-goals/风险点）+ **实现记录**（留空）。
+- 打 `plan-review` 标签后停下等评审。标签未移除前，禁止推送任何代码 commit。
+- 收到评审意见：更新 body + 评论说明改动原因。
+  意见涉及 ticket 验收标准本身 → 不改 plan，去 issue 评论提案，人工裁决。
+
+### Implement
+
+- plan 定稿后逐条实现，每 commit 对应清单一条并在 body 勾选。
+- 实现中发现 plan 错误：停下，PR 评论说明，打回 `plan-review`。
+
+### 收尾
+
+- 全部完成后：跑测试 → 自查 → `gh pr ready`。
+- auto-merge 负责合并，`Closes #N` 自动关 issue。
+
+### 纪律
+
+- 一 ticket = 一 PR。范围外需求开新 issue，不塞入本工单。
+- 永不修改 issue body——只用评论提案。
+- 优先级：ticket 验收标准 > plan > 实现偏好。
 
 ## 版本控制（硬约束）
 
