@@ -11,7 +11,7 @@ jobs:
 
       - name: Block code commits while plan-review
         env:
-          GH_TOKEN: ${{ secrets.AGENT_GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           LABELS=$(gh pr view "$PR_NUMBER" -R "$REPO" --json labels \
             --jq '[.labels[].name] | join(",")')
@@ -31,4 +31,3 @@ jobs:
             echo "::error::plan-review 期间出现代码 commit：$BAD"
             exit 1
           fi
-        # 用 gh api 判断 commit 是否改了非 md 文件（更严格版，可选）
