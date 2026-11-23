@@ -8,7 +8,9 @@
 
 **Blocked by:** 01b
 
-**Status:** done
+**Status:** ready-for-agent
+
+**Merged:** historical
 
 - [x] `device.device_type` 与 `profile.device_type` 都非空时必须一致；不新增 profile.device_type 必填
 - [x] `device_type` 枚举限定 `valve`/`sensor`/`gateway`（以 `GLOSSARY.md` 为准）

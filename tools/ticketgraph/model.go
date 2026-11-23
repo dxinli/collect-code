@@ -6,36 +6,39 @@ import (
 )
 
 // Status is the triage state recorded in an issue file's **Status:** line.
+// These are the five mattpocock triage labels.
 type Status string
 
 const (
-	StatusDone          Status = "done"
-	StatusInReview      Status = "in-review"
-	StatusReadyForAgent Status = "ready-for-agent"
-	StatusOnHold        Status = "on-hold"
+	StatusNeedsTriage   Status = "needs-triage"
 	StatusNeedsInfo     Status = "needs-info"
-	StatusBacklog       Status = "backlog"
+	StatusReadyForAgent Status = "ready-for-agent"
+	StatusReadyForHuman Status = "ready-for-human"
+	StatusWontFix       Status = "wontfix"
 )
 
 var knownStatuses = map[Status]bool{
-	StatusDone:          true,
-	StatusInReview:      true,
-	StatusReadyForAgent: true,
-	StatusOnHold:        true,
+	StatusNeedsTriage:   true,
 	StatusNeedsInfo:     true,
-	StatusBacklog:       true,
+	StatusReadyForAgent: true,
+	StatusReadyForHuman: true,
+	StatusWontFix:       true,
 }
 
-// State is the dependency state derived from Status + Blocked by.
+// State is the dependency state derived from Status + PR/Merged fields +
+// Blocked by. Only the first two are lifecycle states; the rest are triage
+// or dependency states.
 type State string
 
 const (
-	StateDone      State = "done"
-	StateInReview  State = "in-review"
-	StateReady     State = "ready"
-	StateBlocked   State = "blocked"
-	StateOnHold    State = "on-hold"
-	StateNeedsInfo State = "needs-info"
+	StateDone          State = "done"
+	StateInReview      State = "in-review"
+	StateReady         State = "ready"
+	StateBlocked       State = "blocked"
+	StateNeedsTriage   State = "needs-triage"
+	StateNeedsInfo     State = "needs-info"
+	StateReadyForHuman State = "ready-for-human"
+	StateWontFix       State = "wontfix"
 )
 
 func (s State) Label() string {
@@ -48,10 +51,14 @@ func (s State) Label() string {
 		return "ready now"
 	case StateBlocked:
 		return "blocked"
-	case StateOnHold:
-		return "on-hold"
+	case StateNeedsTriage:
+		return "needs-triage"
 	case StateNeedsInfo:
 		return "needs-info"
+	case StateReadyForHuman:
+		return "ready-for-human"
+	case StateWontFix:
+		return "wontfix"
 	default:
 		return string(s)
 	}
@@ -64,11 +71,19 @@ type Ticket struct {
 	What       string
 	Note       string
 	Status     Status
+	PR         string
+	Merged     string
 	BlockedRaw string
 	BlockedBy  []string
 	External   []string
 	Path       string
 }
+
+// IsMerged reports whether the post-merge bot has recorded this ticket.
+func (t *Ticket) IsMerged() bool { return t.Merged != "" }
+
+// IsInReview reports whether a PR is open and not yet merged.
+func (t *Ticket) IsInReview() bool { return t.Merged == "" && t.PR != "" }
 
 // idLess orders 01a, 01b, 02a, ..., 10, 12a, 20 naturally.
 func idLess(a, b string) bool {

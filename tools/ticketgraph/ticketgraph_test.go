@@ -21,12 +21,12 @@ func writeIssue(t *testing.T, dir, name, content string) {
 func fixtureGraph(t *testing.T) (*Graph, string) {
 	t.Helper()
 	dir := t.TempDir()
-	writeIssue(t, dir, "01a-alpha.md", "# 01a: Alpha\n\n**Status:** done\n")
-	writeIssue(t, dir, "02a-beta.md", "# 02a: Beta\n\n**Status:** done\n\n**Blocked by:** 01a\n")
-	writeIssue(t, dir, "02b-review.md", "# 02b: Gamma\n\n**Status:** in-review\n\n**Blocked by:** 02a\n")
+	writeIssue(t, dir, "01a-alpha.md", "# 01a: Alpha\n\n**Status:** ready-for-agent\n\n**Merged:** historical\n")
+	writeIssue(t, dir, "02a-beta.md", "# 02a: Beta\n\n**Status:** ready-for-agent\n\n**Merged:** historical\n\n**Blocked by:** 01a\n")
+	writeIssue(t, dir, "02b-review.md", "# 02b: Gamma\n\n**Status:** ready-for-agent\n\n**PR:** #2\n\n**Blocked by:** 02a\n")
 	writeIssue(t, dir, "03a-ready.md", "# 03a: Delta\n\n**Status:** ready-for-agent\n\n**Blocked by:** 02a\n")
 	writeIssue(t, dir, "03b-blocked.md", "# 03b: Epsilon\n\n**Status:** ready-for-agent\n\n**Blocked by:** 02a,03a\n")
-	writeIssue(t, dir, "04-hold.md", "# 04: Zeta\n\n**Status:** on-hold\n\n**Blocked by:** 02a\n")
+	writeIssue(t, dir, "04-human.md", "# 04: Zeta\n\n**Status:** ready-for-human\n\n**Blocked by:** 02a\n")
 	writeIssue(t, dir, "05-info.md", "# 05: Eta\n\n**Status:** needs-info\n\n**Blocked by:** 02a\n")
 	writeIssue(t, dir, "06-review-dep.md", "# 06: Theta\n\n**Status:** ready-for-agent\n\n**Blocked by:** 02b\n")
 	writeIssue(t, dir, "07-ready.md", "# 07: Iota\n\n**Status:** ready-for-agent\n\n**Blocked by:** 02a\n")
@@ -68,6 +68,53 @@ func TestParseIssueRejectsUnknownStatus(t *testing.T) {
 	}
 }
 
+func TestParsePRAndMerged(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "01a-x.md")
+	content := "# 01a: Title\n\n**Status:** ready-for-agent\n\n**PR:** #12\n\n**Merged:** #12\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tk, err := parseIssue(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tk.PR != "#12" || tk.Merged != "#12" {
+		t.Fatalf("PR/Merged = %q/%q", tk.PR, tk.Merged)
+	}
+}
+
+func TestSetPRAndMerged(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "01a-x.md")
+	if err := os.WriteFile(path, []byte("# 01a: Title\n\n**Status:** ready-for-agent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := setPR(path, "#12"); err != nil {
+		t.Fatal(err)
+	}
+	if err := setMerged(path, "#12"); err != nil {
+		t.Fatal(err)
+	}
+	tk, err := parseIssue(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tk.PR != "#12" || tk.Merged != "#12" {
+		t.Fatalf("PR/Merged = %q/%q", tk.PR, tk.Merged)
+	}
+	if err := setPR(path, "#13"); err != nil {
+		t.Fatal(err)
+	}
+	tk, err = parseIssue(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tk.PR != "#13" {
+		t.Fatalf("PR after replace = %q", tk.PR)
+	}
+}
+
 func TestGraphStates(t *testing.T) {
 	g, _ := fixtureGraph(t)
 	want := map[string]State{
@@ -76,7 +123,7 @@ func TestGraphStates(t *testing.T) {
 		"02b": StateInReview,
 		"03a": StateReady,
 		"03b": StateBlocked,
-		"04":  StateOnHold,
+		"04":  StateReadyForHuman,
 		"05":  StateNeedsInfo,
 		"06":  StateBlocked,
 		"07":  StateReady,
@@ -103,7 +150,7 @@ func TestGraphStates(t *testing.T) {
 
 func TestCompleteTickets(t *testing.T) {
 	dir := t.TempDir()
-	writeIssue(t, dir, "01a-a.md", "# 01a: A\n\n**Status:** done\n")
+	writeIssue(t, dir, "01a-a.md", "# 01a: A\n\n**Status:** ready-for-agent\n\n**Merged:** historical\n")
 	writeIssue(t, dir, "02a-b.md", "# 02a: B\n\n**Status:** ready-for-agent\n\n**Blocked by:** 01a\n")
 	writeIssue(t, dir, "02b-c.md", "# 02b: C\n\n**Status:** ready-for-agent\n\n**Blocked by:** 02a\n")
 	out, err := completeTickets(dir, []string{"02a"}, 7)
@@ -120,8 +167,8 @@ func TestCompleteTickets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if g.ByID["02a"].Status != StatusDone {
-		t.Fatalf("02a status = %s", g.ByID["02a"].Status)
+	if !g.ByID["02a"].IsMerged() {
+		t.Fatalf("02a should be merged")
 	}
 	out, err = completeTickets(dir, []string{"02a", "02b"}, 7)
 	if err != nil {
@@ -196,7 +243,7 @@ func TestRenderDeterministic(t *testing.T) {
 		t.Fatal("render is not deterministic")
 	}
 	html := string(first)
-	for _, want := range []string{"<!doctype html>", "tools/ticketgraph", "in-review", "02b", "ready now"} {
+	for _, want := range []string{"<!doctype html>", "tools/ticketgraph", "in-review", "ready-for-human", "needs-info", "02b", "ready now"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("rendered HTML missing %q", want)
 		}

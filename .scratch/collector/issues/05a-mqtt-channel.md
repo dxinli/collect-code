@@ -4,7 +4,9 @@
 
 **Blocked by:** 02a
 
-**Status:** done
+**Status:** ready-for-agent
+
+**Merged:** historical
 
 - [ ] 连接/重连/KeepAlive；节点级 LWT 的 topic/retain/payload 精确断言
 - [ ] 断线时 Publish 返回 typed error（`errors.Is` 可判），不阻塞、不 panic

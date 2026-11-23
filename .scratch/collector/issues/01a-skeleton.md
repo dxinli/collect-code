@@ -4,7 +4,9 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** done
+**Status:** ready-for-agent
+
+**Merged:** historical
 
 - [x] `version`/`config-check`/`run` 三个子命令可运行；`run` 收到 SIGTERM 优雅退出
 - [x] 四层 YAML（config/links/profiles/devices）可解析；未知键报错

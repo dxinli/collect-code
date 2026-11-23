@@ -57,8 +57,10 @@ type renderData struct {
 	InReview         int
 	Ready            int
 	Blocked          int
-	OnHold           int
+	NeedsTriage      int
 	NeedsInfo        int
+	ReadyForHuman    int
+	WontFix          int
 	ReadyCards       []cardData
 	CriticalPath     []nodeData
 	CriticalPathNote string
@@ -91,10 +93,14 @@ func buildRenderData(g *Graph) renderData {
 			data.Ready++
 		case StateBlocked:
 			data.Blocked++
-		case StateOnHold:
-			data.OnHold++
+		case StateNeedsTriage:
+			data.NeedsTriage++
 		case StateNeedsInfo:
 			data.NeedsInfo++
+		case StateReadyForHuman:
+			data.ReadyForHuman++
+		case StateWontFix:
+			data.WontFix++
 		}
 	}
 

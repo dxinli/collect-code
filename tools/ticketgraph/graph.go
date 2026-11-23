@@ -89,27 +89,34 @@ func (g *Graph) computeDepth() error {
 
 func (g *Graph) computeStates() {
 	for _, t := range g.Tickets {
-		switch t.Status {
-		case StatusDone:
+		switch {
+		case t.IsMerged():
 			g.State[t.ID] = StateDone
-		case StatusInReview:
+		case t.IsInReview():
 			g.State[t.ID] = StateInReview
-		case StatusOnHold:
-			g.State[t.ID] = StateOnHold
-		case StatusNeedsInfo:
-			g.State[t.ID] = StateNeedsInfo
 		default:
-			ready := len(t.External) == 0
-			for _, dep := range t.BlockedBy {
-				if g.State[dep] != StateDone {
-					ready = false
-					break
+			switch t.Status {
+			case StatusNeedsTriage:
+				g.State[t.ID] = StateNeedsTriage
+			case StatusNeedsInfo:
+				g.State[t.ID] = StateNeedsInfo
+			case StatusReadyForHuman:
+				g.State[t.ID] = StateReadyForHuman
+			case StatusWontFix:
+				g.State[t.ID] = StateWontFix
+			default: // ready-for-agent
+				ready := len(t.External) == 0
+				for _, dep := range t.BlockedBy {
+					if g.State[dep] != StateDone {
+						ready = false
+						break
+					}
 				}
-			}
-			if ready {
-				g.State[t.ID] = StateReady
-			} else {
-				g.State[t.ID] = StateBlocked
+				if ready {
+					g.State[t.ID] = StateReady
+				} else {
+					g.State[t.ID] = StateBlocked
+				}
 			}
 		}
 	}

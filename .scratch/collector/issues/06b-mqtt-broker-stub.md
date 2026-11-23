@@ -8,7 +8,9 @@
 
 **Blocked by:** 01a
 
-**Status:** done
+**Status:** ready-for-agent
+
+**Merged:** historical
 
 - [x] 内嵌纯 Go broker 监听 `127.0.0.1:0`；`--manifest` 输出实际地址
 - [x] 云端桩订阅上行并可通过 `GET /_sim/captured` 查询

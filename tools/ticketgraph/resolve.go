@@ -137,10 +137,11 @@ func guardGraph(g *Graph, branch string, tickets []string) error {
 		if t == nil {
 			return fmt.Errorf("unknown ticket %q", id)
 		}
+		if t.IsMerged() {
+			return fmt.Errorf("%s is already merged; Merged: can only be written after merge by the tickets-sync bot", id)
+		}
 		switch t.Status {
-		case StatusDone:
-			return fmt.Errorf("%s is already done; done can only be written after merge by the tickets-sync bot", id)
-		case StatusOnHold, StatusNeedsInfo:
+		case StatusNeedsTriage, StatusNeedsInfo, StatusReadyForHuman, StatusWontFix:
 			fmt.Fprintf(os.Stderr, "ticketgraph: warning: %s is %s; delivery still needs a human decision\n", id, t.Status)
 		}
 	}

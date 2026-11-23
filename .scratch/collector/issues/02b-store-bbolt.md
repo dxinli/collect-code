@@ -4,7 +4,9 @@
 
 **Blocked by:** 02a
 
-**Status:** done
+**Status:** ready-for-agent
+
+**Merged:** historical
 
 - [x] 同一套契约测试分别跑内存实现与 bbolt 实现
 - [x] 覆盖 BeginAccepted/Finish/重复 Begin/Finish 未知记录/LastSeq/LoadDevices/SaveDevices/LoadSnapshot/SaveSnapshot/DeleteExpired

@@ -21,6 +21,8 @@ func main() {
 		err = cmdRender(os.Args[2:])
 	case "set-status":
 		err = cmdSetStatus(os.Args[2:])
+	case "set-pr":
+		err = cmdSetPR(os.Args[2:])
 	case "complete":
 		err = cmdComplete(os.Args[2:])
 	case "ready":
@@ -53,7 +55,8 @@ func usage() {
 commands:
   render      generate <dir>/ticket-dependency.html
   set-status  rewrite one **Status:** line
-  complete    mark tickets done and report newly ready tickets
+  set-pr      record **PR:** #N when a PR opens
+  complete    record **Merged:** #N and report newly ready tickets
   ready       list tickets whose dependencies are done
   resolve     resolve ticket IDs from a PR body/labels/branch or event
   guard       enforce "feat/* cannot write done"
@@ -122,12 +125,47 @@ func cmdSetStatus(args []string) error {
 	return nil
 }
 
+func cmdSetPR(args []string) error {
+	fs := flag.NewFlagSet("set-pr", flag.ContinueOnError)
+	dir := fs.String("dir", ".scratch/collector", "feature directory")
+	feature := fs.String("feature", "", "shorthand for --dir .scratch/<feature>")
+	ticket := fs.String("ticket", "", "ticket ID, e.g. 05a")
+	pr := fs.String("pr", "", "pull request number or reference")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *ticket == "" || *pr == "" {
+		return errors.New("set-pr requires --ticket and --pr")
+	}
+	d := resolveDir(*dir, *feature)
+	g, err := LoadGraph(d)
+	if err != nil {
+		return err
+	}
+	t := g.ByID[*ticket]
+	if t == nil {
+		return fmt.Errorf("unknown ticket %q", *ticket)
+	}
+	if t.IsMerged() {
+		return fmt.Errorf("%s is already merged", *ticket)
+	}
+	value := strings.TrimSpace(*pr)
+	if !strings.HasPrefix(value, "#") {
+		value = "#" + value
+	}
+	if err := setPR(t.Path, value); err != nil {
+		return err
+	}
+	fmt.Printf("%s: PR %s\n", t.ID, value)
+	return nil
+}
+
 func cmdComplete(args []string) error {
 	fs := flag.NewFlagSet("complete", flag.ContinueOnError)
 	dir := fs.String("dir", ".scratch/collector", "feature directory")
 	feature := fs.String("feature", "", "shorthand for --dir .scratch/<feature>")
 	ticket := fs.String("ticket", "", "comma-separated ticket IDs")
-	pr := fs.Int("pr", 0, "pull request number for the report")
+	pr := fs.Int("pr", 0, "pull request number written as **Merged:** #N")
 	jsonOut := fs.Bool("json", false, "print machine-readable JSON")
 	if err := fs.Parse(args); err != nil {
 		return err
