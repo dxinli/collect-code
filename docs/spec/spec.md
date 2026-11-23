@@ -1,7 +1,7 @@
 # Spec：采集引擎行为契约
 
 - Status: accepted
-- Version: 3.1.0
+- Version: 3.1.2
 - Supersedes: v2-draft（tag `spec-v2-draft`）
 - Normative: §1–§9
 - Change log: `docs/spec/CHANGELOG.md`
