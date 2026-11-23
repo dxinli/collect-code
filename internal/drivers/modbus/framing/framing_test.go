@@ -10,7 +10,6 @@ import (
 	"github.com/dxinli/collect-code/internal/drivers/modbus/pdu"
 )
 
-// Covers: REQ-SCOPE-01
 func TestFramerSwitchSharesPDU(t *testing.T) {
 	rawPDU := []byte{0x03, 0x00, 0x00, 0x00, 0x02}
 	for _, framer := range []framing.Framer{framing.NewMBAP(), framing.NewRTU()} {
@@ -28,7 +27,6 @@ func TestFramerSwitchSharesPDU(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestFramerPDURecoverability(t *testing.T) {
 	if !framing.NewMBAP().PDUErrorsAreRecoverable() {
 		t.Fatal("MBAP PDU errors must be recoverable")
@@ -38,7 +36,6 @@ func TestFramerPDURecoverability(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestRTUCleanEOFBeforeFrame(t *testing.T) {
 	for _, framer := range []framing.Framer{framing.NewRTU(), framing.NewMBAP()} {
 		_, err := framer.DecodeRequest(bytes.NewReader(nil))
@@ -48,7 +45,6 @@ func TestRTUCleanEOFBeforeFrame(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestFramingErrorsSatisfyProtocol(t *testing.T) {
 	errs := []error{
 		framing.ErrBadCRC,

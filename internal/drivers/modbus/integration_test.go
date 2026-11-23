@@ -142,20 +142,16 @@ func runTCPTransport(t *testing.T, rtu bool) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestThreeTransportsSameExchange(t *testing.T) {
 	t.Run("mbap pipe", func(t *testing.T) { runPipeTransport(t, framing.NewMBAP(), false) })
 	t.Run("rtu pipe", func(t *testing.T) { runPipeTransport(t, framing.NewRTU(), true) })
 	t.Run("rtu over tcp", func(t *testing.T) { runTCPTransport(t, true) })
 }
 
-// Covers: REQ-SCOPE-01
 func TestTCPLoopbackMBAP(t *testing.T) { runTCPTransport(t, false) }
 
-// Covers: REQ-SCOPE-01
 func TestTCPLoopbackRTUOverTCP(t *testing.T) { runTCPTransport(t, true) }
 
-// Covers: REQ-SCOPE-01
 func TestClientSerializesConcurrentCalls(t *testing.T) {
 	const count = 16
 	units := map[uint16]uint16{}
@@ -206,7 +202,7 @@ func TestClientSerializesConcurrentCalls(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01, REQ-TIME-01
+// Covers: REQ-TIME-01
 func TestNoGoroutineLeakAfterClose(t *testing.T) {
 	baseline := runtime.NumGoroutine()
 	for range 10 {
@@ -242,7 +238,6 @@ func TestNoGoroutineLeakAfterClose(t *testing.T) {
 	t.Fatalf("goroutines = %d, baseline = %d", runtime.NumGoroutine(), baseline)
 }
 
-// Covers: REQ-SCOPE-01
 func TestRTUErrorRequiresRebuild(t *testing.T) {
 	bad := []byte{0x01, 0x11, 0x00, 0x00, 0x00, 0x01}
 	crc := framing.CRC16(bad)

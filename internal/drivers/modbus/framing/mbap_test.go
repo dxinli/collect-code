@@ -10,7 +10,6 @@ import (
 	"github.com/dxinli/collect-code/internal/drivers/modbus/pdu"
 )
 
-// Covers: REQ-SCOPE-01
 func TestMBAPEncodeGolden(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -46,7 +45,6 @@ func TestMBAPEncodeGolden(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestMBAPDecodeRequestGolden(t *testing.T) {
 	raw := []byte{0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x02}
 	frame, err := framing.NewMBAP().DecodeRequest(bytes.NewReader(raw))
@@ -58,7 +56,6 @@ func TestMBAPDecodeRequestGolden(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestMBAPDecodeResponseGolden(t *testing.T) {
 	raw := []byte{0x00, 0x01, 0x00, 0x00, 0x00, 0x07, 0x01, 0x03, 0x04, 0x00, 0x32, 0x00, 0x64}
 	req := &pdu.ReadRegistersRequest{Func: pdu.FuncReadHoldingRegisters, Quantity: 2}
@@ -74,7 +71,6 @@ func TestMBAPDecodeResponseGolden(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestMBAPRejectsBadProtocolID(t *testing.T) {
 	raw := []byte{0x00, 0x01, 0x00, 0x01, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x02}
 	_, err := framing.NewMBAP().DecodeRequest(bytes.NewReader(raw))
@@ -86,7 +82,6 @@ func TestMBAPRejectsBadProtocolID(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestMBAPRejectsBadLength(t *testing.T) {
 	for _, length := range []uint16{0, 1, 255} {
 		raw := []byte{0x00, 0x01, 0x00, 0x00, byte(length >> 8), byte(length), 0x01}
@@ -97,7 +92,6 @@ func TestMBAPRejectsBadLength(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestMBAPRejectsTransactionMismatch(t *testing.T) {
 	raw := []byte{0x00, 0x02, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x02}
 	req := &pdu.ReadRegistersRequest{Func: pdu.FuncReadHoldingRegisters, Quantity: 2}
@@ -110,7 +104,6 @@ func TestMBAPRejectsTransactionMismatch(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestMBAPRecoverableErrorKeepsStreamAligned(t *testing.T) {
 	bad := []byte{0x00, 0x01, 0x00, 0x01, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x02}
 	good := []byte{0x00, 0x02, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x02}
@@ -128,7 +121,6 @@ func TestMBAPRecoverableErrorKeepsStreamAligned(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestMBAPInvalidLengthIsUnrecoverable(t *testing.T) {
 	raw := []byte{0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x01}
 	_, err := framing.NewMBAP().DecodeRequest(bytes.NewReader(raw))
@@ -137,7 +129,6 @@ func TestMBAPInvalidLengthIsUnrecoverable(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestMBAPTruncatedHeaderAndBody(t *testing.T) {
 	framer := framing.NewMBAP()
 	if _, err := framer.DecodeRequest(bytes.NewReader(nil)); !errors.Is(err, io.EOF) {
@@ -153,7 +144,6 @@ func TestMBAPTruncatedHeaderAndBody(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestMBAPEncodeRejectsBadPDULength(t *testing.T) {
 	framer := framing.NewMBAP()
 	if _, err := framer.Encode(framing.Frame{}); !errors.Is(err, framing.ErrMalformedFrame) {

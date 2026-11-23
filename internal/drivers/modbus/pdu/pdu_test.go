@@ -7,7 +7,6 @@ import (
 	"github.com/dxinli/collect-code/internal/drivers/modbus/pdu"
 )
 
-// Covers: REQ-SCOPE-01
 func TestPDUQuantityBoundaries(t *testing.T) {
 	for _, quantity := range []uint16{1, pdu.MaxReadRegisters} {
 		req := &pdu.ReadRegistersRequest{Func: pdu.FuncReadHoldingRegisters, Quantity: quantity}
@@ -35,7 +34,6 @@ func TestPDUQuantityBoundaries(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestPDUDecodeQuantityBoundariesAreProtocolErrors(t *testing.T) {
 	_, err := pdu.DecodeRequest([]byte{0x03, 0x00, 0x00, 0x00, 0x00})
 	if !errors.Is(err, pdu.ErrProtocol) || !errors.Is(err, pdu.ErrInvalidQuantity) {
@@ -51,7 +49,6 @@ func TestPDUDecodeQuantityBoundariesAreProtocolErrors(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestPDUAddressOverflow(t *testing.T) {
 	_, err := pdu.EncodeRequest(&pdu.ReadRegistersRequest{
 		Func: pdu.FuncReadHoldingRegisters, Address: 0xFFFF, Quantity: 2,
@@ -71,7 +68,6 @@ func TestPDUAddressOverflow(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestPDURejectsUnknownFunction(t *testing.T) {
 	for _, fn := range []byte{0x01, 0x05, 0x0F, 0x11} {
 		raw := []byte{fn, 0x00, 0x00, 0x00, 0x01}
@@ -84,7 +80,6 @@ func TestPDURejectsUnknownFunction(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestEncodeRequestRejectsWrongReadFunc(t *testing.T) {
 	_, err := pdu.EncodeRequest(&pdu.ReadRegistersRequest{
 		Func: pdu.FuncWriteSingleRegister, Quantity: 1,
@@ -94,7 +89,6 @@ func TestEncodeRequestRejectsWrongReadFunc(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestPDUMalformedRequests(t *testing.T) {
 	tests := []struct {
 		name string
@@ -117,7 +111,6 @@ func TestPDUMalformedRequests(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestPDUMalformedResponses(t *testing.T) {
 	tests := []struct {
 		name string
@@ -140,7 +133,6 @@ func TestPDUMalformedResponses(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestPDUEncodedLengthLimit(t *testing.T) {
 	resp := &pdu.ReadRegistersResponse{
 		Func:      pdu.FuncReadHoldingRegisters,
@@ -163,7 +155,7 @@ func TestPDUEncodedLengthLimit(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01, REQ-INVOKE-05
+// Covers: REQ-INVOKE-05
 func TestExceptionClassification(t *testing.T) {
 	rejected := []pdu.ExceptionCode{
 		pdu.ExceptionIllegalFunction,
@@ -192,7 +184,6 @@ func TestExceptionClassification(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestValidateResponse(t *testing.T) {
 	read := &pdu.ReadRegistersRequest{Func: pdu.FuncReadHoldingRegisters, Quantity: 2}
 	if err := pdu.ValidateResponse(read, &pdu.ReadRegistersResponse{
@@ -225,7 +216,6 @@ func TestValidateResponse(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestExceptionResponseErrorText(t *testing.T) {
 	err := (&pdu.ExceptionResponse{Func: pdu.FuncReadHoldingRegisters, Code: pdu.ExceptionIllegalDataAddress}).Error()
 	if err == "" {

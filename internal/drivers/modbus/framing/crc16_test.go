@@ -6,7 +6,6 @@ import (
 	"github.com/dxinli/collect-code/internal/drivers/modbus/framing"
 )
 
-// Covers: REQ-SCOPE-01
 func TestCRC16KnownVectors(t *testing.T) {
 	tests := []struct {
 		name string
@@ -33,7 +32,6 @@ func TestCRC16KnownVectors(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestCRC16WireByteOrder(t *testing.T) {
 	crc := framing.CRC16([]byte{0x01, 0x03, 0x00, 0x00, 0x00, 0x02})
 	if byte(crc) != 0xC4 || byte(crc>>8) != 0x0B {

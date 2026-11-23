@@ -11,7 +11,6 @@ import (
 	"github.com/dxinli/collect-code/internal/drivers/modbus/pdu"
 )
 
-// Covers: REQ-SCOPE-01
 func TestSlaveServesMultiUnit(t *testing.T) {
 	slave := New(map[uint8]*Unit{
 		1: {Holding: map[uint16]uint16{0: 0x1234, 1: 0x5678}},
@@ -39,7 +38,6 @@ func TestSlaveServesMultiUnit(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestSlaveRecordsRequests(t *testing.T) {
 	slave := New(map[uint8]*Unit{1: {Holding: map[uint16]uint16{}}})
 	mustHandle(t, slave, framing.Frame{TransactionID: 1, UnitID: 1, PDU: mustRequest(t, &pdu.ReadRegistersRequest{Func: pdu.FuncReadHoldingRegisters, Quantity: 1})})
@@ -61,7 +59,6 @@ func TestSlaveRecordsRequests(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestSlaveUnknownFunctionMBAP(t *testing.T) {
 	slave := New(map[uint8]*Unit{1: {Holding: map[uint16]uint16{}}})
 	response := mustHandle(t, slave, framing.Frame{TransactionID: 1, UnitID: 1, PDU: []byte{0x11, 0x00, 0x00}})
@@ -71,7 +68,6 @@ func TestSlaveUnknownFunctionMBAP(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestSlaveSetException(t *testing.T) {
 	slave := New(map[uint8]*Unit{1: {Holding: map[uint16]uint16{0: 1}}})
 	slave.SetException(1, pdu.FuncReadHoldingRegisters, pdu.ExceptionIllegalDataAddress)
@@ -82,7 +78,6 @@ func TestSlaveSetException(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestSlaveWritesRegisters(t *testing.T) {
 	unit := &Unit{Holding: map[uint16]uint16{}}
 	slave := New(map[uint8]*Unit{1: unit})
@@ -96,7 +91,6 @@ func TestSlaveWritesRegisters(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestSlaveReadMissingAddress(t *testing.T) {
 	slave := New(map[uint8]*Unit{1: {Holding: map[uint16]uint16{0: 1}}})
 	response := mustHandle(t, slave, framing.Frame{TransactionID: 1, UnitID: 1, PDU: mustRequest(t, &pdu.ReadRegistersRequest{Func: pdu.FuncReadHoldingRegisters, Address: 1, Quantity: 1})})
@@ -106,7 +100,6 @@ func TestSlaveReadMissingAddress(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestSlaveServeConnExitsOnClose(t *testing.T) {
 	server, client := net.Pipe()
 	slave := New(map[uint8]*Unit{1: {Holding: map[uint16]uint16{}}})

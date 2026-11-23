@@ -633,7 +633,6 @@ func TestClientRTUValidationErrorIsUnrecoverable(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestClientPassesUnitZero(t *testing.T) {
 	clock := fakeclock.New(testStart)
 	defer clock.Close()
@@ -670,7 +669,6 @@ func TestClientRejectsUnitMismatch(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestClientTransactionIDIncrements(t *testing.T) {
 	clock := fakeclock.New(testStart)
 	defer clock.Close()
@@ -693,7 +691,6 @@ func TestClientTransactionIDIncrements(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestNewClientRejectsMissingDependencies(t *testing.T) {
 	clock := fakeclock.New(testStart)
 	defer clock.Close()
@@ -716,7 +713,6 @@ func (*typedNilConn) Write([]byte) (int, error)   { return 0, io.EOF }
 func (*typedNilConn) Close() error                { return nil }
 func (*typedNilConn) SetDeadline(time.Time) error { return nil }
 
-// Covers: REQ-SCOPE-01
 func TestNewClientRejectsTypedNil(t *testing.T) {
 	clock := fakeclock.New(testStart)
 	defer clock.Close()
@@ -726,7 +722,6 @@ func TestNewClientRejectsTypedNil(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestClientNilContextIsArgumentError(t *testing.T) {
 	clock := fakeclock.New(testStart)
 	defer clock.Close()

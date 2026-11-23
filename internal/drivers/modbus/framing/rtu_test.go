@@ -17,7 +17,6 @@ var (
 	writeMultiRequest  = &pdu.WriteMultipleRegistersRequest{Address: 2, Values: []uint16{50, 100}}
 )
 
-// Covers: REQ-SCOPE-01
 func TestRTUEncodeGolden(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -42,7 +41,6 @@ func TestRTUEncodeGolden(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestRTUDecodeRequestGolden(t *testing.T) {
 	tests := []struct {
 		name string
@@ -67,7 +65,6 @@ func TestRTUDecodeRequestGolden(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestRTUDecodeResponseGolden(t *testing.T) {
 	tests := []struct {
 		name string
@@ -94,7 +91,6 @@ func TestRTUDecodeResponseGolden(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestRTUDecodeFragmented(t *testing.T) {
 	raw := []byte{0x01, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x0B}
 	frame, err := framing.NewRTU().DecodeRequest(iotest.OneByteReader(bytes.NewReader(raw)))
@@ -106,7 +102,6 @@ func TestRTUDecodeFragmented(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestRTUDecodeCoalesced(t *testing.T) {
 	first := []byte{0x01, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x0B}
 	second := []byte{0x01, 0x03, 0x00, 0x00, 0x00, 0x0A, 0xC5, 0xCD}
@@ -126,7 +121,6 @@ func TestRTUDecodeCoalesced(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestRTURejectsBadCRC(t *testing.T) {
 	raw := []byte{0x01, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x0C}
 	_, err := framing.NewRTU().DecodeRequest(bytes.NewReader(raw))
@@ -135,7 +129,6 @@ func TestRTURejectsBadCRC(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestRTURejectsShortFrame(t *testing.T) {
 	raw := []byte{0x01, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4}
 	_, err := framing.NewRTU().DecodeRequest(bytes.NewReader(raw))
@@ -144,7 +137,6 @@ func TestRTURejectsShortFrame(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestRTURejectsFunctionMismatch(t *testing.T) {
 	raw := []byte{0x01, 0x04, 0x02, 0xFF, 0xFF, 0xB8, 0x80}
 	_, err := framing.NewRTU().DecodeResponse(bytes.NewReader(raw), readHoldingRequest, 0)
@@ -153,7 +145,6 @@ func TestRTURejectsFunctionMismatch(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestRTURejectsOversizedByteCount(t *testing.T) {
 	raw := []byte{0x01, 0x10, 0x00, 0x02, 0x00, 0x01, 0xFF}
 	_, err := framing.NewRTU().DecodeRequest(bytes.NewReader(raw))
@@ -162,7 +153,6 @@ func TestRTURejectsOversizedByteCount(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestRTURejectsWrongResponseQuantity(t *testing.T) {
 	raw := []byte{0x01, 0x03, 0x02, 0xFF, 0xFF, 0xB8, 0x80}
 	_, err := framing.NewRTU().DecodeResponse(bytes.NewReader(raw), readHoldingRequest, 0)
@@ -171,7 +161,6 @@ func TestRTURejectsWrongResponseQuantity(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestRTUEncodeIgnoresTransactionID(t *testing.T) {
 	framer := framing.NewRTU()
 	first, err := framer.Encode(framing.Frame{TransactionID: 1, UnitID: 1, PDU: []byte{0x03, 0x00, 0x00, 0x00, 0x02}})
@@ -187,7 +176,6 @@ func TestRTUEncodeIgnoresTransactionID(t *testing.T) {
 	}
 }
 
-// Covers: REQ-SCOPE-01
 func TestRTUEncodeRejectsBadPDULength(t *testing.T) {
 	framer := framing.NewRTU()
 	if _, err := framer.Encode(framing.Frame{}); !errors.Is(err, framing.ErrMalformedFrame) {
