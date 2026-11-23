@@ -219,7 +219,41 @@ func (b *MQTTBroker) Close() error {
 	}
 	b.closed = true
 	b.mu.Unlock()
+
+	// mochi-mqtt v2.7.9 deadlocks in Clients.GetByListener when a client is
+	// deleted concurrently with Server.Close: GetByListener holds RLock and
+	// calls Len(), which takes RLock again while the Delete writer waits.
+	// Drain real clients (the permanent inline client is excluded) before
+	// closing, then force-disconnect anything still attached.
+	b.drainRealClients(2 * time.Second)
+	if b.realClients() > 0 {
+		for _, cl := range b.server.Clients.GetAll() {
+			if !cl.Net.Inline {
+				_ = b.server.DisconnectClient(cl, packets.ErrServerShuttingDown)
+			}
+		}
+		b.drainRealClients(2 * time.Second)
+	}
 	return b.server.Close()
+}
+
+// realClients counts clients other than the permanent inline client.
+func (b *MQTTBroker) realClients() int {
+	n := 0
+	for _, cl := range b.server.Clients.GetAll() {
+		if !cl.Net.Inline {
+			n++
+		}
+	}
+	return n
+}
+
+// drainRealClients waits until no real clients remain or the timeout expires.
+func (b *MQTTBroker) drainRealClients(timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) && b.realClients() > 0 {
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 // Publish publishes through the inline client. qos must be 0 or 1.
