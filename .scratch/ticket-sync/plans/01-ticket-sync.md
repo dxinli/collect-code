@@ -31,12 +31,14 @@ ready-for-agent ──(实现完成，开 PR)──> in-review ──(合并)─
 
 ### 3.1 自动：PR 合并
 
-- 事件：`pull_request_target: types: [closed]`，且 `github.event.pull_request.merged == true`。
+- 事件：`push: branches: [main]`；合并会产生一次 main 的 push。
+- 用 `gh api repos/<owner>/<repo>/commits/<sha>/pulls` 找到与该 commit 关联且已合并的 PR。
 - 解析 ticket：PR body 的 `Ticket:` / `Tickets:` → label `ticket:<id>` → 分支 `feat/<id>-`。
 - 执行：`ticketgraph complete`（`in-review` → `done`）→ `ticketgraph render`。
 - 结果：bot 建 `chore/tickets-sync-<ids>-<run>` 分支和 PR（只改 `.scratch/`），label `tickets-sync`，然后 `gh pr merge --auto --squash`。
 - bot PR 通过 `ci` + `gitleaks` 后自动合并；main 上的状态和 HTML 随之更新。
 - 原 PR 收到评论：同步 PR 链接 + 新解锁的 ticket。
+- 不用 `pull_request_target`：公开仓库从 2026-12-02 起默认限制该事件，`push` 同时避免这个策略告警。
 
 ### 3.2 手动：PR 评论 `/accept 02b`
 
@@ -122,19 +124,22 @@ ticketgraph guard     --dir .scratch/collector --event "$GITHUB_EVENT_PATH"
 
 ## 7. 合并后 workflow 细节
 
-- 使用 `pull_request_target`，checkout `ref: main`，不 checkout/执行 PR 代码。
-- 用 `actions/create-github-app-token@v1` 换 App token；`GITHUB_TOKEN` 只读。
+- 用 `push: branches: [main]`；checkout `ref: main`。
+- 通过 `commits/<sha>/pulls` 找到已合并的 PR；bot PR 按 `chore/tickets-sync-*` 分支或 `tickets-sync` label 跳过。
+- 用 `actions/create-github-app-token@v3`（Node 24）和 `client-id`；`permission-*` 输入；
+  `TICKETS_APP_CLIENT_ID`（repository variable）是 v3 的 client ID，`TICKETS_APP_ID` 仍用于 commit email。
 - `concurrency: group: tickets-sync`，`cancel-in-progress: false`。
-- bot PR 创建后开启 auto-merge，并轮询到 MERGED（超时 15 分钟）再释放锁，避免两次合并的 HTML 互相覆盖。
+- bot PR 创建后开启 auto-merge，并轮询到 MERGED（超时 20 分钟）再释放锁，避免两次合并的 HTML 互相覆盖。
 - strict 检查导致分支落后时 rebase 后重新生成、force-push bot 分支并重试。
 - 失败：在原 PR 评论 run 链接；`workflow_dispatch` 可重试；ticket 停在 `in-review`，依赖方保持 blocked（fail-closed）。
 
 ## 8. 一次性设置（用户操作）
 
 1. 创建 GitHub App `collect-code-tickets-bot`，权限 `Contents: Read and write`、`Pull requests: Read and write`、`Issues: Read and write`、`Metadata: Read`；只安装到 `dxinli/collect-code`；不启用 webhook。
-2. 生成 private key；在 Actions secrets 添加 `TICKETS_APP_ID`、`TICKETS_APP_PRIVATE_KEY`。
-3. Settings → General → Pull requests → 开启 **Allow auto-merge**。
-4. 创建 label `tickets-sync`（workflow 缺失时会用 `gh label create --force` 补建）。
+2. 生成 private key；在 Actions secrets 添加 `TICKETS_APP_PRIVATE_KEY`，并保留 `TICKETS_APP_ID`（bot commit email 用）。
+3. 在 Actions **Variables** 添加 `TICKETS_APP_CLIENT_ID`（GitHub App 设置页的 Client ID）；`create-github-app-token@v3` 用 `client-id`，不再用已弃用的 `app-id`。
+4. Settings → General → Pull requests → 开启 **Allow auto-merge**。
+5. 创建 label `tickets-sync`（workflow 缺失时会用 `gh label create --force` 补建）。
 
 ## 9. 回填与验收
 

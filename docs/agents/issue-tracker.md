@@ -47,10 +47,11 @@ make tickets-accept TICKET=02b       # mark done + regenerate (local)
 make hooks                           # enable .githooks/pre-commit
 ```
 
-Merge is the completion signal. `.github/workflows/tickets-sync.yml` marks the
-ticket(s) `done`, regenerates the HTML, opens a `chore/tickets-sync-*` PR, and
-auto-merges it after checks. To retry after a failure, comment `/accept 02b` on
-the merged PR, or run the `Ticket Sync` workflow with `ticket=02b`:
+Merge is the completion signal. The workflow runs on `push` to `main`, finds
+the merged PR associated with the commit, marks the ticket(s) `done`,
+regenerates the HTML, opens a `chore/tickets-sync-*` PR, and auto-merges it
+after checks. To retry after a failure, comment `/accept 02b` on the merged PR,
+or run the `Ticket Sync` workflow with `ticket=02b`:
 
 ```bash
 gh workflow run tickets-sync.yml -f ticket=02b
