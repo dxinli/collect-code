@@ -12,6 +12,7 @@
 | [0004](0004-idempotent-service-invocation.md) | 至多一次受理 + 幂等去重 + 分级确认，状态走 bbolt | Accepted + Amendment 2026-11-22 |
 | [0005](0005-downlink-queue-governance.md) | 下行队列用 `GetQueue` + 精确撤销，不用 `FlushQueue` 合并 | Accepted + Amendment 2026-11-22 |
 | [0006](0006-doc-authority-and-spec-change-policy.md) | 文档按事实类型分权，规范包版本化并独立变更 | Accepted |
+| [0007](0007-main-protection-minimum-gate.md) | main 采用最小门禁：`guard` 硬门禁，agent 直推约束暂缓 | Accepted |
 
 ## D 决策索引
 
