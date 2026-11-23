@@ -274,8 +274,8 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
     <div class="stat-grid">
       <div class="stat total"><span class="stat-num">33</span><span class="stat-label">全部 ticket</span></div>
       <div class="stat done"><span class="stat-num">6</span><span class="stat-label">已完成</span></div>
-      <div class="stat in-review"><span class="stat-num">0</span><span class="stat-label">in review</span></div>
-      <div class="stat ready"><span class="stat-num">6</span><span class="stat-label">现在可做</span></div>
+      <div class="stat in-review"><span class="stat-num">1</span><span class="stat-label">in review</span></div>
+      <div class="stat ready"><span class="stat-num">5</span><span class="stat-label">现在可做</span></div>
       <div class="stat blocked"><span class="stat-num">20</span><span class="stat-label">依赖未满足</span></div>
       <div class="stat on-hold"><span class="stat-num">0</span><span class="stat-label">暂停</span></div>
       <div class="stat needs-info"><span class="stat-num">1</span><span class="stat-label">需要信息</span></div>
@@ -297,14 +297,6 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
     </div>
     <div class="now-grid">
       <article class="now-card ready">
-  <div class="ticket-top"><span class="tid">03a</span><span class="pill ready">ready now</span></div>
-  <h3>调度相位与单设备 deadline</h3>
-  <p>依赖已全部完成；直接解锁 3 个，传递影响 19 个。</p>
-  <div class="now-facts">
-    <span><span class="label">直接解锁</span> <span class="mono">03b, 17a, 18</span></span>
-    <span><span class="label">传递影响</span> <span class="mono">19</span> 个</span>
-  </div>
-</article><article class="now-card ready">
   <div class="ticket-top"><span class="tid">05a</span><span class="pill ready">ready now</span></div>
   <h3>MQTT 通道：连接、重连、LWT</h3>
   <p>依赖已全部完成；直接解锁 2 个，传递影响 16 个。</p>
@@ -354,7 +346,7 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
       <p class="section-note">从 01a 到 20 的最长路径，共 14 个节点。 终点仍需要外部信息。</p>
     </div>
     <div class="chain" role="img" aria-label="从起始 ticket 到终点的关键路径">
-      <span class="chain-node done"><span class="mono">01a</span><span class="chain-title">工程骨架、配置解析、日志契约</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node done"><span class="mono">02a</span><span class="chain-title">内核接口与假时钟</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node ready"><span class="mono">03a</span><span class="chain-title">调度相位与单设备 deadline</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">03b</span><span class="chain-title">设备状态、新鲜度与离线</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">04b</span><span class="chain-title">Modbus 读批、质量与链路状态</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">08</span><span class="chain-title">Modbus TCP 阀门读取与上报</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">09</span><span class="chain-title">服务调用与写后回读</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">10</span><span class="chain-title">幂等、两阶段与 seq 契约</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">14a</span><span class="chain-title">LoRaWAN 下行与 A/B 级确认</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">15a</span><span class="chain-title">下行队列合并与精确撤销</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">15b</span><span class="chain-title">pending 上限与运维命令</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">18</span><span class="chain-title">健康端点、指标与日志完善</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">19b</span><span class="chain-title">最终文档包与索引</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node needs-info"><span class="mono">20</span><span class="chain-title">实物联调与缺陷修复（epic）</span></span>
+      <span class="chain-node done"><span class="mono">01a</span><span class="chain-title">工程骨架、配置解析、日志契约</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node done"><span class="mono">02a</span><span class="chain-title">内核接口与假时钟</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node in-review"><span class="mono">03a</span><span class="chain-title">调度相位与单设备 deadline</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">03b</span><span class="chain-title">设备状态、新鲜度与离线</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">04b</span><span class="chain-title">Modbus 读批、质量与链路状态</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">08</span><span class="chain-title">Modbus TCP 阀门读取与上报</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">09</span><span class="chain-title">服务调用与写后回读</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">10</span><span class="chain-title">幂等、两阶段与 seq 契约</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">14a</span><span class="chain-title">LoRaWAN 下行与 A/B 级确认</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">15a</span><span class="chain-title">下行队列合并与精确撤销</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">15b</span><span class="chain-title">pending 上限与运维命令</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">18</span><span class="chain-title">健康端点、指标与日志完善</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node blocked"><span class="mono">19b</span><span class="chain-title">最终文档包与索引</span></span><span class="chain-arrow" aria-hidden="true">→</span><span class="chain-node needs-info"><span class="mono">20</span><span class="chain-title">实物联调与缺陷修复（epic）</span></span>
     </div>
   </section>
 
@@ -410,8 +402,8 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <h4>Store 契约与 bbolt 实现</h4>
   <p class="meta"><span class="label">←</span> 02a</p>
 </article>
-<article class="ticket ready">
-  <div class="ticket-top"><span class="tid">03a</span><span class="pill ready">ready now</span></div>
+<article class="ticket in-review">
+  <div class="ticket-top"><span class="tid">03a</span><span class="pill in-review">in review</span></div>
   <h4>调度相位与单设备 deadline</h4>
   <p class="meta"><span class="label">←</span> 02a</p>
 </article>
@@ -604,7 +596,7 @@ footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
   <td class="mono id-cell">03a</td>
   <td>调度相位与单设备 deadline</td>
   <td class="mono deps-cell">02a</td>
-  <td><span class="pill ready">ready now</span></td>
+  <td><span class="pill in-review">in review</span></td>
   <td class="mono unlocks-cell">03b, 17a, 18</td>
 </tr><tr>
   <td class="mono id-cell">03b</td>
