@@ -1,8 +1,8 @@
 name: Ticket Sync
 
 on:
-  pull_request_target:
-    types: [closed]
+  push:
+    branches: [main]
   issue_comment:
     types: [created]
   workflow_dispatch:
@@ -33,10 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: |
-      (github.event_name == 'pull_request_target' &&
-        github.event.pull_request.merged == true &&
-        !startsWith(github.event.pull_request.head.ref, 'chore/tickets-sync-') &&
-        !contains(github.event.pull_request.labels.*.name, 'tickets-sync')) ||
+      github.event_name == 'push' ||
       (github.event_name == 'issue_comment' &&
         github.event.issue.pull_request != null &&
         contains(github.event.comment.body, '/accept') &&
@@ -53,17 +50,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Create GitHub App token
-        id: app
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ secrets.TICKETS_APP_ID }}
-          private-key: ${{ secrets.TICKETS_APP_PRIVATE_KEY }}
-          # v1 takes one input per permission; a `permissions` map is not supported.
-          permission-contents: write
-          permission-pull-requests: write
-          permission-issues: write
-
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
@@ -73,25 +59,41 @@ jobs:
       - name: Resolve PR and tickets
         id: resolve
         env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
-          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pr }}
+          EVENT_SHA: ${{ github.sha }}
+          PR_NUMBER: ${{ github.event.issue.number || inputs.pr }}
           COMMENT_BODY: ${{ github.event.comment.body || '' }}
           INPUT_TICKET: ${{ inputs.ticket || '' }}
           INPUT_DRY_RUN: ${{ inputs.dry_run || false }}
         run: |
           set -euo pipefail
-          echo "pr=$PR_NUMBER" >> "$GITHUB_OUTPUT"
           echo "dry_run=$INPUT_DRY_RUN" >> "$GITHUB_OUTPUT"
 
           ticket_spec="$INPUT_TICKET"
           branch=""
+          body_file=""
+          labels=""
+
           if [ "$EVENT_NAME" = "issue_comment" ]; then
             arg="$(printf '%s\n' "$COMMENT_BODY" | awk '$1=="/accept"{print $2; exit}')"
             [ -n "$arg" ] && ticket_spec="$arg"
           fi
 
-          if [ -n "$PR_NUMBER" ]; then
+          if [ "$EVENT_NAME" = "push" ]; then
+            pr_json="$(gh api "repos/$GITHUB_REPOSITORY/commits/$EVENT_SHA/pulls" \
+              --jq '[.[] | select(.merged_at != null)][0] // empty')"
+            if [ -z "$pr_json" ]; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "no merged PR associated with $EVENT_SHA; skipped"
+              exit 0
+            fi
+            PR_NUMBER="$(printf '%s' "$pr_json" | jq -r '.number')"
+            branch="$(printf '%s' "$pr_json" | jq -r '.head.ref')"
+            labels="$(printf '%s' "$pr_json" | jq -r '[.labels[].name] | join(",")')"
+            printf '%s' "$pr_json" | jq -r '.body // ""' > /tmp/pr-body.md
+            body_file=/tmp/pr-body.md
+          elif [ -n "$PR_NUMBER" ]; then
             state="$(gh pr view "$PR_NUMBER" --json state -q .state)"
             if [ "$state" != "MERGED" ]; then
               gh pr comment "$PR_NUMBER" --body "tickets-sync: done 只能在合并后写；请先合并 PR。"
@@ -99,19 +101,43 @@ jobs:
               exit 0
             fi
             branch="$(gh pr view "$PR_NUMBER" --json headRefName -q .headRefName)"
+            labels="$(gh pr view "$PR_NUMBER" --json labels -q '[.labels[].name] | join(",")')"
+            gh pr view "$PR_NUMBER" --json body -q .body > /tmp/pr-body.md
+            body_file=/tmp/pr-body.md
           fi
 
-          if [ -z "$ticket_spec" ] && [ -n "$PR_NUMBER" ]; then
-            gh pr view "$PR_NUMBER" --json body -q .body > /tmp/pr-body.md
-            labels="$(gh pr view "$PR_NUMBER" --json labels -q '[.labels[].name] | join(",")')"
-            ticket_spec="$(GOFLAGS= go run ./tools/ticketgraph resolve --branch "$branch" --body-file /tmp/pr-body.md --labels "$labels")"
+          if [ -n "$PR_NUMBER" ]; then
+            echo "pr=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          fi
+
+          case "$branch" in
+            chore/tickets-sync-*)
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "bot sync PR; skipped"
+              exit 0
+              ;;
+          esac
+          case ",$labels," in
+            *,tickets-sync,*)
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "tickets-sync PR; skipped"
+              exit 0
+              ;;
+          esac
+
+          if [ -z "$ticket_spec" ] && [ -n "$body_file" ]; then
+            ticket_spec="$(GOFLAGS= go run ./tools/ticketgraph resolve \
+              --branch "$branch" --body-file "$body_file" --labels "$labels")"
           fi
 
           if [ -z "$ticket_spec" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             case "$branch" in
               feat/*)
-                gh pr comment "$PR_NUMBER" --body "tickets-sync: 没有识别到 ticket；跳过。请使用 /accept <ticket>，或在 PR 里填写 **Ticket:**。" ;;
+                if [ -n "$PR_NUMBER" ]; then
+                  gh pr comment "$PR_NUMBER" --body "tickets-sync: 没有识别到 ticket；跳过。请使用 /accept <ticket>，或在 PR 里填写 **Ticket:**。"
+                fi
+                ;;
               *) echo "no ticket mapping; skipped" ;;
             esac
             exit 0
@@ -119,6 +145,17 @@ jobs:
 
           echo "tickets=$ticket_spec" >> "$GITHUB_OUTPUT"
           echo "resolved tickets: $ticket_spec"
+
+      - name: Create GitHub App token
+        id: app
+        if: steps.resolve.outputs.skip != 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.TICKETS_APP_CLIENT_ID || secrets.TICKETS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.TICKETS_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
 
       - name: Complete tickets and regenerate
         id: complete
