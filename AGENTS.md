@@ -6,7 +6,7 @@
 
 ### Issue tracker
 
-Issues live in GitHub Issues; plans and diff notes live under `.scratch/<feature-slug>/`. Triage labels are mapped in `docs/agents/triage-labels.md`. The current behavior spec is `docs/spec/spec.md`; contracts are under `docs/contracts/`. See `docs/agents/issue-tracker.md`.
+Issues live in GitHub Issues; diff notes and archived plans live under `.scratch/<feature-slug>/`; a ticket's implementation plan lives in its PR body. Triage labels are mapped in `docs/agents/triage-labels.md`. The current behavior spec is `docs/spec/spec.md`; contracts are under `docs/contracts/`. See `docs/agents/issue-tracker.md`.
 
 ### Domain docs
 
@@ -29,7 +29,7 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 ## 规范与文档（硬约束）
 
 1. `main` 是规范的唯一写入点；所有规范变更经 PR。
-2. 当前行为规范是 `docs/spec/spec.md`，合同在 `docs/contracts/`；`.scratch/` 只放 plans 与 diffs。
+2. 当前行为规范是 `docs/spec/spec.md`，合同在 `docs/contracts/`；`.scratch/` 只放 diff 说明与归档计划，新 ticket 的实施计划在 PR body。
 3. 普通 feature branch **不修改** `docs/spec/**`、`docs/contracts/**`、`VERSION`、`CHANGELOG`。
 4. 规范变更另开 `spec-delta/<topic>` 分支；该 PR 只改规范包与版本/变更记录，代码与测试随后单独提交并引用 `REQ-*` / 合同锚点。
 5. 计划评审前、开始实现前、提交 PR 前，运行 `make spec-status`；分支落后或规范包改动未带版本时必须先处理。
@@ -86,6 +86,6 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 
 1. 变更文件列表保持整洁，对每阶段的修改进行提交，好追溯问题。
 2. 如果整个 `implement` 阶段（多个 commit）的 diff 太大，比如跨多个模块、代码变更行数较多，可以写一个 diff 说明文档。
-3. 每个 ticket 开始时切分支（基于 main 分支创建）；ticket 完成实现后创建 PR，等用户审核。
+3. 每个 ticket 开始时切分支（基于 main 分支创建）并开 draft PR，计划写在 PR body 评审；实现完成后 `gh pr ready`，按 Ticket 交付流程合并。
 4. 每个 feat 分支不能混入不同的 ticket；如果 ticket 未完成或者有问题但 PR 已合并，开一个 hotfix 分支。
 5. 单仓无法完成的工作（如并行任务）使用 worktree 方式。

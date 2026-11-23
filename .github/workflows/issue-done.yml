@@ -1,0 +1,32 @@
+name: issue-done
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  issues: write
+
+jobs:
+  label:
+    if: github.event.issue.state_reason == 'completed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Mark the issue done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          labels="$(gh issue view "$NUMBER" -R "$REPO" --json labels \
+            --jq '[.labels[].name] | join(",")')"
+
+          args=(--add-label done)
+          for label in needs-triage needs-info ready-for-agent ready-for-human in-progress; do
+            case ",$labels," in
+              *",$label,"*) args+=(--remove-label "$label") ;;
+            esac
+          done
+
+          gh issue edit "$NUMBER" -R "$REPO" "${args[@]}"
