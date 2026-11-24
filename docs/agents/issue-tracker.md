@@ -87,12 +87,31 @@ gh issue create --parent 71 --title "05a: ..." --template ticket.md
 gh issue edit 71 --add-sub-issue <n>
 ```
 
-Then set its status (`Todo` when the brief is complete, otherwise `Backlog`)
-and add `human` when it is human-only. Chore/hotfix tickets omit `--parent`.
+`scripts/ticket-new.sh` wraps creation plus the status/label/dependency writes:
 
-New requests start at `Backlog` + `needs-triage`. If the behavior changes, open
-a `spec-delta/<topic>` PR and keep the ticket in `Backlog` until the spec is
-accepted, then move it to `Todo`.
+```bash
+scripts/ticket-new.sh --title "05a: ..." --body-file /tmp/brief.md
+scripts/ticket-new.sh --title "chore(...): ..." --body-file /tmp/brief.md
+scripts/ticket-new.sh --title "..." --body-file /tmp/brief.md --human --blocked-by 42,43 --dry-run
+```
+
+It rejects a brief missing any required template field (`**Ticket:**` with an
+id, `**What to build:**`, `**Current behavior:**`, `**Desired behavior:**`,
+`**Key interfaces:**`, `**Acceptance criteria:**`, `**Out of scope:**`),
+attaches #71 unless the title starts with `chore(` / `hotfix(` or `--no-parent`
+is given, writes the status (`Todo` by default, `--status Backlog` on request),
+and adds `human` / native `blocked-by` edges. `--human` requires status `Todo`.
+The raw commands above are the equivalent.
+
+Without the script, set its status (`Todo` when the brief is complete,
+otherwise `Backlog`) and add `human` when it is human-only. Chore/hotfix
+tickets omit `--parent`.
+
+New requests start at `Backlog` + `needs-triage` through the template
+(`gh issue create --template ticket.md`); `ticket-new.sh` is for tickets whose
+brief is already complete. If the behavior changes, open a `spec-delta/<topic>`
+PR and keep the ticket in `Backlog` until the spec is accepted, then move it to
+`Todo`.
 
 List sub-issues:
 
@@ -117,6 +136,17 @@ Before writing, re-read the issue: `status` must still be `Todo` and
 `issue_dependencies_summary.blocked_by` must be `0`. Then claim with the status
 write above and comment on the issue. If the re-read shows `In progress`, skip
 to the next ticket. An issue with `human` or an open blocker is never claimed.
+
+`scripts/claim.sh` runs the query, re-reads every candidate, and only then
+writes `In progress` and leaves the claim comment:
+
+```bash
+scripts/claim.sh        # first startable issue
+scripts/claim.sh 76     # a specific issue
+```
+
+Without an argument it skips candidates that are no longer startable; with a
+number it exits non-zero instead of writing.
 
 ## Dependencies (blocked)
 
