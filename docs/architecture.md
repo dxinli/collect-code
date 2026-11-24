@@ -21,7 +21,7 @@ cmd/collect-code
 3. `internal/interfaces` 不依赖仓库内其他业务包。
 4. 依赖方向由 `scripts/check-deps.sh` 的传递闭包检查强制执行；时间规则由 `scripts/check-time.sh` 强制执行。
 5. `internal/topics` 是纯函数包，供 `internal/channels/**` 与 `internal/adapters/**` 共用；不得反向依赖具体通道、适配器或内核。
-6. `internal/sim` 是测试对端，不得 import `internal/drivers/**` 或 `internal/core/**`；Modbus 的 MBAP/RTU/CRC/PDU 在模拟器内独立实现，测试客户端也不复用被测驱动。该边界由 `scripts/check-deps.sh` 的测试闭包检查强制执行。
+6. `internal/sim` 是测试对端，不得 import `internal/drivers/**` 或 `internal/core/**`；Modbus 的 MBAP/RTU/CRC/PDU 在模拟器内独立实现，测试客户端也不复用被测驱动。该边界由 `scripts/check-deps.sh` 的测试闭包检查强制执行。模拟器允许为传输延迟（`unit_slow`）使用真实计时；对外可见的 `received_at`/`responded_at`/`until` 仍来自注入时钟。
 
 ## 内核组件
 
