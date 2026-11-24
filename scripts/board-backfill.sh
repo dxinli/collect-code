@@ -210,12 +210,31 @@ find_anchor() {
 	echo "$n"
 }
 
+ensure_anchor_status() {
+	local n="$1" got
+	if [ -z "$n" ]; then
+		return
+	fi
+	got="$(gh api "repos/$REPO/issues/$n" --jq '.status.name // ""')"
+	if [ "$got" = "Backlog" ]; then
+		say "spec anchor #$n status: Backlog"
+		return
+	fi
+	if $APPLY; then
+		gh api -X PATCH "repos/$REPO/issues/$n" -f status="Backlog" --jq '.status.name' >/dev/null
+		say "spec anchor #$n status -> Backlog"
+	else
+		plan "spec anchor #$n status -> Backlog"
+	fi
+}
+
 ensure_anchor() {
 	local existing
 	existing="$(find_anchor)"
 	if [ -n "$existing" ]; then
 		anchor="$existing"
 		say "spec anchor: #$anchor (existing)"
+		ensure_anchor_status "$anchor"
 		return
 	fi
 	if $APPLY; then
@@ -223,6 +242,7 @@ ensure_anchor() {
 		url="$(gh issue create --title "$ANCHOR_TITLE" --body "$(anchor_body)" --label "$ANCHOR_LABEL")"
 		anchor="${url##*/}"
 		say "spec anchor: #$anchor (created)"
+		ensure_anchor_status "$anchor"
 	else
 		plan "create spec anchor '$ANCHOR_TITLE' with label $ANCHOR_LABEL"
 	fi
@@ -350,11 +370,25 @@ print_counts() {
 }
 
 verify() {
-	local open_null closed_null
+	local open_null closed_null anchor_status startable
 	open_null="$(gh api --paginate "repos/$REPO/issues?state=open&per_page=100" --jq '[.[] | select(.pull_request == null) | select(.status == null)] | length')"
 	closed_null="$(gh api --paginate "repos/$REPO/issues?state=closed&per_page=100" --jq '[.[] | select(.pull_request == null) | select(.status == null)] | length')"
-	if [ "$open_null" -ne 1 ] || [ "$closed_null" -ne 0 ]; then
-		echo "verify failed: open_null=$open_null (expected 1 = spec anchor), closed_null=$closed_null (expected 0)" >&2
+	if [ "$open_null" -ne 0 ] || [ "$closed_null" -ne 0 ]; then
+		echo "verify failed: open_null=$open_null (expected 0), closed_null=$closed_null (expected 0)" >&2
+		exit 1
+	fi
+	if [ -z "$anchor" ]; then
+		echo "verify failed: no spec anchor" >&2
+		exit 1
+	fi
+	anchor_status="$(gh api "repos/$REPO/issues/$anchor" --jq '.status.name // ""')"
+	if [ "$anchor_status" != "Backlog" ]; then
+		echo "verify failed: anchor #$anchor status is '$anchor_status', expected Backlog" >&2
+		exit 1
+	fi
+	startable="$(gh issue list --state open --search "status:todo -label:$HUMAN_LABEL -is:blocked" --json number --jq 'length')"
+	if [ "$startable" -ne 4 ]; then
+		echo "verify failed: startable=$startable, expected 4" >&2
 		exit 1
 	fi
 	print_counts "verify"
