@@ -8,9 +8,13 @@
 
 Issues live in GitHub Issues; diff notes and archived plans live under `.scratch/<feature-slug>/`; a ticket's implementation plan lives in its PR body. The current behavior spec is `docs/spec/spec.md`; contracts are under `docs/contracts/`. See `docs/agents/issue-tracker.md`.
 
-The execution state is the native GitHub issue status (`Backlog` / `Todo` / `In progress` / `In review` / `Done` / `Not planned` / `Duplicate`), not a label. Labels are classification and routing only: `bug`, `enhancement`, `needs-triage`, `needs-info`, `human`, `spec-parent`, `plan-review`; their mapping is in `docs/agents/triage-labels.md`. Blocking is expressed only by native issue dependencies and is read live; it is never copied into status.
+The execution state is the native GitHub issue status (`Backlog` / `Todo` / `In progress` / `In review` / `Done` / `Not planned` / `Duplicate`), not a label. Labels are classification and routing only: `bug`, `enhancement`, `needs-triage`, `needs-info`, `human`, `spec-parent`, `plan-review`, `code-review`; their mapping is in `docs/agents/triage-labels.md`. Blocking is expressed only by native issue dependencies and is read live; it is never copied into status.
 
-One long-lived spec anchor issue (`spec-parent`) is the parent of every ticket. Tickets are native sub-issues of it; the anchor carries `Backlog` (a status cannot be cleared once set) and is never closed or modified by ticket work. `spec-parent` keeps it out of the claim queue. The anchor points at the authoritative spec; it does not duplicate it.
+**Spec and tickets (A).** The spec lives only in `docs/spec/spec.md`; changes go through a `spec-delta/<topic>` PR, never a spec issue. The single spec anchor #71 (`spec-parent`) is the parent of every **spec ticket**; native sub-issues. Chore/hotfix tickets (titles starting `chore(` or `hotfix(`) are standalone and do not join the spec tree. The anchor carries `Backlog` (a status cannot be cleared once set) and is never closed or modified by ticket work; `spec-parent` keeps it out of the claim queue. The anchor points at the authoritative spec; it does not duplicate it.
+
+**Creating a ticket.** Spec ticket: `gh issue create --parent 71 --template ticket.md`, then set status (`Todo` when the brief is complete, otherwise `Backlog`) and add `human` when it is human-only. Chore/hotfix: omit `--parent`. New requests start at `Backlog` + `needs-triage`; if the behavior changes, open a `spec-delta/<topic>` PR and keep the ticket in `Backlog` until the spec is accepted, then move it to `Todo`.
+
+**External skills.** `to-spec`, `to-tickets`, and `implement-spec` are not part of the current flow. When a repo-local adapter is written, map `ready-for-agent` to status `Todo` and `ready-for-human` to `Todo` + `human`; do not create those labels.
 
 ### Domain docs
 
@@ -67,6 +71,7 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 
 - PR body 分两节：**Plan**（目标/改动清单/Non-goals/风险点）+ **实现记录**（留空）。
 - 打 `plan-review` 标签后停下等评审。标签未移除前，禁止推送任何代码 commit。
+- **通过信号 = `plan-review` 标签被移除**。恢复工作时先重读 PR 的 label、body、comments；若 reviewer 只留了评论、没有移除 label，先处理意见，不得开工。
 - 收到评审意见：更新 body + 评论说明改动原因。
   意见涉及 ticket 验收标准本身 → 不改 plan，去 issue 评论提案，人工裁决。
 
@@ -77,16 +82,19 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 
 ### 收尾
 
-- 全部完成后：跑测试 → 自查 → 把 issue status 设为 `In review` → `gh pr ready`。
-- 统一使用 `gh pr merge --auto --squash` 预约合并，**不要判断 CI 状态、
+- 全部完成后：跑测试 → 自审 `/code-review`（修复发现的问题）→ 把 issue status 设为 `In review` → `gh pr ready` → 给 PR 加 `code-review` 标签。
+- **`code-review` 标签未移除前，不得开 auto-merge**。人工 review 通过后由 reviewer 移除该标签。
+- 标签移除后：使用 `gh pr merge --auto --squash` 预约合并，**不要判断 CI 状态、
   不要手动合并**——合并时机由 GitHub 决定。
 - 合并后确认 issue status 为 `Done`；若原生自动化未设，手动补。
+- PR 关闭但未合并：把 issue status 设回 `Todo`（仍 ready）或 `Backlog`，评论原因。
 - 如果 auto-merge 长时间未合并（CI 红/冲突），留评论说明卡点后停止，
   等待人工介入。不要尝试其他合并方式。
 
 ### 纪律
 
 - 一 ticket = 一 PR。范围外需求开新 issue，不塞入本工单。
+- 不使用 `implement-spec`；本仓库的 ticket 按上面的单 PR 流程实现。
 - 永不修改 issue body——只用评论提案。
 - 优先级：ticket 验收标准 > plan > 实现偏好。
 

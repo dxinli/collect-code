@@ -31,7 +31,7 @@
 | 架构与包布局 | [docs/architecture.md](architecture.md) | 依赖方向与包职责 |
 | 测试分层与判据 | [docs/testing.md](testing.md) | L1–L4、假时钟、崩溃恢复 |
 | 追踪状态 | [docs/traceability.md](traceability.md) | `REQ/锚点 → test/ticket` |
-| Tracker 根 | GitHub issue `Spec: 采集引擎行为契约`（`spec-parent`） | 所有 ticket 的 sub-issue 父级；执行状态用原生 issue status |
+| Tracker 根 | GitHub issue `Spec: 采集引擎行为契约`（`spec-parent`） | 所有 spec ticket 的 sub-issue 父级；chore/hotfix 独立；执行状态用原生 issue status |
 | 单票验收 | GitHub Issues | 合并即关闭；执行状态用原生 issue status；历史状态用评论追溯 |
 | 流程与交付规则 | [AGENTS.md](../AGENTS.md) | 不在规范中重复 |
 
