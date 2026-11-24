@@ -16,11 +16,11 @@ CI 只失败于“既无归属也无计划”的条目。实现 PR 落地测试�
 | REQ-TIME-01 | covered | 02a；`scripts/check-time.sh` |
 | REQ-SEAM-01 | covered | 02a；`scripts/check-deps.sh` |
 | REQ-SEAM-02 | covered | 02b；`scripts/check-deps.sh`、`internal/store/storetest` 与两实现合同测试 |
-| REQ-QUALITY-01 | planned(03b) | `03b-state-freshness` |
-| REQ-QUALITY-02 | planned(03b) | `03b-state-freshness` |
-| REQ-QUALITY-03 | planned(03b) | `03b-state-freshness` |
-| REQ-QUALITY-04 | planned(03b) | `03b-state-freshness` |
-| REQ-QUALITY-05 | planned(03b) | `03b-state-freshness` 负责新鲜度与离线；03a 已覆盖 read deadline 的严格大于边界（`TestReadDeadlineBoundary`、`TestResultOrTimeoutStrictDeadline`）；判据见 `docs/testing.md` |
+| REQ-QUALITY-01 | covered | 03b；`internal/core/state`：`TestBadIsNotUpgraded`、`TestInvalidPayloadIsBad`、`TestFirstBadValueIsKept`、`TestUnknownPointIsIgnored`。通道/适配器不改写质量由 05b 测试兑现 |
+| REQ-QUALITY-02 | covered | 03b；`TestBadSampleDoesNotAdvanceLastSuccess`、`TestTruthTableAllExpired`、`TestEventUplinkSubsetKeepsOtherPoints`、`TestEventAcknowledgementsDoNotTouchProperties` |
+| REQ-QUALITY-03 | covered | 03b；`TestTruthTableOKFresh`、`TestTruthTableOKMixedFreshAndExpired`、`TestTruthTableAllExpired`、`TestTruthTablePartial`、`TestTruthTableFailed`、`TestTruthTableUnsupportedKeepsValues`、`TestTruthTableEmptyOKKeepsValues`、`TestEventUplinkIsAFreshObservation` |
+| REQ-QUALITY-04 | covered | 03b；`TestOfflineEmitsOnceAndMarksStale`、`TestOfflineKeepsBadQuality`、`TestRecoveryOrderAndSnapshot`、`TestOfflineSuppressesNonFreshPropertyOutput`、`TestRecoveryRequiresTheOfflineIntervalToClear`、`TestRunSweepsAndStops` |
+| REQ-QUALITY-05 | covered | 03b；`TestStaleBoundary`（window−1ns / =window / +1ns）、`TestOfflineBoundary`（N×period−1ns / = / +1ns）；03a 的 read deadline 边界（`TestReadDeadlineBoundary`、`TestResultOrTimeoutStrictDeadline`）；判据见 `docs/testing.md` |
 | REQ-SCHED-01 | covered | 03a；`TestRunPhaseLocked24Hours`、`TestPlannedTimesDoNotAccumulate`、`TestMissedTickBoundary`、`TestMissedTickSkipsBacklog`、`TestMissedTickCountsAndLogs` |
 | REQ-SCHED-02 | covered | 03a；`TestReadDeadlineMarksDeviceBadAndContinues`、`TestReadDeadlineBoundary`、`TestReadsAreSerialWithinLink`、`TestPerDeviceDeadlineIsIndependent`。03a 不重试；驱动侧不重试归 04b |
 | REQ-SCHED-03 | planned(04b) | 03a 已覆盖链路隔离与 missed/timeout/failure 计数（`TestLinksRunIndependently`、`TestStatsReadFailures`）；LinkStatus 状态机归 `04b-modbus-read-quality` |
