@@ -2,6 +2,18 @@
 
 本文件记录规范包（`docs/spec/spec.md` + `docs/contracts/**`）的版本变更。行为变更必须在此列出涉及的 `REQ-*` 与合同锚点；编辑性修订也必须升 patch 并记录。
 
+## 3.2.0 — 2026-11-24
+
+**类型**：minor（新增模拟器 Modbus 从站合同；不改变产品行为与既有接口语义）。
+
+- 新增 `SIM-MODBUS-01`：Modbus TCP / RTU-over-TCP 从站、站号路由、功能码 03/04/06/16、异常码、寄存器语义与独立实现要求。
+- 新增 `SIM-REQUESTS-01`：`GET /_sim/requests` 请求日志的 JSON 形状、`seq`/`dropped` 与有界容量。
+- 扩展 `SIM-CLI-01`：新增 `--modbus-addr`、`--modbus-rtu-addr` 与可选 `--config`；说明 `--config` 只影响 Modbus 模块。
+- 扩展 `SIM-MANIFEST-01`：新增 `modbus` section、`endpoints.requests`、`control_actions.modbus` 与 `modules` 元素。
+- 扩展 `SIM-CONTROL-01`：新增 `unit_offline` / `unit_slow` / `unit_bad_crc` 的请求、响应与惰性恢复语义。
+- 扩展 `SIM-SECURITY-01`：新监听器的 loopback 约束与独立 Modbus 客户端要求。
+- `REQ-SIM-01` 的 Modbus 部分由 06a 承接；`REQ-*` 语义不变。
+
 ## 3.1.2 — 2026-11-24
 
 **类型**：patch（修正 3.1.1 遗漏的 Version 行同步）。
