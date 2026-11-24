@@ -263,7 +263,7 @@ func (m *Modbus) acceptLoop(ln net.Listener, transport string) {
 }
 
 func (m *Modbus) serveConn(conn net.Conn, transport string) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	remote := conn.RemoteAddr().String()
 	reader := bufio.NewReader(conn)
 
