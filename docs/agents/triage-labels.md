@@ -2,7 +2,9 @@
 
 The `triage` skill speaks in terms of five canonical state roles and two
 category roles. Execution state lives in the native GitHub issue status; this
-file maps the roles to status plus the remaining labels.
+file maps the roles to status plus the remaining labels. The state role is the
+status itself: do not require a state label, and do not flag its absence as a
+conflict.
 
 | Role in mattpocock/skills | Tracker representation | Meaning |
 |---|---|---|
@@ -33,9 +35,11 @@ Apply the role by writing status and labels together. Remove `needs-triage` and
 - `human` is routing only. An issue with it is `Todo` but must not be claimed
   by an agent.
 - `spec-parent` marks the single spec anchor. It is a container with `Backlog`
-  status, not a triage state, and is never claimed.
+  status, not a triage state, and is never claimed. Only spec tickets are its
+  sub-issues; chore/hotfix tickets are standalone.
 - `plan-review` is PR-only; it marks a ticket PR whose plan is waiting for
-  review.
+  review. `code-review` is PR-only; it marks an implementation review pending,
+  and the reviewer removes it before auto-merge.
 - `blocked` is not a label or status. It is read live from native issue
   dependencies; an issue may be `Todo` with an open blocker, and the claim query
   filters it out with `-is:blocked`.

@@ -66,29 +66,44 @@ Labels are classification and routing, never execution state:
 | `human` | routing: the issue must be done by a human |
 | `spec-parent` | the single spec anchor; not a work item |
 | `plan-review` | PR-only: the plan is waiting for review |
+| `code-review` | PR-only: the implementation review is pending; remove before auto-merge |
 
 Do not add execution labels such as `in-progress` or `done`; status covers them.
 
-## Spec anchor and sub-issues
+## Spec and tickets (A)
 
-There is one durable spec anchor issue titled `Spec: 采集引擎行为契约`, carrying
-`spec-parent`. It is the parent of every ticket and points at the authoritative
-spec (`docs/spec/spec.md`), never copying it. It carries `Backlog` (a status
-cannot be cleared once set) and is never closed or modified by ticket work;
-`spec-parent` keeps it out of the claim queue.
+The spec lives only in `docs/spec/spec.md`; changes go through a
+`spec-delta/<topic>` PR. Do not create a spec issue. The single spec anchor #71
+(`spec-parent`) is the parent of every **spec ticket**; chore/hotfix tickets
+(titles starting `chore(` or `hotfix(`) are standalone and do not join the spec
+tree. The anchor points at the authoritative spec, never copying it. It carries
+`Backlog` (a status cannot be cleared once set) and is never closed or modified
+by ticket work; `spec-parent` keeps it out of the claim queue.
 
-Create a ticket as its sub-issue:
+Create a spec ticket:
 
 ```bash
-gh issue create --parent <anchor> --title "05a: ..." --body-file <file>
-gh issue edit <anchor> --add-sub-issue <n>
+gh issue create --parent 71 --title "05a: ..." --template ticket.md
+gh issue edit 71 --add-sub-issue <n>
 ```
+
+Then set its status (`Todo` when the brief is complete, otherwise `Backlog`)
+and add `human` when it is human-only. Chore/hotfix tickets omit `--parent`.
+
+New requests start at `Backlog` + `needs-triage`. If the behavior changes, open
+a `spec-delta/<topic>` PR and keep the ticket in `Backlog` until the spec is
+accepted, then move it to `Todo`.
 
 List sub-issues:
 
 ```bash
-gh api --paginate repos/<owner>/<repo>/issues/<anchor>/sub_issues --jq '.[].number'
+gh api --paginate repos/<owner>/<repo>/issues/71/sub_issues --jq '.[].number'
 ```
+
+External `to-spec`, `to-tickets`, and `implement-spec` are not part of the
+current flow. When a repo-local adapter is written, map `ready-for-agent` to
+status `Todo` and `ready-for-human` to `Todo` + `human`; do not create those
+labels.
 
 ## Claiming
 
@@ -129,7 +144,9 @@ Fallback when native dependencies are unavailable: put
 
 The canonical `triage` skill roles map to status plus labels in
 [`triage-labels.md`](triage-labels.md). Execution uses status; there is no
-`in-progress` or `done` label.
+`in-progress` or `done` label. The state role is the native status: do not
+require an `in-progress` / `ready-for-agent` / `done` label, and do not treat
+the absence of a state label as an error.
 
 ## Pull requests
 
@@ -141,11 +158,21 @@ Closes #31
 ```
 
 That is the whole post-merge workflow. There is no ticket-sync bot and no
-`Merged:` field; the issue timeline and its `closed` state are the record. When
-the PR is marked ready, set the issue status to `In review`.
+`Merged:` field; the issue timeline and its `closed` state are the record.
 
-The required `guard` check enforces this on `feat/*` and `hotfix/*` PRs. It
-also rejects code-file changes while a PR carries the `plan-review` label.
+After implementation:
+
+1. Run the `code-review` skill (self-review) and fix findings.
+2. Set the issue status to `In review`, run `gh pr ready`, and add the
+   `code-review` label.
+3. A human reviews the diff and removes `code-review`.
+4. Only then run `gh pr merge --auto --squash`.
+
+If the PR is closed without merging, set the issue status back to `Todo` (still
+ready) or `Backlog`, and comment why.
+
+The required `guard` check enforces `Closes #N` on `feat/*` and `hotfix/*` PRs.
+It also rejects code-file changes while a PR carries the `plan-review` label.
 
 Plan-only PRs do not need a `Closes` line.
 
