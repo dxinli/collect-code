@@ -121,6 +121,22 @@ app_forbidden="${MODULE}/internal/store/(memory|storetest)(/|$)"
 check_root internal/app "$app_forbidden"
 check_root cmd "$app_forbidden"
 
+# The simulator is a test peer: it must implement Modbus framing and register
+# semantics itself, never reuse the driver under test. The test closure is
+# checked too so the independent client cannot import internal/drivers.
+sim_forbidden="${MODULE}/internal/(drivers|core)(/|$)"
+check_root internal/sim "$sim_forbidden"
+if ! simdeps="$(go list -deps -test ./internal/sim 2>/dev/null)"; then
+	echo "FAIL: go list -deps -test ./internal/sim failed" >&2
+	fail=1
+else
+	if hits="$(printf '%s\n' "$simdeps" | grep -E "$sim_forbidden" || true)"; [ -n "$hits" ]; then
+		echo "FAIL: internal/sim test closure imports forbidden packages:" >&2
+		printf '%s\n' "$hits" >&2
+		fail=1
+	fi
+fi
+
 if [ "$fail" -ne 0 ]; then
 	exit 1
 fi

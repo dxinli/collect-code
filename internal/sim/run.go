@@ -30,6 +30,9 @@ type simulateOptions struct {
 	manifest        string
 	httpAddr        string
 	mqttAddr        string
+	modbusAddr      string
+	modbusRTUAddr   string
+	configDir       string
 	captureCapacity int
 	topicFilter     string
 }
@@ -58,6 +61,8 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	mqttLogger := slog.New(slog.NewJSONHandler(stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	warnNonLoopback(logger, "http", opts.httpAddr)
 	warnNonLoopback(logger, "mqtt", opts.mqttAddr)
+	warnNonLoopback(logger, "modbus", opts.modbusAddr)
+	warnNonLoopback(logger, "modbus-rtu-over-tcp", opts.modbusRTUAddr)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -104,20 +109,49 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		_ = runtime.Close(context.Background())
 		return exitError
 	}
+	modbus, err := NewModbus(ModbusOptions{
+		TCPAddr:   opts.modbusAddr,
+		RTUAddr:   opts.modbusRTUAddr,
+		ConfigDir: opts.configDir,
+		Logger:    logger,
+	})
+	if err != nil {
+		logger.Error("simulate failed", "event", "error", "error", err)
+		_ = broker.Close()
+		_ = runtime.Close(context.Background())
+		return exitError
+	}
 	if err := broker.Register(runtime); err != nil {
 		logger.Error("simulate failed", "event", "error", "error", err)
+		_ = modbus.Close()
+		_ = broker.Close()
+		_ = runtime.Close(context.Background())
+		return exitError
+	}
+	if err := modbus.Register(runtime); err != nil {
+		logger.Error("simulate failed", "event", "error", "error", err)
+		_ = modbus.Close()
 		_ = broker.Close()
 		_ = runtime.Close(context.Background())
 		return exitError
 	}
 	if err := broker.Start(); err != nil {
 		logger.Error("simulate failed", "event", "error", "error", err)
+		_ = modbus.Close()
+		_ = broker.Close()
+		_ = runtime.Close(context.Background())
+		return exitError
+	}
+	if err := modbus.Start(); err != nil {
+		logger.Error("simulate failed", "event", "error", "error", err)
+		_ = modbus.Close()
 		_ = broker.Close()
 		_ = runtime.Close(context.Background())
 		return exitError
 	}
 	if err := runtime.Start(runCtx); err != nil {
 		logger.Error("simulate failed", "event", "error", "error", err)
+		_ = modbus.Close()
 		_ = broker.Close()
 		_ = runtime.Close(context.Background())
 		return exitError
@@ -127,6 +161,7 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), simulateShutdownTimeout)
 		_ = runtime.Close(shutdownCtx)
 		shutdownCancel()
+		_ = modbus.Close()
 		_ = broker.Close()
 		return exitError
 	}
@@ -136,6 +171,9 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		"component", "simulate",
 		"http", runtime.BaseURL(),
 		"mqtt", broker.URL(),
+		"modbus_tcp", modbus.TCPAddress(),
+		"modbus_rtu_over_tcp", modbus.RTUAddress(),
+		"config", opts.configDir,
 		"manifest", opts.manifest,
 	)
 
@@ -144,6 +182,9 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), simulateShutdownTimeout)
 	defer shutdownCancel()
+	if err := modbus.Close(); err != nil {
+		logger.Error("simulate shutdown", "component", "modbus", "error", err)
+	}
 	if err := runtime.Close(shutdownCtx); err != nil {
 		logger.Error("simulate shutdown", "component", "http", "error", err)
 	}
@@ -162,6 +203,9 @@ func parseSimulateFlags(args []string, stdout, stderr io.Writer) (simulateOption
 	fs.StringVar(&opts.manifest, "manifest", "", "write a startup manifest to this path")
 	fs.StringVar(&opts.httpAddr, "http-addr", defaultHTTPAddr, "simulator HTTP address")
 	fs.StringVar(&opts.mqttAddr, "mqtt-addr", defaultMQTTAddr, "MQTT broker address")
+	fs.StringVar(&opts.modbusAddr, "modbus-addr", defaultModbusAddr, "Modbus TCP slave address")
+	fs.StringVar(&opts.modbusRTUAddr, "modbus-rtu-addr", defaultModbusRTUAddr, "RTU-over-TCP slave address")
+	fs.StringVar(&opts.configDir, "config", "", "load the engine configuration directory for Modbus units/registers")
 	fs.IntVar(&opts.captureCapacity, "capture-capacity", defaultCaptureCapacity, "uplink capture ring size")
 	fs.StringVar(&opts.topicFilter, "topic-filter", defaultTopicFilter, "cloud-stub subscription filter")
 
@@ -189,6 +233,14 @@ func parseSimulateFlags(args []string, stdout, stderr io.Writer) (simulateOption
 	}
 	if err := validateListenAddr(opts.mqttAddr); err != nil {
 		_, _ = fmt.Fprintf(stderr, "simulate: --mqtt-addr: %v\n", err)
+		return simulateOptions{}, exitUsage, false
+	}
+	if err := validateListenAddr(opts.modbusAddr); err != nil {
+		_, _ = fmt.Fprintf(stderr, "simulate: --modbus-addr: %v\n", err)
+		return simulateOptions{}, exitUsage, false
+	}
+	if err := validateListenAddr(opts.modbusRTUAddr); err != nil {
+		_, _ = fmt.Fprintf(stderr, "simulate: --modbus-rtu-addr: %v\n", err)
 		return simulateOptions{}, exitUsage, false
 	}
 	if !mqtt.IsValidFilter(opts.topicFilter, false) {
@@ -229,23 +281,28 @@ func warnNonLoopback(logger *slog.Logger, name, addr string) {
 }
 
 func writeSimulateUsage(w io.Writer) {
-	_, _ = fmt.Fprint(w, `collect-code simulate — in-process MQTT broker and cloud stub
+	_, _ = fmt.Fprint(w, `collect-code simulate — in-process MQTT broker, cloud stub and Modbus slave
 
 Usage:
   collect-code simulate [flags]
 
 Flags:
-  --manifest <path>        write a startup manifest with actual addresses
-  --http-addr <host:port>  simulator HTTP address (default `+defaultHTTPAddr+`)
-  --mqtt-addr <host:port>  MQTT broker address (default `+defaultMQTTAddr+`)
-  --capture-capacity <n>   uplink capture ring size (default `+strconv.Itoa(defaultCaptureCapacity)+`, 1..1000000)
-  --topic-filter <filter>  cloud-stub subscription filter (default "#")
-  -h, --help               print this help and exit
+  --manifest <path>          write a startup manifest with actual addresses
+  --http-addr <host:port>    simulator HTTP address (default `+defaultHTTPAddr+`)
+  --mqtt-addr <host:port>    MQTT broker address (default `+defaultMQTTAddr+`)
+  --modbus-addr <host:port>  Modbus TCP slave address (default `+defaultModbusAddr+`)
+  --modbus-rtu-addr <host:port>
+                             RTU-over-TCP slave address (default `+defaultModbusRTUAddr+`)
+  --config <dir>             load the engine configuration for Modbus units/registers
+  --capture-capacity <n>     uplink capture ring size (default `+strconv.Itoa(defaultCaptureCapacity)+`, 1..1000000)
+  --topic-filter <filter>    cloud-stub subscription filter (default "#")
+  -h, --help                 print this help and exit
 
 Endpoints:
   GET  /_sim/captured
   POST /_sim/invoke
   POST /_sim/control
+  GET  /_sim/requests
 
 Exit codes:
   0 success  1 startup/runtime error  2 usage error
