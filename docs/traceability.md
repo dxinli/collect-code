@@ -77,5 +77,5 @@ CI 只失败于“既无归属也无计划”的条目。实现 PR 落地测试�
 | SIM-INVOKE-01 | covered | 06b；`internal/sim/mqtt_test.go` |
 | SIM-CONTROL-01 | covered | 06b；`internal/sim/control_test.go`、`internal/sim/mqtt_test.go`；06a 的 `modbus` 动作见 `SIM-MODBUS-01` |
 | SIM-SECURITY-01 | covered | 06b/05a；`internal/testutil/mqttclient/client.go`（独立 MQTT 3.1.1 客户端，06b 与 05a 测试共用，不 import broker/paho）；06a 的独立 Modbus 客户端见 `SIM-MODBUS-01` |
-| SIM-MODBUS-01 | planned(06a) | `06a-modbus-slave`；Modbus TCP / RTU-over-TCP 从站、寄存器语义、独立客户端 |
-| SIM-REQUESTS-01 | planned(06a) | `06a-modbus-slave`；独立客户端断言请求日志 |
+| SIM-MODBUS-01 | covered | 06a；`internal/sim/modbus*.go`、`modbus_test.go`、`modbus_internal_test.go`、`modbusclient_test.go`、`scripts/check-deps.sh` |
+| SIM-REQUESTS-01 | covered | 06a；`internal/sim/modbus_requests.go`、`TestModbusRequestsEndpoint` |
