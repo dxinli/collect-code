@@ -55,9 +55,11 @@ Options:
   --dry-run                Print the commands without running them
   -h, --help               Show this help
 
-The brief must contain the "**Ticket:**" (with an id), "**What to build:**",
-and "**Acceptance criteria:**" fields. A title starting with "chore(" or
-"hotfix(" is standalone; --no-parent is explicit.
+The brief must contain the ticket template fields: "**Ticket:**" (with an id),
+"**What to build:**", "**Current behavior:**", "**Desired behavior:**",
+"**Key interfaces:**", "**Acceptance criteria:**", and "**Out of scope:**".
+A title starting with "chore(" or "hotfix(" is standalone; --no-parent is
+explicit. --human requires status Todo.
 EOF
 	exit 0
 }
@@ -102,8 +104,18 @@ esac
 if [ -n "$BLOCKED_BY" ] && ! [[ "$BLOCKED_BY" =~ ^[0-9]+(,[0-9]+)*$ ]]; then
 	usage_error "--blocked-by must be comma-separated issue numbers"
 fi
+if $HUMAN && [ "$STATUS" != "Todo" ]; then
+	usage_error "--human requires --status Todo (see triage-labels.md)"
+fi
 
-for field in '**Ticket:**' '**What to build:**' '**Acceptance criteria:**'; do
+for field in \
+	'**Ticket:**' \
+	'**What to build:**' \
+	'**Current behavior:**' \
+	'**Desired behavior:**' \
+	'**Key interfaces:**' \
+	'**Acceptance criteria:**' \
+	'**Out of scope:**'; do
 	grep -Fq -- "$field" "$BODY_FILE" || die "body is missing required field: $field"
 done
 grep -Eq '^\*\*Ticket:\*\*[[:space:]]+[^<[:space:]]' "$BODY_FILE" ||

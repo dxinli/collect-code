@@ -91,21 +91,27 @@ gh issue edit 71 --add-sub-issue <n>
 
 ```bash
 scripts/ticket-new.sh --title "05a: ..." --body-file /tmp/brief.md
-scripts/ticket-new.sh --title "chore(...): ..." --body-file /tmp/brief.md --no-parent
+scripts/ticket-new.sh --title "chore(...): ..." --body-file /tmp/brief.md
 scripts/ticket-new.sh --title "..." --body-file /tmp/brief.md --human --blocked-by 42,43 --dry-run
 ```
 
-It rejects a brief missing `**Ticket:**`, `**What to build:**`, or
-`**Acceptance criteria:**`, attaches #71 unless the title starts with
-`chore(` / `hotfix(` or `--no-parent` is given, writes the status, and adds
-`human` / native `blocked-by` edges. The raw commands above are the equivalent.
+It rejects a brief missing any required template field (`**Ticket:**` with an
+id, `**What to build:**`, `**Current behavior:**`, `**Desired behavior:**`,
+`**Key interfaces:**`, `**Acceptance criteria:**`, `**Out of scope:**`),
+attaches #71 unless the title starts with `chore(` / `hotfix(` or `--no-parent`
+is given, writes the status (`Todo` by default, `--status Backlog` on request),
+and adds `human` / native `blocked-by` edges. `--human` requires status `Todo`.
+The raw commands above are the equivalent.
 
-Then set its status (`Todo` when the brief is complete, otherwise `Backlog`)
-and add `human` when it is human-only. Chore/hotfix tickets omit `--parent`.
+Without the script, set its status (`Todo` when the brief is complete,
+otherwise `Backlog`) and add `human` when it is human-only. Chore/hotfix
+tickets omit `--parent`.
 
-New requests start at `Backlog` + `needs-triage`. If the behavior changes, open
-a `spec-delta/<topic>` PR and keep the ticket in `Backlog` until the spec is
-accepted, then move it to `Todo`.
+New requests start at `Backlog` + `needs-triage` through the template
+(`gh issue create --template ticket.md`); `ticket-new.sh` is for tickets whose
+brief is already complete. If the behavior changes, open a `spec-delta/<topic>`
+PR and keep the ticket in `Backlog` until the spec is accepted, then move it to
+`Todo`.
 
 List sub-issues:
 
