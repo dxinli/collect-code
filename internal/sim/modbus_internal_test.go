@@ -1,5 +1,7 @@
 package sim
 
+// Covers: SIM-MODBUS-01.
+
 import (
 	"bufio"
 	"bytes"
@@ -15,7 +17,7 @@ func TestModbusCRC16KnownVector(t *testing.T) {
 }
 
 func TestModbusBuiltinInitialValues(t *testing.T) {
-	unit := newUnitState(1, nil)
+	unit := newBuiltinUnitState()
 	cases := []struct {
 		key  modbusKey
 		want uint16
@@ -44,7 +46,7 @@ func TestModbusBuiltinInitialValues(t *testing.T) {
 }
 
 func TestModbusWriteSemanticsDirect(t *testing.T) {
-	unit := newUnitState(1, nil)
+	unit := newBuiltinUnitState()
 	if code := unit.writeSingle(0x0002, 750); code != 0 {
 		t.Fatalf("write target code = %d", code)
 	}

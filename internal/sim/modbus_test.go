@@ -1,5 +1,7 @@
 package sim_test
 
+// Covers: SIM-MODBUS-01, SIM-REQUESTS-01, SIM-CONTROL-01, SIM-CLI-01, SIM-MANIFEST-01, REQ-SIM-01.
+
 import (
 	"bytes"
 	"context"
@@ -183,6 +185,25 @@ func TestModbusRTUOverTCP(t *testing.T) {
 		t.Fatalf("read current over rtu: %v", err)
 	}
 	requireValues(t, current, []uint16{750})
+
+	other, err := client.readHolding(2, 0x0001, 1)
+	if err != nil {
+		t.Fatalf("read unit 2 current over rtu: %v", err)
+	}
+	requireValues(t, other, []uint16{500})
+	if err := client.writeSingle(2, 0x0002, 250); err != nil {
+		t.Fatalf("write unit 2 target over rtu: %v", err)
+	}
+	other, err = client.readHolding(2, 0x0001, 1)
+	if err != nil {
+		t.Fatalf("read unit 2 after write: %v", err)
+	}
+	requireValues(t, other, []uint16{250})
+	current, err = client.readHolding(1, 0x0001, 1)
+	if err != nil {
+		t.Fatalf("read unit 1 after unit 2 write: %v", err)
+	}
+	requireValues(t, current, []uint16{750})
 }
 
 func TestModbusWriteSemantics(t *testing.T) {
@@ -310,6 +331,12 @@ func TestModbusControlOfflineAndRecovery(t *testing.T) {
 		t.Fatalf("last outcome = %v, want no_response", last["outcome"])
 	}
 
+	other, err := client.readHolding(2, 0x0001, 1)
+	if err != nil {
+		t.Fatalf("unit 2 read while unit 1 is offline: %v", err)
+	}
+	requireValues(t, other, []uint16{500})
+
 	clock.Advance(1001 * time.Millisecond)
 	got, err := client.readHolding(1, 0x0001, 1)
 	if err != nil {
@@ -381,6 +408,9 @@ func TestModbusControlBadCRC(t *testing.T) {
 		t.Fatalf("tcp read under bad_crc: %v", err)
 	}
 	requireValues(t, got, []uint16{500})
+	if _, err := rtu.readHolding(1, 0x0010, 1); err == nil || !strings.Contains(err.Error(), "bad response crc") {
+		t.Fatalf("rtu exception under bad_crc = %v, want bad response crc", err)
+	}
 
 	status, doc = getJSON(t, server.baseURL+"/_sim/requests")
 	if status != 200 {
@@ -388,14 +418,21 @@ func TestModbusControlBadCRC(t *testing.T) {
 	}
 	entries, _ := doc["requests"].([]any)
 	foundBadCRC := false
+	foundBadCRCException := false
 	for _, raw := range entries {
 		entry, _ := raw.(map[string]any)
 		if entry["outcome"] == "bad_crc" && entry["transport"] == "rtu_over_tcp" {
 			foundBadCRC = true
+			if code, ok := entry["exception"].(float64); ok && code == 0x02 {
+				foundBadCRCException = true
+			}
 		}
 	}
 	if !foundBadCRC {
 		t.Fatalf("no bad_crc request logged: %v", entries)
+	}
+	if !foundBadCRCException {
+		t.Fatalf("bad_crc exception code was not logged: %v", entries)
 	}
 }
 
@@ -416,6 +453,74 @@ func TestModbusControlValidation(t *testing.T) {
 		if status != 400 {
 			t.Errorf("body %s: status=%d doc=%v, want 400", body, status, doc)
 		}
+	}
+}
+
+func TestModbusRequestsOutcomes(t *testing.T) {
+	server := newTestModbus(t, nil, "")
+	tcp := dialTestModbusTCP(t, server.modbus.TCPAddress())
+
+	if _, err := tcp.readHolding(1, 0x0001, 1); err != nil {
+		t.Fatalf("ok read: %v", err)
+	}
+	if _, err := tcp.readHolding(1, 0x0010, 1); err == nil {
+		t.Fatal("invalid address did not return an exception")
+	}
+	if _, err := tcp.exchange(1, []byte{0x2B, 0x0E, 0x01, 0x00}, time.Second); err != nil {
+		t.Fatalf("unknown function: %v", err)
+	}
+	if _, err := tcp.exchange(9, testReadPDU(0x03, 0x0001, 1), 100*time.Millisecond); err == nil {
+		t.Fatal("unknown unit should not respond")
+	}
+
+	rtu := dialTestModbusRTU(t, server.modbus.RTUAddress())
+	bad := testRTUFrame(1, testReadPDU(0x03, 0x0001, 1))
+	bad[len(bad)-1] ^= 0xFF
+	if err := rtu.sendRaw(bad); err != nil {
+		t.Fatalf("send bad crc: %v", err)
+	}
+	if _, err := rtu.readRaw(100 * time.Millisecond); err == nil {
+		t.Fatal("server responded to a bad request CRC")
+	}
+	unknown := rtu
+	if err := unknown.sendRaw([]byte{0x01, 0x2B}); err != nil {
+		t.Fatalf("send unknown function: %v", err)
+	}
+	if _, err := unknown.readRaw(100 * time.Millisecond); err == nil {
+		t.Fatal("unknown RTU function did not close the connection")
+	}
+
+	status, doc := getJSON(t, server.baseURL+"/_sim/requests")
+	if status != 200 {
+		t.Fatalf("requests status=%d", status)
+	}
+	entries, _ := doc["requests"].([]any)
+	outcomes := map[string]int{}
+	exceptions := map[float64]bool{}
+	rawHex := false
+	for _, raw := range entries {
+		entry, _ := raw.(map[string]any)
+		outcome, _ := entry["outcome"].(string)
+		outcomes[outcome]++
+		if code, ok := entry["exception"].(float64); ok {
+			exceptions[code] = true
+		}
+		if outcome == "bad_frame" {
+			if hex, _ := entry["raw_hex"].(string); hex != "" {
+				rawHex = true
+			}
+		}
+	}
+	for _, want := range []string{"ok", "exception", "no_response", "bad_frame"} {
+		if outcomes[want] == 0 {
+			t.Errorf("outcome %q missing: %v", want, outcomes)
+		}
+	}
+	if !exceptions[0x02] || !exceptions[0x01] {
+		t.Errorf("exception codes = %v, want 0x01 and 0x02", exceptions)
+	}
+	if !rawHex {
+		t.Errorf("bad_frame entries have no raw_hex: %v", entries)
 	}
 }
 
@@ -467,6 +572,44 @@ func TestModbusRequestsEndpoint(t *testing.T) {
 	}
 }
 
+func copyExampleConfig(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.CopyFS(dir, os.DirFS(filepath.Join("..", "..", "configs", "example"))); err != nil {
+		t.Fatalf("copy example config: %v", err)
+	}
+	return dir
+}
+
+func writeConfigProfile(t *testing.T, dir, name, content string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, "profiles", name+".yaml"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write profile %s: %v", name, err)
+	}
+}
+
+func appendConfigDevice(t *testing.T, dir, device string) {
+	t.Helper()
+	path := filepath.Join(dir, "devices.yaml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read devices: %v", err)
+	}
+	data = append(data, []byte(device)...)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("write devices: %v", err)
+	}
+}
+
+func newConfigModbus(t *testing.T, dir string) (*sim.Modbus, error) {
+	t.Helper()
+	return sim.NewModbus(sim.ModbusOptions{
+		TCPAddr:   "127.0.0.1:0",
+		RTUAddr:   "127.0.0.1:0",
+		ConfigDir: dir,
+	})
+}
+
 func TestModbusConfigProfile(t *testing.T) {
 	server := newTestModbus(t, nil, filepath.Join("..", "..", "configs", "example"))
 	manifest := writeTestModbusManifest(t, server)
@@ -485,33 +628,110 @@ func TestModbusConfigProfile(t *testing.T) {
 		t.Fatalf("read opening: %v", err)
 	}
 	requireValues(t, opening, []uint16{500})
-	soil, err := client.readInput(1, 0x0000, 4)
-	if err != nil {
-		t.Fatalf("read soil: %v", err)
+	if _, err := client.readInput(1, 0x0000, 1); err == nil {
+		t.Fatal("config mode served an undeclared input register")
+	} else {
+		requireException(t, err, 0x02)
 	}
-	requireValues(t, soil, []uint16{185, 352, 780, 680})
 
 	if _, err := client.exchange(2, testReadPDU(0x03, 0x0001, 1), 100*time.Millisecond); err == nil {
 		t.Fatal("unit 2 (serial sensor, skipped) should not be served")
 	}
 }
 
+func TestModbusConfigRTUSensor(t *testing.T) {
+	dir := copyExampleConfig(t)
+	linksPath := filepath.Join(dir, "links.yaml")
+	data, err := os.ReadFile(linksPath)
+	if err != nil {
+		t.Fatalf("read links: %v", err)
+	}
+	old := "    driver: modbus-rtu\n    serial:\n      device: /dev/ttyS3\n      baud: 9600\n      data_bits: 8\n      parity: none\n      stop_bits: 1\n"
+	replacement := "    driver: modbus-rtu-tcp\n    tcp:\n      host: 127.0.0.1\n      port: 1502\n"
+	if !strings.Contains(string(data), old) {
+		t.Fatalf("example links.yaml changed; cannot rewrite sensors-485")
+	}
+	if err := os.WriteFile(linksPath, []byte(strings.Replace(string(data), old, replacement, 1)), 0o644); err != nil {
+		t.Fatalf("write links: %v", err)
+	}
+
+	server := newTestModbus(t, nil, dir)
+	manifest := writeTestModbusManifest(t, server)
+	section, _ := manifest["modbus"].(map[string]any)
+	units, _ := section["units"].([]any)
+	if len(units) != 2 || units[0].(float64) != 1 || units[1].(float64) != 2 {
+		t.Fatalf("units = %v, want [1 2]", units)
+	}
+
+	client := dialTestModbusTCP(t, server.modbus.TCPAddress())
+	opening, err := client.readHolding(1, 0x0001, 1)
+	if err != nil {
+		t.Fatalf("read valve opening: %v", err)
+	}
+	requireValues(t, opening, []uint16{500})
+	unit1Soil, err := client.readInput(1, 0x0000, 4)
+	if err != nil {
+		t.Fatalf("read unit 1 soil: %v", err)
+	}
+	requireValues(t, unit1Soil, []uint16{185, 352, 780, 680})
+	unit2Soil, err := client.readInput(2, 0x0000, 4)
+	if err != nil {
+		t.Fatalf("read unit 2 soil: %v", err)
+	}
+	requireValues(t, unit2Soil, []uint16{185, 352, 780, 680})
+	if _, err := client.readHolding(2, 0x0001, 1); err == nil {
+		t.Fatal("unit 2 (sensor only) served the valve register")
+	} else {
+		requireException(t, err, 0x02)
+	}
+}
+
+func TestModbusConfigCustomRegister(t *testing.T) {
+	dir := copyExampleConfig(t)
+	writeConfigProfile(t, dir, "valve-custom", `profile: valve-custom
+device_type: valve
+poll_interval_s: 5
+points:
+  - key: custom
+    access: rw
+    modbus: {func: 3, address: 256, type: uint16}
+    write: {func: 6, address: 256}
+services: []
+events: []
+`)
+	appendConfigDevice(t, dir, `
+  - sn: VALVE-CUSTOM
+    device_type: valve
+    profile: valve-custom
+    link: valves-net
+    address: {unit_id: 3}
+`)
+	server := newTestModbus(t, nil, dir)
+	client := dialTestModbusTCP(t, server.modbus.TCPAddress())
+	got, err := client.readHolding(3, 0x0100, 1)
+	if err != nil {
+		t.Fatalf("read custom register: %v", err)
+	}
+	requireValues(t, got, []uint16{0})
+	if err := client.writeSingle(3, 0x0100, 42); err != nil {
+		t.Fatalf("write custom register: %v", err)
+	}
+	got, err = client.readHolding(3, 0x0100, 1)
+	if err != nil {
+		t.Fatalf("read custom register after write: %v", err)
+	}
+	requireValues(t, got, []uint16{42})
+}
+
 func TestModbusConfigErrors(t *testing.T) {
-	if _, err := sim.NewModbus(sim.ModbusOptions{
-		TCPAddr:   "127.0.0.1:0",
-		RTUAddr:   "127.0.0.1:0",
-		ConfigDir: t.TempDir(),
-	}); err == nil {
+	if _, err := newConfigModbus(t, t.TempDir()); err == nil {
 		t.Fatal("NewModbus accepted an empty config directory")
 	}
 }
 
 func TestModbusConfigAccessConflict(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.CopyFS(dir, os.DirFS(filepath.Join("..", "..", "configs", "example"))); err != nil {
-		t.Fatalf("copy example config: %v", err)
-	}
-	profile := `profile: valve-conflict
+	dir := copyExampleConfig(t)
+	writeConfigProfile(t, dir, "valve-conflict", `profile: valve-conflict
 device_type: valve
 poll_interval_s: 5
 points:
@@ -521,32 +741,81 @@ points:
     write: {func: 6, address: 1}
 services: []
 events: []
-`
-	if err := os.WriteFile(filepath.Join(dir, "profiles", "valve-conflict.yaml"), []byte(profile), 0o644); err != nil {
-		t.Fatalf("write profile: %v", err)
-	}
-	devicesPath := filepath.Join(dir, "devices.yaml")
-	devices, err := os.ReadFile(devicesPath)
-	if err != nil {
-		t.Fatalf("read devices: %v", err)
-	}
-	devices = append(devices, []byte(`
+`)
+	appendConfigDevice(t, dir, `
   - sn: VALVE-CONFLICT
     device_type: valve
     profile: valve-conflict
     link: valves-net
     address: {unit_id: 1}
-`)...)
-	if err := os.WriteFile(devicesPath, devices, 0o644); err != nil {
-		t.Fatalf("write devices: %v", err)
-	}
-	_, err = sim.NewModbus(sim.ModbusOptions{
-		TCPAddr:   "127.0.0.1:0",
-		RTUAddr:   "127.0.0.1:0",
-		ConfigDir: dir,
-	})
+`)
+	_, err := newConfigModbus(t, dir)
 	if err == nil || !strings.Contains(err.Error(), "conflicting access") {
 		t.Fatalf("NewModbus error = %v, want conflicting access", err)
+	}
+}
+
+func TestModbusConfigTypeConflict(t *testing.T) {
+	dir := copyExampleConfig(t)
+	writeConfigProfile(t, dir, "valve-type-conflict", `profile: valve-type-conflict
+device_type: valve
+poll_interval_s: 5
+points:
+  - key: conflicting
+    access: r
+    modbus: {func: 3, address: 1, type: int16}
+services: []
+events: []
+`)
+	appendConfigDevice(t, dir, `
+  - sn: VALVE-TYPE-CONFLICT
+    device_type: valve
+    profile: valve-type-conflict
+    link: valves-net
+    address: {unit_id: 1}
+`)
+	_, err := newConfigModbus(t, dir)
+	if err == nil || !strings.Contains(err.Error(), "conflicting types") {
+		t.Fatalf("NewModbus error = %v, want conflicting types", err)
+	}
+}
+
+func TestModbusConfigUnknownType(t *testing.T) {
+	dir := copyExampleConfig(t)
+	writeConfigProfile(t, dir, "valve-unknown-type", `profile: valve-unknown-type
+device_type: valve
+poll_interval_s: 5
+points:
+  - key: unknown
+    access: r
+    modbus: {func: 3, address: 256, type: float32}
+services: []
+events: []
+`)
+	appendConfigDevice(t, dir, `
+  - sn: VALVE-UNKNOWN-TYPE
+    device_type: valve
+    profile: valve-unknown-type
+    link: valves-net
+    address: {unit_id: 3}
+`)
+	_, err := newConfigModbus(t, dir)
+	if err == nil || !strings.Contains(err.Error(), "unsupported modbus point type") {
+		t.Fatalf("NewModbus error = %v, want unsupported point type", err)
+	}
+}
+
+func TestModbusConfigMissingUnitID(t *testing.T) {
+	dir := copyExampleConfig(t)
+	appendConfigDevice(t, dir, `
+  - sn: VALVE-NO-UNIT
+    device_type: valve
+    profile: valve-modbus
+    link: valves-net
+    address: {dev_eui: "0000000000000002"}
+`)
+	if _, err := newConfigModbus(t, dir); err == nil {
+		t.Fatal("NewModbus accepted a served device without unit_id")
 	}
 }
 
@@ -620,9 +889,12 @@ func TestSimulateProcessModbus(t *testing.T) {
 		t.Fatalf("http.base_url missing: %v", doc)
 	}
 	status, control := postJSON(t, baseURL+"/_sim/control",
-		`{"module":"modbus","action":"unit_offline","unit_id":1,"duration_ms":50}`)
+		`{"module":"modbus","action":"unit_offline","unit_id":1,"duration_ms":5000}`)
 	if status != 200 || control["ok"] != true {
 		t.Fatalf("control status=%d doc=%v", status, control)
+	}
+	if _, err := tcp.exchange(1, testReadPDU(0x03, 0x0001, 1), 100*time.Millisecond); err == nil {
+		t.Fatal("unit_offline did not suppress the process-level response")
 	}
 	status, requests := getJSON(t, baseURL+"/_sim/requests")
 	if status != 200 || requests["ok"] != true {

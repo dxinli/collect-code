@@ -1,5 +1,7 @@
 package sim_test
 
+// Covers: SIM-MODBUS-01, SIM-SECURITY-01.
+
 import (
 	"bufio"
 	"encoding/binary"
