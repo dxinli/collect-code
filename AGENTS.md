@@ -10,7 +10,7 @@ Issues live in GitHub Issues; diff notes and archived plans live under `.scratch
 
 The execution state is the native GitHub issue status (`Backlog` / `Todo` / `In progress` / `In review` / `Done` / `Not planned` / `Duplicate`), not a label. Labels are classification and routing only: `bug`, `enhancement`, `needs-triage`, `needs-info`, `human`, `spec-parent`, `plan-review`; their mapping is in `docs/agents/triage-labels.md`. Blocking is expressed only by native issue dependencies and is read live; it is never copied into status.
 
-One long-lived spec anchor issue (`spec-parent`) is the parent of every ticket. Tickets are native sub-issues of it; the anchor has no status and is never closed or modified by ticket work. The anchor points at the authoritative spec; it does not duplicate it.
+One long-lived spec anchor issue (`spec-parent`) is the parent of every ticket. Tickets are native sub-issues of it; the anchor carries `Backlog` (a status cannot be cleared once set) and is never closed or modified by ticket work. `spec-parent` keeps it out of the claim queue. The anchor points at the authoritative spec; it does not duplicate it.
 
 ### Domain docs
 

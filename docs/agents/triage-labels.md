@@ -32,8 +32,8 @@ Apply the role by writing status and labels together. Remove `needs-triage` and
 
 - `human` is routing only. An issue with it is `Todo` but must not be claimed
   by an agent.
-- `spec-parent` marks the single spec anchor. It is not a triage state and has
-  no status.
+- `spec-parent` marks the single spec anchor. It is a container with `Backlog`
+  status, not a triage state, and is never claimed.
 - `plan-review` is PR-only; it marks a ticket PR whose plan is waiting for
   review.
 - `blocked` is not a label or status. It is read live from native issue

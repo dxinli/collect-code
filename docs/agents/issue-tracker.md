@@ -73,8 +73,9 @@ Do not add execution labels such as `in-progress` or `done`; status covers them.
 
 There is one durable spec anchor issue titled `Spec: 采集引擎行为契约`, carrying
 `spec-parent`. It is the parent of every ticket and points at the authoritative
-spec (`docs/spec/spec.md`), never copying it. It has no status by design and is
-never closed or modified by ticket work.
+spec (`docs/spec/spec.md`), never copying it. It carries `Backlog` (a status
+cannot be cleared once set) and is never closed or modified by ticket work;
+`spec-parent` keeps it out of the claim queue.
 
 Create a ticket as its sub-issue:
 
