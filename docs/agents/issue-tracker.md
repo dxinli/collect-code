@@ -1,35 +1,108 @@
 # Issue tracker: GitHub
 
 Issues for this repo live as GitHub issues. Use the `gh` CLI for all
-operations. A ticket's implementation plan lives in its PR body; diff notes
-and archived plans stay under `.scratch/` (see `.scratch/README.md`).
+operations. The execution state is the native GitHub issue status; labels are
+classification and routing only. A ticket's implementation plan lives in its
+PR body; diff notes and archived plans stay under `.scratch/` (see
+`.scratch/README.md`).
 
-## Conventions
+## Status
 
-- **Create an issue**: `gh issue create --template ticket.md`, or
-  `gh issue create --title "05a: ..." --body-file ... --label enhancement`.
-- **Read an issue**: `gh issue view <number> --json number,title,body,labels,comments`.
-- **List issues**: `gh issue list --state open --label ready-for-agent --json number,title,body,labels`.
-- **Comment**: `gh issue comment <number> --body "..."`.
-- **Apply / remove labels**: `gh issue edit <number> --add-label "..."` /
-  `--remove-label "..."`.
-- **Close**: `gh issue close <number> --reason completed` (or `not planned`).
-- **Ticket ID**: the title starts with the stable ID, e.g. `05a: MQTT 通道`;
-  the body starts with `**Ticket:** 05a` so the stable ID survives a title
-  edit.
-- **Plan and diff**: a ticket's implementation plan lives in its PR body (Plan
-  section); diff notes stay at `.scratch/<feature>/diffs/<id>.md`. Historical
-  tickets may link an archived plan under `.scratch/<feature>/plans/<id>.md`.
+The only execution state is the native issue status:
 
-## Triage labels
+| Status | Meaning |
+|---|---|
+| `Backlog` | Not ready: needs triage, needs info, or not yet specified |
+| `Todo` | Fully specified; ready to be claimed |
+| `In progress` | Claimed and being implemented |
+| `In review` | The ticket PR is ready for review |
+| `Done` | Closed as completed |
+| `Not planned` | Closed as not planned |
+| `Duplicate` | Closed as a duplicate |
 
-Issues move through the five triage state labels and carry one of the two
-category labels. Execution uses `in-progress`; a completed issue gets `done`.
-`plan-review` is PR-only. The mapping and transition rules are in
-[`triage-labels.md`](triage-labels.md). The canonical skill is the `triage`
-skill; invoke it as `/triage` when you want it to drive a triage session.
+Read one issue's status, labels and open-blocker count:
 
-## Dependencies
+```bash
+gh api repos/<owner>/<repo>/issues/<n> \
+  --jq '{number,state,status:.status.name,labels:[.labels[].name],blocked_by:.issue_dependencies_summary.blocked_by}'
+```
+
+Write a status:
+
+```bash
+gh api -X PATCH repos/<owner>/<repo>/issues/<n> -f status="In progress"
+```
+
+Valid values are exactly the seven names above. Setting a status also updates
+`state` / `state_reason` as needed: never write `Backlog`, `Todo`,
+`In progress`, or `In review` to a closed issue. The terminal statuses are
+`Done`, `Not planned`, and `Duplicate`.
+
+There is no ongoing status automation. Humans and agents write status at the
+moment of the transition:
+
+- New issue: `Backlog` (the creator or triager sets it; the template also
+  carries `needs-triage`).
+- Triage to ready: `Todo` (add `human` for human-only work).
+- Claim: `In progress`.
+- `gh pr ready`: `In review`.
+- Merge: `Done` (native automation; verify and set manually if it did not run).
+- Close as not planned / duplicate: `Not planned` / `Duplicate`.
+- Reopen: `Todo` if the issue is still fully specified and unclaimed, otherwise
+  `Backlog`.
+
+`gh issue view` (2.104) does not expose `status` as a `--json` field; use the
+REST call above.
+
+## Labels
+
+Labels are classification and routing, never execution state:
+
+| Label | Role |
+|---|---|
+| `bug` / `enhancement` | category |
+| `needs-triage` | Backlog: maintainer still evaluating |
+| `needs-info` | Backlog: waiting on the reporter |
+| `human` | routing: the issue must be done by a human |
+| `spec-parent` | the single spec anchor; not a work item |
+| `plan-review` | PR-only: the plan is waiting for review |
+
+Do not add execution labels such as `in-progress` or `done`; status covers them.
+
+## Spec anchor and sub-issues
+
+There is one durable spec anchor issue titled `Spec: 采集引擎行为契约`, carrying
+`spec-parent`. It is the parent of every ticket and points at the authoritative
+spec (`docs/spec/spec.md`), never copying it. It has no status by design and is
+never closed or modified by ticket work.
+
+Create a ticket as its sub-issue:
+
+```bash
+gh issue create --parent <anchor> --title "05a: ..." --body-file <file>
+gh issue edit <anchor> --add-sub-issue <n>
+```
+
+List sub-issues:
+
+```bash
+gh api --paginate repos/<owner>/<repo>/issues/<anchor>/sub_issues --jq '.[].number'
+```
+
+## Claiming
+
+The startable set is:
+
+```bash
+gh issue list --state open --search "status:todo -label:human -is:blocked"
+```
+
+Before writing, re-read the issue: `status` must still be `Todo` and
+`issue_dependencies_summary.blocked_by` must be `0`. Then claim with the status
+write above and comment on the issue. If the re-read shows `In progress`, skip
+to the next ticket. An issue with `human` or an open blocker is never claimed.
+
+## Dependencies (blocked)
 
 Use GitHub's native issue dependencies. An issue is startable when every
 blocker is closed.
@@ -41,10 +114,21 @@ gh api repos/<owner>/<repo>/issues/<n> --jq .issue_dependencies_summary.blocked_
 
 `issue_dependencies_summary.blocked_by` counts only **open** blockers; `0`
 means startable. `gh issue view <n> --json blockedBy` lists closed blockers
-too, so filter them by state if you use it.
+too, so filter them by state if you use it. The search qualifier `is:blocked`
+is the cheap live filter.
+
+Blocking is never copied into status or a label. The status may be `Todo` while
+the issue still has an open blocker; the claim query and the re-read are the
+gate.
 
 Fallback when native dependencies are unavailable: put
 `Blocked by: #<n>, #<n>` at the top of the child body.
+
+## Triage labels
+
+The canonical `triage` skill roles map to status plus labels in
+[`triage-labels.md`](triage-labels.md). Execution uses status; there is no
+`in-progress` or `done` label.
 
 ## Pull requests
 
@@ -56,7 +140,8 @@ Closes #31
 ```
 
 That is the whole post-merge workflow. There is no ticket-sync bot and no
-`Merged:` field; the issue timeline and its `closed` state are the record.
+`Merged:` field; the issue timeline and its `closed` state are the record. When
+the PR is marked ready, set the issue status to `In review`.
 
 The required `guard` check enforces this on `feat/*` and `hotfix/*` PRs. It
 also rejects code-file changes while a PR carries the `plan-review` label.
@@ -65,7 +150,7 @@ Plan-only PRs do not need a `Closes` line.
 
 ## When a skill says "publish to the issue tracker"
 
-Create a GitHub issue.
+Create a GitHub issue as a sub-issue of the spec anchor.
 
 ## When a skill says "fetch the relevant ticket"
 
