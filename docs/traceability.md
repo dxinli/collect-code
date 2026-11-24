@@ -43,7 +43,7 @@ CI 只失败于“既无归属也无计划”的条目。实现 PR 落地测试�
 | REQ-OPS-02 | planned(18) | `18-health-metrics` |
 | REQ-OPS-03 | covered | 01a；`internal/logging`、`internal/app/logging_agreement_test.go` |
 | REQ-CLI-01 | planned(15b) | `run`/`config-check`/`version`/`simulate` 已实现；`snapshot` 与 `queue flush` 待后续 ticket |
-| REQ-SIM-01 | planned(12b) | 06b 已覆盖 MQTT broker 与云端桩；Modbus 从站与 ChirpStack 桩待 06a/12a/12b |
+| REQ-SIM-01 | planned(12b) | 06b 已覆盖 MQTT broker 与云端桩；06a 覆盖 Modbus 从站；ChirpStack 桩待 12a/12b |
 
 ## 合同锚点
 
@@ -71,9 +71,11 @@ CI 只失败于“既无归属也无计划”的条目。实现 PR 落地测试�
 | STORE-SNAPSHOT-01 | covered | `internal/store/storetest`：`SaveSnapshotReplacesWholeDevice`、`SaveSnapshotNilIsFoundEmpty`、`UnknownQualityIsOpaque` |
 | STORE-EXPIRY-01 | covered | `internal/store/storetest`：`DeleteExpiredOnlyFinalStrictlyBefore`、`DeleteExpiredKeepsAcceptedRecords`、`DeleteExpiredReturnsDeletedCount` |
 | STORE-CLOSE-01 | covered | `internal/store/storetest`：`CloseIsIdempotent`、`OperationsAfterCloseReturnErrClosed`、`CloseWhileWritesInFlight` |
-| SIM-CLI-01 | covered | 06b；`internal/sim/run_test.go`、`internal/app/simulate_test.go` |
-| SIM-MANIFEST-01 | covered | 06b；`internal/sim/manifest_test.go` |
+| SIM-CLI-01 | covered | 06b；`internal/sim/run_test.go`、`internal/app/simulate_test.go`；06a 的 `--modbus-*` 与 `--config` 见 `SIM-MODBUS-01` |
+| SIM-MANIFEST-01 | covered | 06b；`internal/sim/manifest_test.go`；06a 的 `modbus` section 与 `requests` endpoint 见 `SIM-MODBUS-01`/`SIM-REQUESTS-01` |
 | SIM-CAPTURE-01 | covered | 06b；`internal/sim/capture_test.go` |
 | SIM-INVOKE-01 | covered | 06b；`internal/sim/mqtt_test.go` |
-| SIM-CONTROL-01 | covered | 06b；`internal/sim/control_test.go`、`internal/sim/mqtt_test.go` |
-| SIM-SECURITY-01 | covered | 06b/05a；`internal/testutil/mqttclient/client.go`（独立 MQTT 3.1.1 客户端，06b 与 05a 测试共用，不 import broker/paho） |
+| SIM-CONTROL-01 | covered | 06b；`internal/sim/control_test.go`、`internal/sim/mqtt_test.go`；06a 的 `modbus` 动作见 `SIM-MODBUS-01` |
+| SIM-SECURITY-01 | covered | 06b/05a；`internal/testutil/mqttclient/client.go`（独立 MQTT 3.1.1 客户端，06b 与 05a 测试共用，不 import broker/paho）；06a 的独立 Modbus 客户端见 `SIM-MODBUS-01` |
+| SIM-MODBUS-01 | planned(06a) | `06a-modbus-slave`；Modbus TCP / RTU-over-TCP 从站、寄存器语义、独立客户端 |
+| SIM-REQUESTS-01 | planned(06a) | `06a-modbus-slave`；独立客户端断言请求日志 |
