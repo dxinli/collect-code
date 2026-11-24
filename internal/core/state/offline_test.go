@@ -23,8 +23,8 @@ func TestOfflineEmitsOnceAndMarksStale(t *testing.T) {
 	if calls[0].kind != "online" || calls[0].change.Online {
 		t.Fatalf("first call = %+v, want offline transition", calls[0])
 	}
-	if !calls[0].change.At.Equal(h.now) {
-		t.Fatalf("offline at = %v, want %v", calls[0].change.At, h.now)
+	if !calls[0].change.At.Equal(h.clock.Now()) {
+		t.Fatalf("offline at = %v, want %v", calls[0].change.At, h.clock.Now())
 	}
 	if calls[1].kind != "properties" || calls[1].mode != interfaces.ReportDelta || calls[1].online {
 		t.Fatalf("second call = %+v, want delta with online=false", calls[1])
@@ -57,8 +57,8 @@ func TestOfflineKeepsBadQuality(t *testing.T) {
 	seedGood(h)
 	h.advance(time.Second)
 	h.read(interfaces.OutcomePartial,
-		badSample("a", 1.0, h.now, "crc"),
-		sample("b", 2.0, h.now),
+		badSample("a", 1.0, h.clock.Now(), "crc"),
+		sample("b", 2.0, h.clock.Now()),
 	)
 	h.rec.reset()
 
@@ -90,7 +90,7 @@ func TestRecoveryOrderAndSnapshot(t *testing.T) {
 	h.rec.reset()
 
 	h.advance(10 * time.Second)
-	at := h.now
+	at := h.clock.Now()
 	h.read(interfaces.OutcomeOK, sample("a", 3.0, at), sample("b", 4.0, at))
 
 	calls := h.rec.all()
@@ -144,7 +144,7 @@ func TestRecoveryRequiresTheOfflineIntervalToClear(t *testing.T) {
 
 	// Fresh with respect to the stale threshold, but its sample time is still
 	// more than N periods old: the device stays offline.
-	h.read(interfaces.OutcomeOK, sample("a", 1.0, h.now.Add(-181*time.Second)))
+	h.read(interfaces.OutcomeOK, sample("a", 1.0, h.clock.Now().Add(-181*time.Second)))
 
 	if calls := h.rec.all(); len(calls) != 0 {
 		t.Fatalf("old-but-fresh sample emitted %d calls, want 0: %+v", len(calls), calls)
@@ -152,4 +152,57 @@ func TestRecoveryRequiresTheOfflineIntervalToClear(t *testing.T) {
 	if h.snapshot().Online {
 		t.Fatal("device recovered from an old sample")
 	}
+	h.wantQuality("a", interfaces.QualityStale)
+}
+
+func TestOfflinePushDeviceSilent(t *testing.T) {
+	const period = 300 * time.Second
+	h := newHarness(t, singlePointConfig(time.Hour, period, 3))
+
+	h.advance(3*period - time.Nanosecond)
+	h.tr.Sweep()
+	if !h.snapshot().Online {
+		t.Fatal("silent push device went offline before N x period")
+	}
+
+	h.advance(2 * time.Nanosecond)
+	h.tr.Sweep()
+	if h.snapshot().Online {
+		t.Fatal("silent push device stayed online past N x period")
+	}
+	calls := h.rec.all()
+	if len(calls) != 1 || calls[0].kind != "online" || calls[0].change.Online {
+		t.Fatalf("offline calls = %+v, want one offline transition", calls)
+	}
+	h.wantLastSuccess(baseTime)
+}
+
+func TestEventUplinkEmptyKeepsState(t *testing.T) {
+	h := newHarness(t, defaultConfig())
+	seedGood(h)
+	h.rec.reset()
+	h.advance(10 * time.Second)
+
+	h.event(interfaces.EventUplink)
+
+	h.wantQuality("a", interfaces.QualityGood)
+	h.wantQuality("b", interfaces.QualityGood)
+	h.wantLastSuccess(baseTime)
+	if calls := h.rec.all(); len(calls) != 0 {
+		t.Fatalf("empty uplink emitted %d calls, want 0: %+v", len(calls), calls)
+	}
+}
+
+func TestEventUplinkEmptyRunsTheOfflineScan(t *testing.T) {
+	h := newHarness(t, singlePointConfig(time.Hour, 60*time.Second, 1))
+	h.read(interfaces.OutcomeOK, sample("a", 1.0, h.clock.Now()))
+	h.rec.reset()
+
+	h.advance(61 * time.Second)
+	h.event(interfaces.EventUplink)
+
+	if h.snapshot().Online {
+		t.Fatal("empty uplink did not run the offline scan")
+	}
+	h.wantQuality("a", interfaces.QualityStale)
 }

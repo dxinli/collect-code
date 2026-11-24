@@ -194,7 +194,7 @@ func (t *Tracker) ObserveRead(result scheduler.ReadResult) {
 	}
 	now := t.clock.Now()
 	fresh := t.applyRead(dev, now, result)
-	t.finish(dev, now, fresh)
+	t.applyOnlineAndEmit(dev, now, fresh)
 }
 
 // ObserveTick implements scheduler.Observer. Tick observations do not change
@@ -216,16 +216,17 @@ func (t *Tracker) ObserveEvent(event interfaces.DriverEvent) {
 	fresh := false
 	switch event.Kind {
 	case interfaces.EventUplink:
-		if len(event.Sample) == 0 {
-			return
+		// An empty uplink is a push driver's "no new observation": keep the
+		// stored values and quality, but still let the offline rule run.
+		if len(event.Sample) > 0 {
+			fresh = t.applySamples(dev, now, event.Sample, false)
 		}
-		fresh = t.applySamples(dev, now, event.Sample, false)
 	case interfaces.EventTxAck, interfaces.EventAck, interfaces.EventDeviceStatus, interfaces.EventDriverError:
 		// No property change and no last-success advancement.
 	default:
 		return
 	}
-	t.finish(dev, now, fresh)
+	t.applyOnlineAndEmit(dev, now, fresh)
 }
 
 // Sweep evaluates the offline rule for every device at clock.Now().
@@ -234,7 +235,7 @@ func (t *Tracker) Sweep() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	for _, id := range t.order {
-		t.finish(t.devices[id], now, false)
+		t.applyOnlineAndEmit(t.devices[id], now, false)
 	}
 }
 
@@ -328,7 +329,7 @@ func (t *Tracker) applySamples(dev *deviceState, now time.Time, samples []interf
 			}
 			continue
 		}
-		if sample.Quality == interfaces.QualityBad || sample.Err != "" || sample.At.IsZero() {
+		if sample.Quality == interfaces.QualityBad || sample.Err != "" || sample.At.IsZero() || sample.Value == nil {
 			t.markBad(dev, i, &sample)
 			continue
 		}
@@ -353,14 +354,7 @@ func (t *Tracker) markGood(dev *deviceState, index int, sample *interfaces.Sampl
 	if pv.has && sample.At.Before(pv.prop.TS) {
 		return
 	}
-	point := dev.points[index]
-	pv.update(interfaces.Property{
-		Key:     point.Key,
-		Value:   sample.Value,
-		Unit:    point.Unit,
-		Quality: interfaces.QualityGood,
-		TS:      sample.At,
-	})
+	pv.update(propertyOf(dev, index, sample.Value, interfaces.QualityGood, sample.At))
 }
 
 func (t *Tracker) markStale(dev *deviceState, index int, sample *interfaces.Sample) {
@@ -374,38 +368,38 @@ func (t *Tracker) markStale(dev *deviceState, index int, sample *interfaces.Samp
 		pv.setQuality(interfaces.QualityStale)
 		return
 	}
-	point := dev.points[index]
-	pv.update(interfaces.Property{
-		Key:     point.Key,
-		Value:   sample.Value,
-		Unit:    point.Unit,
-		Quality: interfaces.QualityStale,
-		TS:      sample.At,
-	})
+	pv.update(propertyOf(dev, index, sample.Value, interfaces.QualityStale, sample.At))
 }
 
 func (t *Tracker) markBad(dev *deviceState, index int, sample *interfaces.Sample) {
 	pv := &dev.values[index]
 	if pv.has {
+		if sample != nil && !sample.At.IsZero() && sample.At.Before(pv.prop.TS) {
+			return
+		}
 		pv.setQuality(interfaces.QualityBad)
 		return
 	}
 	if sample == nil || sample.At.IsZero() || sample.Value == nil {
 		return
 	}
-	point := dev.points[index]
-	pv.update(interfaces.Property{
-		Key:     point.Key,
-		Value:   sample.Value,
-		Unit:    point.Unit,
-		Quality: interfaces.QualityBad,
-		TS:      sample.At,
-	})
+	pv.update(propertyOf(dev, index, sample.Value, interfaces.QualityBad, sample.At))
 }
 
-// finish applies the online rule, then emits the resulting changes. It is
-// called with the state lock held.
-func (t *Tracker) finish(dev *deviceState, now time.Time, fresh bool) {
+func propertyOf(dev *deviceState, index int, value any, quality interfaces.Quality, ts time.Time) interfaces.Property {
+	point := dev.points[index]
+	return interfaces.Property{
+		Key:     point.Key,
+		Value:   value,
+		Unit:    point.Unit,
+		Quality: quality,
+		TS:      ts,
+	}
+}
+
+// applyOnlineAndEmit applies the online rule, then emits the resulting
+// changes. It is called with the state lock held.
+func (t *Tracker) applyOnlineAndEmit(dev *deviceState, now time.Time, fresh bool) {
 	offline := now.Sub(dev.lastSuccess) > time.Duration(t.offlineAfter)*dev.period
 	switch {
 	case dev.online && offline:
@@ -424,7 +418,9 @@ func (t *Tracker) finish(dev *deviceState, now time.Time, fresh bool) {
 	case dev.online:
 		t.publishDirty(dev, interfaces.ReportDelta)
 	default:
-		// Already offline and not recovered: suppress property output.
+		// Already offline and not recovered: it stays offline, and a fresh
+		// but too-old observation must not leave a point good.
+		t.markOffline(dev)
 		t.clearDirty(dev)
 	}
 }

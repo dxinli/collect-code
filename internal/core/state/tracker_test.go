@@ -140,7 +140,7 @@ func TestOnlyChangedPointsArePublished(t *testing.T) {
 	h.advance(time.Second)
 
 	h.read(interfaces.OutcomeOK,
-		sample("a", 5.0, h.now),
+		sample("a", 5.0, h.clock.Now()),
 		sample("b", 2.0, baseTime),
 	)
 
@@ -160,7 +160,7 @@ func TestFirstBadValueIsKept(t *testing.T) {
 	h := newHarness(t, defaultConfig())
 
 	h.read(interfaces.OutcomePartial,
-		badSample("a", 9.9, h.now, "out of range"),
+		badSample("a", 9.9, h.clock.Now(), "out of range"),
 	)
 
 	h.wantQuality("a", interfaces.QualityBad)

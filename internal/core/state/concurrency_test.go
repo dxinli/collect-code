@@ -32,14 +32,14 @@ func TestConcurrentObserveAndSweep(t *testing.T) {
 					Device:  "dev-1",
 					Outcome: interfaces.OutcomeOK,
 					Samples: []interfaces.Sample{
-						sample("a", value, h.now),
-						sample("b", value, h.now),
+						sample("a", value, h.clock.Now()),
+						sample("b", value, h.clock.Now()),
 					},
 				})
 				h.tr.ObserveEvent(interfaces.DriverEvent{
 					Kind:   interfaces.EventUplink,
 					Device: "dev-1",
-					Sample: []interfaces.Sample{sample("a", value, h.now)},
+					Sample: []interfaces.Sample{sample("a", value, h.clock.Now())},
 				})
 				h.tr.ObserveEvent(interfaces.DriverEvent{
 					Kind:   interfaces.EventAck,

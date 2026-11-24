@@ -23,13 +23,12 @@ type sinkCall struct {
 }
 
 type recorder struct {
-	mu       sync.Mutex
-	calls    []sinkCall
-	onlineCh chan state.OnlineChange
+	mu    sync.Mutex
+	calls []sinkCall
 }
 
 func newRecorder() *recorder {
-	return &recorder{onlineCh: make(chan state.OnlineChange, 16)}
+	return &recorder{}
 }
 
 func (r *recorder) PublishProperties(device string, mode interfaces.ReportMode, online bool, props []interfaces.Property) {
@@ -46,12 +45,8 @@ func (r *recorder) PublishProperties(device string, mode interfaces.ReportMode, 
 
 func (r *recorder) PublishOnline(change state.OnlineChange) {
 	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.calls = append(r.calls, sinkCall{kind: "online", device: change.Device, change: change})
-	r.mu.Unlock()
-	select {
-	case r.onlineCh <- change:
-	default:
-	}
 }
 
 func (r *recorder) all() []sinkCall {
@@ -71,7 +66,6 @@ type harness struct {
 	clock *fakeclock.Clock
 	tr    *state.Tracker
 	rec   *recorder
-	now   time.Time
 }
 
 func newHarness(t *testing.T, cfg state.Config) *harness {
@@ -83,12 +77,11 @@ func newHarness(t *testing.T, cfg state.Config) *harness {
 	if err != nil {
 		t.Fatalf("state.New: %v", err)
 	}
-	return &harness{t: t, clock: clock, tr: tr, rec: rec, now: baseTime}
+	return &harness{t: t, clock: clock, tr: tr, rec: rec}
 }
 
 func (h *harness) advance(d time.Duration) {
 	h.clock.Advance(d)
-	h.now = h.now.Add(d)
 }
 
 func (h *harness) read(outcome interfaces.Outcome, samples ...interfaces.Sample) {
@@ -191,7 +184,7 @@ func singlePointConfig(stale, period time.Duration, offlineAfter int) state.Conf
 func seedGood(h *harness) {
 	h.t.Helper()
 	h.read(interfaces.OutcomeOK,
-		sample("a", 1.0, h.now),
-		sample("b", 2.0, h.now),
+		sample("a", 1.0, h.clock.Now()),
+		sample("b", 2.0, h.clock.Now()),
 	)
 }

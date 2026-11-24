@@ -23,7 +23,7 @@ func TestStaleBoundary(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newHarness(t, singlePointConfig(stale, 60*time.Second, 1000))
 			h.advance(1000 * time.Second)
-			at := h.now.Add(-tc.delta)
+			at := h.clock.Now().Add(-tc.delta)
 
 			h.read(interfaces.OutcomeOK, sample("a", 1.0, at))
 
@@ -40,6 +40,20 @@ func TestStaleBoundary(t *testing.T) {
 func TestOfflineBoundary(t *testing.T) {
 	const period = 60 * time.Second
 	const offlineAfter = 3
+
+	t.Run("one nanosecond before the boundary stays online", func(t *testing.T) {
+		h := newHarness(t, singlePointConfig(time.Hour, period, offlineAfter))
+		h.advance(offlineAfter*period - time.Nanosecond)
+
+		h.tr.Sweep()
+
+		if !h.snapshot().Online {
+			t.Fatal("device went offline before N x period")
+		}
+		if calls := h.rec.all(); len(calls) != 0 {
+			t.Fatalf("boundary sweep emitted %d calls, want 0", len(calls))
+		}
+	})
 
 	t.Run("exactly at the boundary stays online", func(t *testing.T) {
 		h := newHarness(t, singlePointConfig(time.Hour, period, offlineAfter))
