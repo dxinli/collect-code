@@ -21,25 +21,38 @@ func loadModbusConfig(dir string) (map[uint8]*unitState, error) {
 		linkDriver[link.ID] = link.Driver
 	}
 
+	// config-derived mode serves only the registers declared by the profiles.
 	registers := make(map[uint8]map[modbusKey]modbusAccess)
 	widths := make(map[uint8]map[modbusKey]int)
-	declared := make(map[uint8]map[modbusKey]modbusAccess)
+	accesses := make(map[uint8]map[modbusKey]modbusAccess)
+	types := make(map[uint8]map[modbusKey]string)
 
-	declare := func(unitID uint8, key modbusKey, access modbusAccess) error {
-		byKey := declared[unitID]
-		if byKey == nil {
-			byKey = make(map[modbusKey]modbusAccess)
-			declared[unitID] = byKey
+	declare := func(unitID uint8, key modbusKey, access modbusAccess, typ string) error {
+		byAccess := accesses[unitID]
+		if byAccess == nil {
+			byAccess = make(map[modbusKey]modbusAccess)
+			accesses[unitID] = byAccess
 		}
-		if previous, ok := byKey[key]; ok && previous != access {
+		if previous, ok := byAccess[key]; ok && previous != access {
 			return fmt.Errorf("sim: modbus unit %d register 0x%04X has conflicting access 0x%02X and 0x%02X",
 				unitID, key.address, previous, access)
 		}
-		byKey[key] = access
+		byAccess[key] = access
+
+		byType := types[unitID]
+		if byType == nil {
+			byType = make(map[modbusKey]string)
+			types[unitID] = byType
+		}
+		if previous, ok := byType[key]; ok && previous != typ {
+			return fmt.Errorf("sim: modbus unit %d register 0x%04X has conflicting types %q and %q",
+				unitID, key.address, previous, typ)
+		}
+		byType[key] = typ
 		return nil
 	}
 
-	add := func(unitID uint8, key modbusKey, access modbusAccess, width int) error {
+	merge := func(unitID uint8, key modbusKey, access modbusAccess, width int) error {
 		byKey := registers[unitID]
 		if byKey == nil {
 			byKey = make(map[modbusKey]modbusAccess)
@@ -57,6 +70,13 @@ func loadModbusConfig(dir string) (map[uint8]*unitState, error) {
 		byWidth[key] = width
 		byKey[key] |= access
 		return nil
+	}
+
+	type configRegister struct {
+		key    modbusKey
+		access modbusAccess
+		typ    string
+		width  int
 	}
 
 	for _, device := range bundle.Devices {
@@ -99,17 +119,17 @@ func loadModbusConfig(dir string) (map[uint8]*unitState, error) {
 				return nil, fmt.Errorf("sim: device %s point %s has unsupported read function %d",
 					device.SN, point.Key, function)
 			}
-			width := modbusPointWidth(point.Modbus.Type)
-			type declaredRegister struct {
-				key    modbusKey
-				access modbusAccess
-				width  int
+			width, err := modbusPointWidth(point.Modbus.Type)
+			if err != nil {
+				return nil, fmt.Errorf("sim: device %s point %s: %w", device.SN, point.Key, err)
 			}
-			var declarations []declaredRegister
+
+			var declarations []configRegister
 			for i := range width {
-				declarations = append(declarations, declaredRegister{
+				declarations = append(declarations, configRegister{
 					key:    modbusKey{input: input, address: uint16(address) + uint16(i)},
 					access: modbusCanRead,
+					typ:    point.Modbus.Type,
 					width:  width,
 				})
 			}
@@ -143,19 +163,20 @@ func loadModbusConfig(dir string) (map[uint8]*unitState, error) {
 						}
 					}
 					if !merged {
-						declarations = append(declarations, declaredRegister{
+						declarations = append(declarations, configRegister{
 							key:    key,
 							access: modbusCanWrite,
+							typ:    point.Modbus.Type,
 							width:  writeWidth,
 						})
 					}
 				}
 			}
 			for _, declaration := range declarations {
-				if err := declare(unitID, declaration.key, declaration.access); err != nil {
+				if err := declare(unitID, declaration.key, declaration.access, declaration.typ); err != nil {
 					return nil, err
 				}
-				if err := add(unitID, declaration.key, declaration.access, declaration.width); err != nil {
+				if err := merge(unitID, declaration.key, declaration.access, declaration.width); err != nil {
 					return nil, err
 				}
 			}
@@ -164,16 +185,18 @@ func loadModbusConfig(dir string) (map[uint8]*unitState, error) {
 
 	units := make(map[uint8]*unitState, len(registers))
 	for unitID, extra := range registers {
-		units[unitID] = newUnitState(unitID, extra)
+		units[unitID] = newConfigUnitState(extra)
 	}
 	return units, nil
 }
 
-func modbusPointWidth(typ string) int {
+func modbusPointWidth(typ string) (int, error) {
 	switch typ {
+	case "uint16", "int16":
+		return 1, nil
 	case "uint32", "int32":
-		return 2
+		return 2, nil
 	default:
-		return 1
+		return 0, fmt.Errorf("unsupported modbus point type %q", typ)
 	}
 }

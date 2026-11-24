@@ -3,6 +3,7 @@ package sim
 import (
 	"encoding/hex"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 )
@@ -59,12 +60,24 @@ func newModbusRequestLog(capacity int) *modbusRequestLog {
 	}
 }
 
+// nextSeq reserves the arrival sequence. The entry is appended later, when
+// its outcome is known; snapshot sorts by this sequence so slow responses do
+// not reorder the log.
+func (l *modbusRequestLog) nextSeq() uint64 {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.seq++
+	return l.seq
+}
+
 func (l *modbusRequestLog) add(entry modbusRequestEntry) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	l.seq++
-	entry.Seq = l.seq
+	if entry.Seq == 0 {
+		l.seq++
+		entry.Seq = l.seq
+	}
 	if l.count < l.capacity {
 		l.items[(l.start+l.count)%l.capacity] = entry
 		l.count++
@@ -87,6 +100,7 @@ func (l *modbusRequestLog) snapshot() ([]modbusRequestEntry, uint64) {
 		}
 		out = append(out, entry)
 	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Seq < out[j].Seq })
 	return out, l.dropped
 }
 

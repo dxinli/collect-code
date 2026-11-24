@@ -30,19 +30,26 @@ type modbusControlBase struct {
 }
 
 type modbusSlowControl struct {
-	Module     string `json:"module"`
-	Action     string `json:"action"`
-	UnitID     *uint8 `json:"unit_id"`
-	DelayMS    *int64 `json:"delay_ms"`
-	DurationMS *int64 `json:"duration_ms"`
+	modbusControlBase
+	DelayMS *int64 `json:"delay_ms"`
 }
 
+func (b modbusControlBase) controlEnvelope() (string, string) { return b.Module, b.Action }
+
 func (m *Modbus) handleUnitOffline(req ControlRequest) (any, error) {
+	return m.handleSimpleFault(req, "unit_offline", modbusFaultOffline)
+}
+
+func (m *Modbus) handleUnitBadCRC(req ControlRequest) (any, error) {
+	return m.handleSimpleFault(req, "unit_bad_crc", modbusFaultBadCRC)
+}
+
+func (m *Modbus) handleSimpleFault(req ControlRequest, action string, kind modbusFaultKind) (any, error) {
 	var body modbusControlBase
-	if err := decodeModbusControl(req, &body, "unit_offline"); err != nil {
+	if err := decodeModbusControl(req, &body, action); err != nil {
 		return nil, err
 	}
-	return m.applyFault(body.UnitID, body.DurationMS, modbusFaultOffline, 0, "unit_offline")
+	return m.applyFault(body.UnitID, body.DurationMS, kind, 0, action)
 }
 
 func (m *Modbus) handleUnitSlow(req ControlRequest) (any, error) {
@@ -60,14 +67,6 @@ func (m *Modbus) handleUnitSlow(req ControlRequest) (any, error) {
 	return m.applyFault(body.UnitID, body.DurationMS, modbusFaultSlow, delay, "unit_slow")
 }
 
-func (m *Modbus) handleUnitBadCRC(req ControlRequest) (any, error) {
-	var body modbusControlBase
-	if err := decodeModbusControl(req, &body, "unit_bad_crc"); err != nil {
-		return nil, err
-	}
-	return m.applyFault(body.UnitID, body.DurationMS, modbusFaultBadCRC, 0, "unit_bad_crc")
-}
-
 func decodeModbusControl(req ControlRequest, dst any, action string) error {
 	if req.Body == nil {
 		return BadRequestf("%s: missing request body", action)
@@ -75,15 +74,11 @@ func decodeModbusControl(req ControlRequest, dst any, action string) error {
 	if err := decodeStrict(req.Body, dst); err != nil {
 		return BadRequestf("%s: invalid request: %v", action, err)
 	}
-	var module, gotAction string
-	switch v := dst.(type) {
-	case *modbusControlBase:
-		module, gotAction = v.Module, v.Action
-	case *modbusSlowControl:
-		module, gotAction = v.Module, v.Action
-	default:
+	envelope, ok := dst.(interface{ controlEnvelope() (string, string) })
+	if !ok {
 		return errors.New("sim: unsupported modbus control body")
 	}
+	module, gotAction := envelope.controlEnvelope()
 	if module != "modbus" {
 		return BadRequestf("%s: module must be \"modbus\"", action)
 	}
@@ -162,17 +157,4 @@ func (m *Modbus) faultFor(unit *unitState) modbusFault {
 		return modbusFault{}
 	}
 	return fault
-}
-
-func (f modbusFault) String() string {
-	switch f.kind {
-	case modbusFaultOffline:
-		return "offline"
-	case modbusFaultSlow:
-		return "slow"
-	case modbusFaultBadCRC:
-		return "bad_crc"
-	default:
-		return "none"
-	}
 }

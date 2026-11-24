@@ -29,6 +29,14 @@ type ModbusOptions struct {
 	Logger    *slog.Logger
 }
 
+// modbusSession bundles the connection metadata threaded through request
+// handling.
+type modbusSession struct {
+	conn      net.Conn
+	transport string
+	remote    string
+}
+
 // Modbus is the in-process Modbus TCP / RTU-over-TCP slave. The two listeners
 // share one unit table, request log and control state.
 type Modbus struct {
@@ -45,7 +53,6 @@ type Modbus struct {
 	unitIDs        []int
 	registerSource string
 	requests       *modbusRequestLog
-	configDir      string
 
 	now    func() time.Time
 	logger *slog.Logger
@@ -86,7 +93,7 @@ func NewModbus(opts ModbusOptions) (*Modbus, error) {
 		source = "config"
 	} else {
 		for _, id := range builtinUnitIDs() {
-			units[id] = newUnitState(id, nil)
+			units[id] = newBuiltinUnitState()
 		}
 	}
 
@@ -123,7 +130,6 @@ func NewModbus(opts ModbusOptions) (*Modbus, error) {
 		unitIDs:        sortedUnitIDs(units),
 		registerSource: source,
 		requests:       newModbusRequestLog(modbusRequestLogCapacity),
-		configDir:      configDir,
 		now:            opts.Now,
 		logger:         logger,
 		done:           make(chan struct{}),
@@ -264,7 +270,7 @@ func (m *Modbus) acceptLoop(ln net.Listener, transport string) {
 
 func (m *Modbus) serveConn(conn net.Conn, transport string) {
 	defer func() { _ = conn.Close() }()
-	remote := conn.RemoteAddr().String()
+	session := &modbusSession{conn: conn, transport: transport, remote: conn.RemoteAddr().String()}
 	reader := bufio.NewReader(conn)
 
 	if transport == modbusRTUTransport {
@@ -273,18 +279,18 @@ func (m *Modbus) serveConn(conn net.Conn, transport string) {
 			if err != nil {
 				var frameErr *modbusFrameError
 				if errors.As(err, &frameErr) {
-					m.logFrameBad(remote, transport, frameErr)
+					m.logFrameBad(session, frameErr)
 					if frameErr.fatal {
 						return
 					}
 					continue
 				}
 				if !m.isClosed() && !errors.Is(err, io.EOF) {
-					m.logger.Debug("modbus rtu read stopped", "remote", remote, "error", err)
+					m.logger.Debug("modbus rtu read stopped", "remote", session.remote, "error", err)
 				}
 				return
 			}
-			if !m.handleADU(conn, transport, remote, adu) {
+			if !m.handleADU(session, adu) {
 				return
 			}
 		}
@@ -295,24 +301,25 @@ func (m *Modbus) serveConn(conn net.Conn, transport string) {
 		if err != nil {
 			var frameErr *modbusFrameError
 			if errors.As(err, &frameErr) {
-				m.logFrameBad(remote, transport, frameErr)
+				m.logFrameBad(session, frameErr)
 			} else if !m.isClosed() && !errors.Is(err, io.EOF) {
-				m.logger.Debug("modbus tcp read stopped", "remote", remote, "error", err)
+				m.logger.Debug("modbus tcp read stopped", "remote", session.remote, "error", err)
 			}
 			return
 		}
-		if !m.handleADU(conn, transport, remote, adu) {
+		if !m.handleADU(session, adu) {
 			return
 		}
 	}
 }
 
-func (m *Modbus) handleADU(conn net.Conn, transport, remote string, adu modbusADU) bool {
+func (m *Modbus) handleADU(session *modbusSession, adu modbusADU) bool {
 	started := time.Now()
 	received := m.now().UTC()
 	entry := modbusRequestEntry{
-		Transport:  transport,
-		Remote:     remote,
+		Seq:        m.requests.nextSeq(),
+		Transport:  session.transport,
+		Remote:     session.remote,
 		UnitID:     modbusUint8Ptr(adu.unitID),
 		ReceivedAt: received,
 	}
@@ -370,15 +377,18 @@ func (m *Modbus) handleADU(conn net.Conn, transport, remote string, adu modbusAD
 	}
 
 	switch {
+	case fault.kind == modbusFaultBadCRC && session.transport == modbusRTUTransport:
+		entry.Outcome = modbusOutcomeBadCRC
+		if exception != 0 {
+			entry.Exception = modbusUint8Ptr(exception)
+		}
 	case exception != 0:
 		entry.Outcome = modbusOutcomeException
 		entry.Exception = modbusUint8Ptr(exception)
-	case fault.kind == modbusFaultBadCRC && transport == modbusRTUTransport:
-		entry.Outcome = modbusOutcomeBadCRC
 	default:
 		entry.Outcome = modbusOutcomeOK
 	}
-	return m.writeAndLog(conn, transport, remote, adu, entry, response, fault, started)
+	return m.writeAndLog(session, adu, entry, response, fault, started)
 }
 
 func (m *Modbus) dispatch(unit *unitState, req modbusRequest) ([]byte, uint8) {
@@ -413,26 +423,26 @@ func (m *Modbus) dispatch(unit *unitState, req modbusRequest) ([]byte, uint8) {
 	}
 }
 
-func (m *Modbus) writeAndLog(conn net.Conn, transport, remote string, adu modbusADU,
+func (m *Modbus) writeAndLog(session *modbusSession, adu modbusADU,
 	entry modbusRequestEntry, pdu []byte, fault modbusFault, started time.Time,
 ) bool {
 	var (
 		raw []byte
 		err error
 	)
-	if transport == modbusTCPTransport {
+	if session.transport == modbusTCPTransport {
 		raw, err = encodeMBAP(modbusADU{unitID: adu.unitID, pdu: pdu, txnID: adu.txnID})
 	} else {
 		raw, err = encodeRTU(modbusADU{unitID: adu.unitID, pdu: pdu},
 			fault.kind == modbusFaultBadCRC)
 	}
 	if err != nil {
-		m.logger.Error("modbus encode response", "transport", transport, "error", err)
+		m.logger.Error("modbus encode response", "transport", session.transport, "error", err)
 		return false
 	}
-	if err := writeModbusFull(conn, raw); err != nil {
+	if err := writeModbusFull(session.conn, raw); err != nil {
 		if !m.isClosed() {
-			m.logger.Warn("modbus write failed", "transport", transport, "remote", remote, "error", err)
+			m.logger.Warn("modbus write failed", "transport", session.transport, "remote", session.remote, "error", err)
 		}
 		return false
 	}
@@ -446,10 +456,11 @@ func (m *Modbus) writeAndLog(conn net.Conn, transport, remote string, adu modbus
 	return true
 }
 
-func (m *Modbus) logFrameBad(remote, transport string, frameErr *modbusFrameError) {
+func (m *Modbus) logFrameBad(session *modbusSession, frameErr *modbusFrameError) {
 	entry := modbusRequestEntry{
-		Transport:  transport,
-		Remote:     remote,
+		Seq:        m.requests.nextSeq(),
+		Transport:  session.transport,
+		Remote:     session.remote,
 		Outcome:    modbusOutcomeBadFrame,
 		RawHex:     modbusRawHex(frameErr.raw),
 		ReceivedAt: m.now().UTC(),
@@ -461,7 +472,7 @@ func (m *Modbus) logFrameBad(remote, transport string, frameErr *modbusFrameErro
 		entry.Function = modbusUint8Ptr(frameErr.adu.pdu[0])
 	}
 	m.requests.add(entry)
-	m.logger.Warn("modbus bad frame", "transport", transport, "remote", remote, "error", frameErr.msg)
+	m.logger.Warn("modbus bad frame", "transport", session.transport, "remote", session.remote, "error", frameErr.msg)
 }
 
 func (m *Modbus) wait(delay time.Duration) bool {

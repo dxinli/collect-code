@@ -27,7 +27,6 @@ type modbusRegister struct {
 
 // unitState is one simulated slave. All access is guarded by Modbus.mu.
 type unitState struct {
-	unitID    uint8
 	registers map[modbusKey]modbusRegister
 	fault     modbusFault
 }
@@ -61,6 +60,8 @@ var builtinModbusRegisters = []struct {
 	{modbusKey{input: true, address: 0x000D}, modbusCanRead, 1000, "total_flow_lo"},
 }
 
+// builtinUnitIDs follows gap-ledger B2: the valve register table assumes
+// station IDs 1..8.
 func builtinUnitIDs() []uint8 {
 	ids := make([]uint8, 0, 8)
 	for id := uint8(1); id <= 8; id++ {
@@ -69,24 +70,38 @@ func builtinUnitIDs() []uint8 {
 	return ids
 }
 
-// newUnitState builds a unit from the builtin ASSUMED table, then unions in
-// any access declared by --config. Values stay builtin where an address is
-// known; config-only addresses start at zero.
-func newUnitState(unitID uint8, extra map[modbusKey]modbusAccess) *unitState {
-	registers := make(map[modbusKey]modbusRegister, len(builtinModbusRegisters)+len(extra))
+// newBuiltinUnitState serves the full builtin ASSUMED table.
+func newBuiltinUnitState() *unitState {
+	registers := make(map[modbusKey]modbusRegister, len(builtinModbusRegisters))
 	for _, def := range builtinModbusRegisters {
 		registers[def.key] = modbusRegister{access: def.access, value: def.value, name: def.name}
 	}
+	return &unitState{registers: registers}
+}
+
+// newConfigUnitState serves only the registers declared by --config. A
+// declared key that also exists in the builtin table keeps the builtin initial
+// value; a config-only key starts at zero.
+func newConfigUnitState(extra map[modbusKey]modbusAccess) *unitState {
+	registers := make(map[modbusKey]modbusRegister, len(extra))
 	for key, access := range extra {
-		reg, ok := registers[key]
-		if ok {
-			reg.access |= access
-			registers[key] = reg
-			continue
+		reg := modbusRegister{access: access}
+		if builtin, ok := builtinRegister(key); ok {
+			reg.value = builtin.value
+			reg.name = builtin.name
 		}
-		registers[key] = modbusRegister{access: access}
+		registers[key] = reg
 	}
-	return &unitState{unitID: unitID, registers: registers}
+	return &unitState{registers: registers}
+}
+
+func builtinRegister(key modbusKey) (modbusRegister, bool) {
+	for _, def := range builtinModbusRegisters {
+		if def.key == key {
+			return modbusRegister{access: def.access, value: def.value, name: def.name}, true
+		}
+	}
+	return modbusRegister{}, false
 }
 
 func (u *unitState) read(input bool, address, quantity uint16) ([]uint16, uint8) {
