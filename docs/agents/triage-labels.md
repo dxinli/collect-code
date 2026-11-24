@@ -1,37 +1,48 @@
 # Triage Labels
 
 The `triage` skill speaks in terms of five canonical state roles and two
-category roles. This file maps those roles to the label strings used in this
-repo's issue tracker.
+category roles. Execution state lives in the native GitHub issue status; this
+file maps the roles to status plus the remaining labels.
 
-| Role in mattpocock/skills | Label in our tracker | Meaning |
+| Role in mattpocock/skills | Tracker representation | Meaning |
 |---|---|---|
-| `needs-triage` | `needs-triage` | Maintainer needs to evaluate this issue |
-| `needs-info` | `needs-info` | Waiting on reporter for more information |
-| `ready-for-agent` | `ready-for-agent` | Fully specified, ready for an AFK agent |
-| `ready-for-human` | `ready-for-human` | Requires human implementation |
-| `wontfix` | `wontfix` | Will not be actioned |
-| `bug` | `bug` | Something is broken |
-| `enhancement` | `enhancement` | New feature or improvement |
+| `needs-triage` | status `Backlog` + label `needs-triage` | Maintainer needs to evaluate |
+| `needs-info` | status `Backlog` + label `needs-info` | Waiting on reporter |
+| `ready-for-agent` | status `Todo`, no `human` label | Fully specified, ready for an AFK agent |
+| `ready-for-human` | status `Todo` + label `human` | Requires human implementation |
+| `wontfix` | close with reason `not planned` (status `Not planned`) | Will not be actioned |
+| `bug` | label `bug` | Something is broken |
+| `enhancement` | label `enhancement` | New feature or improvement |
 
-At triage time every issue carries exactly one of the five triage state labels
-above and exactly one category label. Triage transitions:
+Triage transitions:
 
 ```text
-unlabeled -> needs-triage -> needs-info / ready-for-agent / ready-for-human / wontfix
+unlabeled -> status Backlog + label needs-triage
+needs-triage -> needs-info (status Backlog + label needs-info)
+needs-triage -> ready-for-agent (status Todo, no human)
+needs-triage -> ready-for-human (status Todo + label human)
+needs-triage -> wontfix (close as not planned)
 needs-info -> needs-triage (after the reporter replies)
 ```
 
-Execution and terminal labels are separate from the triage five:
+Apply the role by writing status and labels together. Remove `needs-triage` and
+`needs-info` when moving to `Todo`, and remove `needs-info` when returning to
+`needs-triage`. Never add an `in-progress` or `done` label; execution uses
+`In progress` / `Done` status.
 
-- `in-progress`: an agent has claimed a `ready-for-agent` issue and is implementing it.
-- `done`: added by the `issue-done` workflow when a completed issue closes.
-- `plan-review`: PR-only; marks a ticket PR whose plan is waiting for review.
-  It is not an issue state.
+- `human` is routing only. An issue with it is `Todo` but must not be claimed
+  by an agent.
+- `spec-parent` marks the single spec anchor. It is not a triage state and has
+  no status.
+- `plan-review` is PR-only; it marks a ticket PR whose plan is waiting for
+  review.
+- `blocked` is not a label or status. It is read live from native issue
+  dependencies; an issue may be `Todo` with an open blocker, and the claim query
+  filters it out with `-is:blocked`.
 
-`wontfix` closes the issue. A rejected enhancement also gets a record under
-`.out-of-scope/<concept>.md`; a rejected bug or an already-implemented request
-does not.
+`wontfix` closes the issue as `not planned`. A rejected enhancement also gets a
+record under `.out-of-scope/<concept>.md`; a rejected bug or an
+already-implemented request does not.
 
 `ready-for-agent` and `ready-for-human` require an agent brief comment. The
 issue body is the brief for tickets created in this repo; use the fields in

@@ -6,7 +6,11 @@
 
 ### Issue tracker
 
-Issues live in GitHub Issues; diff notes and archived plans live under `.scratch/<feature-slug>/`; a ticket's implementation plan lives in its PR body. Triage labels are mapped in `docs/agents/triage-labels.md`. The current behavior spec is `docs/spec/spec.md`; contracts are under `docs/contracts/`. See `docs/agents/issue-tracker.md`.
+Issues live in GitHub Issues; diff notes and archived plans live under `.scratch/<feature-slug>/`; a ticket's implementation plan lives in its PR body. The current behavior spec is `docs/spec/spec.md`; contracts are under `docs/contracts/`. See `docs/agents/issue-tracker.md`.
+
+The execution state is the native GitHub issue status (`Backlog` / `Todo` / `In progress` / `In review` / `Done` / `Not planned` / `Duplicate`), not a label. Labels are classification and routing only: `bug`, `enhancement`, `needs-triage`, `needs-info`, `human`, `spec-parent`, `plan-review`; their mapping is in `docs/agents/triage-labels.md`. Blocking is expressed only by native issue dependencies and is read live; it is never copied into status.
+
+One long-lived spec anchor issue (`spec-parent`) is the parent of every ticket. Tickets are native sub-issues of it; the anchor has no status and is never closed or modified by ticket work. The anchor points at the authoritative spec; it does not duplicate it.
 
 ### Domain docs
 
@@ -39,7 +43,7 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 
 ## Ticket 交付流程（硬约束）
 
-认领 `ready-for-agent` 的 issue 时，遵循以下流程。
+认领 `status:todo` 且无未关闭 blocker 的 issue 时，遵循以下流程。
 
 ### 元指令（每张工单必做）
 
@@ -52,8 +56,11 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 
 ### 认领
 
-- 原子换标签：`ready-for-agent` → `in-progress`，并在 issue 评论认领。
-  换标签失败 = 被抢，跳过换下一张。
+- 查询可开工集合：`gh issue list --state open --search "status:todo -label:human -is:blocked"`。
+- 选中后重读：status 仍为 `Todo`，且 `issue_dependencies_summary.blocked_by == 0`。
+- 第一笔写：`gh api -X PATCH repos/{owner}/{repo}/issues/<n> -f status="In progress"`，并在 issue 评论认领。
+  重读发现已是 `In progress` = 被抢，跳过换下一张。
+- 带 `human` label 或存在未关闭 blocker 的 issue 不得认领。
 - 立即开分支 + **draft PR**，body 首行含 `Closes #N`。
 
 ### Plan
@@ -70,9 +77,10 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 
 ### 收尾
 
-- 全部完成后：跑测试 → 自查 → `gh pr ready`。
+- 全部完成后：跑测试 → 自查 → 把 issue status 设为 `In review` → `gh pr ready`。
 - 统一使用 `gh pr merge --auto --squash` 预约合并，**不要判断 CI 状态、
   不要手动合并**——合并时机由 GitHub 决定。
+- 合并后确认 issue status 为 `Done`；若原生自动化未设，手动补。
 - 如果 auto-merge 长时间未合并（CI 红/冲突），留评论说明卡点后停止，
   等待人工介入。不要尝试其他合并方式。
 
