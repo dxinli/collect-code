@@ -12,7 +12,7 @@ The execution state is the native GitHub issue status (`Backlog` / `Todo` / `In 
 
 **Spec and tickets (A).** The spec lives only in `docs/spec/spec.md`; changes go through a `spec-delta/<topic>` PR, never a spec issue. The single spec anchor #71 (`spec-parent`) is the parent of every **spec ticket**; native sub-issues. Chore/hotfix tickets (titles starting `chore(` or `hotfix(`) are standalone and do not join the spec tree. The anchor carries `Backlog` (a status cannot be cleared once set) and is never closed or modified by ticket work; `spec-parent` keeps it out of the claim queue. The anchor points at the authoritative spec; it does not duplicate it.
 
-**Creating a ticket.** Spec ticket: `gh issue create --parent 71 --template ticket.md`, then set status (`Todo` when the brief is complete, otherwise `Backlog`) and add `human` when it is human-only. Chore/hotfix: omit `--parent`. New requests start at `Backlog` + `needs-triage`; if the behavior changes, open a `spec-delta/<topic>` PR and keep the ticket in `Backlog` until the spec is accepted, then move it to `Todo`.
+**Creating a ticket.** Prefer `scripts/ticket-new.sh --title ... --body-file ...`: it validates the brief, attaches #71 (unless the title starts `chore(`/`hotfix(` or `--no-parent`), writes status (`Todo` when the brief is complete, otherwise `Backlog`), and adds `human`/`blocked-by`. Equivalent raw command: `gh issue create --parent 71 --template ticket.md`; chore/hotfix: omit `--parent`. New requests start at `Backlog` + `needs-triage`; if the behavior changes, open a `spec-delta/<topic>` PR and keep the ticket in `Backlog` until the spec is accepted, then move it to `Todo`.
 
 **External skills.** `to-spec`, `to-tickets`, and `implement-spec` are not part of the current flow. When a repo-local adapter is written, map `ready-for-agent` to status `Todo` and `ready-for-human` to `Todo` + `human`; do not create those labels.
 
@@ -60,6 +60,7 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 
 ### 认领
 
+- 首选 `scripts/claim.sh [<n>]`：它做下面的查询、重读、`In progress` 写入与评论；等价命令如下。
 - 查询可开工集合：`gh issue list --state open --search "status:todo -label:human -is:blocked"`。
 - 选中后重读：status 仍为 `Todo`，且 `issue_dependencies_summary.blocked_by == 0`。
 - 第一笔写：`gh api -X PATCH repos/{owner}/{repo}/issues/<n> -f status="In progress"`，并在 issue 评论认领。
