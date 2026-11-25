@@ -316,18 +316,22 @@ After implementation:
 ### Code review approval record
 
 A non-draft, non-exempt PR needs a code review record: a PR conversation
-comment or submitted review by `github.repository_owner` with the single line
+comment or a `COMMENTED`/`APPROVED` review by `github.repository_owner` with the
+single line
 
 ```text
 /code-approved <head-sha>
 ```
 
-`<head-sha>` must resolve to the current PR head. Any new commit, amend, rebase,
-or force-push invalidates the record; the reviewer records the new head. `guard`
-also fails while the `code-review` label is present. Draft PRs skip the check;
-`ready_for_review` triggers a fresh run when the PR becomes ready. Comments,
-reviews, and labels do not trigger a run: after recording approval and removing
-the label, re-run the workflow. Exempt: `dependabot/*`, `probe/*`.
+`<head-sha>` must resolve to the head of the workflow run, and that head must
+equal the live PR head. Any new commit, amend, rebase, or force-push
+invalidates the record; the reviewer records the new head. `guard` also fails
+while the `code-review` label is present. Draft PRs fail rather than skip: a
+green draft check would leave a false-green window before the
+`ready_for_review` run registers. Comments, reviews, and labels do not trigger a
+run: after recording approval and removing the label, re-run the workflow.
+Re-adding the label after a green run does not automatically invalidate it;
+re-run if you do. Exempt: `dependabot/*`, `probe/*`.
 
 Inspect the head and records:
 
@@ -337,17 +341,17 @@ gh pr view <n> --json headRefOid --jq .headRefOid
   gh api --paginate "repos/<owner>/<repo>/issues/<n>/comments" \
     --jq '.[] | select(.user.login == "<owner>") | .body'
   gh api --paginate "repos/<owner>/<repo>/pulls/<n>/reviews" \
-    --jq '.[] | select(.user.login == "<owner>") | .body'
+    --jq '.[] | select(.user.login == "<owner>") | select(.state == "COMMENTED" or .state == "APPROVED") | .body'
 } | grep '^/code-approved '
 ```
 
 If the PR is closed without merging, set the issue status back to `Todo` (still
 ready) or `Backlog`, and comment why.
 
-The required `guard` check enforces the metadata above, the plan approval
-record, and the code review record on every non-draft, non-exempt PR. When a PR
-carries the `plan-review` label, it rejects code-file changes on the next
-workflow run. Code-file changes also require a valid `/plan-approved <sha>`
+The required `guard` check enforces the metadata and plan approval on every
+non-exempt PR, and the code review record on every non-draft, non-exempt PR.
+When a PR carries the `plan-review` label, it rejects code-file changes on the
+next workflow run. Code-file changes also require a valid `/plan-approved <sha>`
 record (see [Plan](#plan)). Label, comment, and review changes do not trigger a
 run, so re-run the workflow after adding a label or recording approval.
 

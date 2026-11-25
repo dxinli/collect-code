@@ -76,6 +76,7 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 - 打 `plan-review` 标签后停下等评审。标签未移除、或没有有效的 `/plan-approved <sha>` 记录前，禁止推送任何代码 commit。
 - **通过信号 = reviewer 在 PR 会话评论或 review 正文中留 `/plan-approved <sha>`，并移除 `plan-review` 标签**。`<sha>` 是计划阶段的 commit；`guard` 校验它是 PR head 的祖先、由本 PR 引入，且该点只含计划文件。agent 不得自己写这条记录。恢复工作时先重读 PR 的 label、body、comments；若 reviewer 只留了评论、没有移除 label，先处理意见，不得开工。
 - 记录与标签规则豁免 `spec-delta/*`、`dependabot/*`、`probe/*`；`probe/*` 是临时 CI 验证分支，用完关闭，不合并。
+- draft PR 的 `guard` 会因 code review 门禁为红，这是预期；计划通过看 `/plan-approved` 与标签移除，不看 `guard` 颜色。
 - 收到评审意见：更新 body + 评论说明改动原因。
   意见涉及 ticket 验收标准本身 → 不改 plan，去 issue 评论提案，人工裁决。
 
