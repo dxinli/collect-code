@@ -200,6 +200,33 @@ The canonical `triage` skill roles map to status plus labels in
 require an `in-progress` / `ready-for-agent` / `done` label, and do not treat
 the absence of a state label as an error.
 
+## Plan
+
+A ticket PR's body carries the plan. Before writing it, verify every fact the
+plan depends on and record the verification; an unverified assertion must not
+enter the plan. The Plan section includes a **已核实事实** table whose rows
+read `事实 | 核实方式 | 结论`:
+
+| 事实 | 核实方式 | 结论 |
+|---|---|---|
+| `check-spec` 的 contracts/covers 读取 `internal/**` | 读 `scripts/spec-check.sh` 的 `spec_contracts` 与 `spec_covers` | 只改 Go 也必须跑 `check-spec` |
+| 非 ASCII 路径会被 git C-quote | 在临时仓库执行 `git diff --name-only` | 脚本必须使用 `-c core.quotePath=false` |
+| `actions/checkout` 默认 `fetch-depth: 1`，没有完整历史 | 读 action README 的 `fetch-depth` 默认值，并核对 `ci.yml` | 需要 merge-base/diff 的 job 必须 `fetch-depth: 0` |
+| ADR-0007 已 Accepted，plan-review 期间只允许 `docs/`、`.scratch/`、`AGENTS.md`、`CLAUDE.md`、`GLOSSARY.md` | 读 `docs/adr/0007-main-protection-minimum-gate.md` 并对照 `guard` step | 白名单之外的根 `*.md`（如 `README.md`）不可用 |
+
+The four required categories are defined in [AGENTS.md](../../AGENTS.md#plan);
+this section defines the table format and shows one filled example. Each row
+names the command, ADR, or document used to verify the fact. A fact that
+cannot be verified is not written as an assertion: resolve it before plan
+review, or stop and raise the open question on the issue. A real plan lists
+every fact it depends on; the example above stays at four rows to show the
+shape. The table is reviewed with the plan before the `plan-review` label is
+removed.
+
+The rule exists because four approved plans were invalidated by unverified
+facts: #83 (`check-spec` reads Go), #87 (git C-quotes non-ASCII paths), #89
+(third-party predicate semantics), #93 (an Accepted ADR's allowlist).
+
 ## Pull requests
 
 Ticket PRs must contain the closing keyword so GitHub closes the issue when
