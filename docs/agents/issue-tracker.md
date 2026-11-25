@@ -227,6 +227,51 @@ The rule exists because four approved plans were invalidated by unverified
 facts: #83 (`check-spec` reads Go), #87 (git C-quotes non-ASCII paths), #89
 (third-party predicate semantics), #93 (an Accepted ADR's allowlist).
 
+### Approval record
+
+A code-file change needs a plan approval record: a PR conversation comment or a
+submitted PR review by `github.repository_owner` whose body contains the single
+line
+
+```text
+/plan-approved <sha>
+```
+
+`<sha>` is a plan-stage commit on the PR branch (typically the PR head at
+approval time). `guard` accepts the record only when:
+
+- the comment author is the repository owner;
+- the SHA resolves and is an ancestor of the PR head;
+- the SHA is not part of the base history (it must be introduced by this PR);
+- `git diff <base>...<sha>` contains only the plan allowlist.
+
+The comment timestamp is not compared with commit timestamps: a record
+pointing at a plan-stage SHA is accepted even if it was written later. The gate
+proves that a plan-stage commit was approved, not that approval happened before
+code was pushed; human review remains the final gate.
+
+Force-push or rebase that drops the SHA invalidates the record; comment again.
+New code commits after a valid record do not invalidate it. A new plan-only
+commit after the record also does not mechanically invalidate it; re-comment
+when a plan change is material. Editing the plan in the PR body is not
+machine-detectable for the same reason.
+
+The `plan-review` label remains the waiting marker; removing it does not
+replace the record. Label and comment changes do not trigger a workflow run, so
+re-run the workflow (or push the next commit) after recording approval. Exempt
+branches: `spec-delta/*`, `dependabot/*`, `probe/*`.
+
+Inspect the current records:
+
+```bash
+{
+  gh api --paginate "repos/<owner>/<repo>/issues/<n>/comments" \
+    --jq '.[] | select(.user.login == "<owner>") | .body'
+  gh api --paginate "repos/<owner>/<repo>/pulls/<n>/reviews" \
+    --jq '.[] | select(.user.login == "<owner>") | .body'
+} | grep '^/plan-approved '
+```
+
 ## Pull requests
 
 Ticket PRs must contain the closing keyword so GitHub closes the issue when
@@ -252,8 +297,10 @@ ready) or `Backlog`, and comment why.
 
 The required `guard` check enforces `Closes #N` on `feat/*` and `hotfix/*` PRs.
 When a PR carries the `plan-review` label, it rejects code-file changes on the
-next workflow run. Label changes do not trigger a run, so re-run the workflow
-after adding the label if you need the current diff checked.
+next workflow run. Code-file changes also require a valid `/plan-approved
+<sha>` record (see [Plan](#plan)). Label and comment changes do not trigger a
+run, so re-run the workflow after adding the label or recording approval if
+you need the current diff checked.
 
 Plan-only PRs do not need a `Closes` line.
 

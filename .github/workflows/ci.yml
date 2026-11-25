@@ -57,40 +57,104 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      issues: read
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
       REPO: ${{ github.repository }}
+      PLAN_ALLOW_RE: '^(docs/|\.scratch/|AGENTS\.md$|CLAUDE\.md$|GLOSSARY\.md$)'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Enforce plan-review file scope
+      - name: Enforce plan rules
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
+          BRANCH: ${{ github.head_ref }}
+          OWNER: ${{ github.repository_owner }}
         run: |
           LABELS=$(gh pr view "$PR_NUMBER" -R "$REPO" --json labels \
             --jq '[.labels[].name] | join(",")')
-          case ",$LABELS," in
-            *,plan-review,*) ;;
-            *) echo "✅ 非 plan-review 状态，跳过 plan 检查"; exit 0 ;;
-          esac
 
           if ! FILES=$(git -c core.quotePath=false diff --name-only "$BASE...$HEAD"); then
             echo "::error::cannot compute changed files"
             exit 1
           fi
-          BAD=$(printf '%s\n' "$FILES" | grep -vE \
-            '^(docs/|\.scratch/|AGENTS\.md$|CLAUDE\.md$|GLOSSARY\.md$)' || true)
-          if [ -n "$BAD" ]; then
-            echo "::error::plan-review 期间只允许 docs/、.scratch/、AGENTS.md、CLAUDE.md、GLOSSARY.md；发现："
-            printf '%s\n' "$BAD"
+          CODE=$(printf '%s\n' "$FILES" | grep -vE "$PLAN_ALLOW_RE" || true)
+
+          case ",$LABELS," in
+            *,plan-review,*)
+              if [ -n "$CODE" ]; then
+                echo "::error::plan-review 期间只允许 docs/、.scratch/、AGENTS.md、CLAUDE.md、GLOSSARY.md；发现："
+                printf '%s\n' "$CODE"
+                exit 1
+              fi
+              echo "✅ plan-review 期间没有代码改动"
+              ;;
+          esac
+
+          if [ -z "$CODE" ]; then
+            echo "✅ 只有计划文件，无需 plan 通过记录"
+            exit 0
+          fi
+
+          case "$BRANCH" in
+            spec-delta/*|dependabot/*|probe/*)
+              echo "✅ 豁免分支：$BRANCH"
+              exit 0
+              ;;
+          esac
+
+          if ! COMMENTS=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.user.login == \"$OWNER\") | .body"); then
+            echo "::error::cannot read PR comments"
             exit 1
           fi
-          echo "✅ plan-review 期间没有代码改动"
+          if ! REVIEWS=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+            --jq ".[] | select(.user.login == \"$OWNER\") | .body"); then
+            echo "::error::cannot read PR reviews"
+            exit 1
+          fi
+          RECORDS=$(printf '%s\n%s\n' "$COMMENTS" "$REVIEWS" | tr -d '\r' \
+            | grep -oE '^/plan-approved [0-9a-f]{7,40}[[:space:]]*$' \
+            | awk '{print $2}' || true)
+          if [ -z "$RECORDS" ]; then
+            echo "::error::代码改动需要计划通过记录：由 reviewer 在 PR 评论 '/plan-approved <sha>'（<sha> 为计划阶段的 commit），然后 Re-run all jobs"
+            exit 1
+          fi
+
+          while IFS= read -r sha; do
+            [ -n "$sha" ] || continue
+            if ! git cat-file -e "$sha^{commit}" 2>/dev/null; then
+              echo "… $sha：不在本地历史中，跳过"
+              continue
+            fi
+            if ! git merge-base --is-ancestor "$sha" "$HEAD"; then
+              echo "… $sha：不是 PR head 的祖先，跳过"
+              continue
+            fi
+            if git merge-base --is-ancestor "$sha" "$BASE"; then
+              echo "… $sha：属于 base 历史，不是本 PR 的计划提交，跳过"
+              continue
+            fi
+            if ! PHASE_FILES=$(git -c core.quotePath=false diff --name-only "$BASE...$sha"); then
+              echo "… $sha：无法计算记录点的 diff，跳过"
+              continue
+            fi
+            PHASE_CODE=$(printf '%s\n' "$PHASE_FILES" | grep -vE "$PLAN_ALLOW_RE" || true)
+            if [ -n "$PHASE_CODE" ]; then
+              echo "… $sha：记录点已包含代码文件，跳过"
+              continue
+            fi
+            echo "✅ plan 通过记录有效：$sha"
+            exit 0
+          done <<< "$RECORDS"
+
+          echo "::error::没有有效的计划通过记录；reviewer 需在计划 commit 上评论 '/plan-approved <sha>'，然后 Re-run all jobs"
+          exit 1
 
       - name: Require a closing issue on ticket PRs
         if: startsWith(github.head_ref, 'feat/') || startsWith(github.head_ref, 'hotfix/')
