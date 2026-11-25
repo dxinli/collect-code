@@ -9,3 +9,5 @@ var (
 	// BuildDate is the UTC build timestamp.
 	BuildDate = "unknown"
 )
+
+// probe: go-only full gate
