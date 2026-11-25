@@ -170,6 +170,64 @@ scripts/claim.sh 76     # a specific issue
 Without an argument it skips candidates that are no longer startable; with a
 number it exits non-zero instead of writing.
 
+### Bootstrap a ticket PR
+
+After claiming, use this order. An empty branch cannot open a pull request
+(#79), and local ignored artifacts generated before their `.gitignore` entry
+leave the tree dirty (#81).
+
+```bash
+scripts/claim.sh <n>
+
+# Branch from current main; a stale branch fails spec-status later.
+git switch main
+git pull --ff-only
+# Use feat/ for spec tickets, chore/ for ordinary/docs/CI; spec changes use spec-delta/.
+git switch -c chore/<slug>
+
+# Write the plan body and any plan-stage docs changes first.
+# With nothing staged this creates the empty marker GitHub needs; with staged
+# docs it commits them. The marker is squashed away on merge.
+cat > /tmp/plan-<n>.md <<'EOF'
+Closes #<n>
+
+## Plan
+
+### 1. 目标
+...
+EOF
+# git add <plan-files>   # only if the plan includes docs changes
+git commit --allow-empty -m "plan: <n> <title>"
+
+# gh pr create needs a remote head, and the plan commit must be pushed.
+make spec-status
+git push -u origin chore/<slug>
+
+# Warn if a local-only dir is not ignored; the status check below is the hard gate.
+. scripts/path-policy.sh
+for d in "${LOCAL_ONLY_DIRS[@]}"; do
+  git check-ignore -q "$d" || echo "WARN: $d is not ignored; update scripts/path-policy.sh and .gitignore" >&2
+done
+# Generate local ignored artifacts (for example docs/代码走读/03-*.md) here.
+
+# Open the PR only from a clean tree; ignored artifacts do not show up here.
+if [ -n "$(git status --porcelain)" ]; then
+  git status --short
+  echo "working tree is not clean; commit intended changes or remove local artifacts" >&2
+else
+  gh pr create --draft --base main --title "<title>" --body-file /tmp/plan-<n>.md
+  gh pr edit --add-label plan-review
+fi
+```
+
+- The PR body's first line is `Closes #<n>`; fill the Plan sections per
+  [Plan](#plan), including the 已核实事实 table.
+- Plan-stage docs changes must be committed before the push above; otherwise the
+  remote head used by the PR lacks them.
+- Adding a local-only directory means updating `LOCAL_ONLY_DIRS` in
+  `scripts/path-policy.sh` and `.gitignore`; the policy self-test checks they
+  agree.
+
 ## Dependencies (blocked)
 
 Use GitHub's native issue dependencies. An issue is startable when every
