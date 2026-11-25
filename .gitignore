@@ -3,3 +3,6 @@
 /bin/
 /dist/
 .claude/worktrees/
+
+# Local-only code walkthroughs; generate them in the working tree.
+docs/代码走读/
