@@ -7,7 +7,7 @@
 | job | 运行 | 内容 |
 |---|---|---|
 | `ci` | PR、push main、手动 dispatch | checkout、setup-go、golangci-lint、`make check-go`、`make check-spec` |
-| `guard` | PR only | plan-review 文件范围、`/plan-approved` 记录、`Closes #<issue>` |
+| `guard` | PR only | plan-review 文件范围、`/plan-approved` 记录、ticket 元数据（`Closes`/`Spec-*`/`REQ`） |
 | `gitleaks` | 始终（PR、push main、手动 dispatch） | 完整历史密钥扫描 |
 
 required checks：`ci`、`guard`、`gitleaks`。
@@ -19,7 +19,7 @@ required checks：`ci`、`guard`、`gitleaks`。
 - `plan-review`、`code-review` 是流程标签，不是 workflow 触发器。
 - 增删标签不会起新 run。`guard` 在运行时用 `gh pr view` 读取当前标签，所以需要重新评估时用 Re-run all jobs。
 - 把 `plan-review` 加到一个已经包含代码的 PR 时，标签变更不会触发 run；必须 Re-run all jobs 才会用当前标签检查该 diff。这是移除标签触发的代价，ADR-0008 记录该取舍。
-- `Closes` 检查在 PR 事件读取当前 body；改 body 后同样需要 Re-run。
+- 元数据检查在运行时读取当前 PR body、目标 issue 与 `docs/spec/VERSION`；改 body/issue 后同样需要 Re-run。
 - `/plan-approved` 是 PR 评论，不是标签；评论同样不会触发 run。记录后需 Re-run all jobs，或由下一次代码 push 触发。
 - `on.pull_request` 只有默认的 opened/synchronize/reopened；没有 labeled/unlabeled。
 
@@ -33,6 +33,17 @@ required checks：`ci`、`guard`、`gitleaks`。
 - `git diff <base>...<sha>` 只含 plan allowlist（`docs/`、`.scratch/`、`AGENTS.md`、`CLAUDE.md`、`GLOSSARY.md`）。
 
 记录点含代码、属于 base 历史、或被 force-push/rebase 移出历史时无效。评论时间不与提交时间比较：记录指向旧计划 SHA 时，事后评论仍会被接受；门禁只证明计划阶段提交被批准。新的计划-only commit 也不会自动使旧记录失效，material change 需 reviewer 重新评论。豁免 `spec-delta/*`、`dependabot/*`、`probe/*`。格式、查询命令与人工步骤见 [issue-tracker 的 Plan 节](issue-tracker.md#plan)。
+
+## Ticket 元数据
+
+所有非豁免 PR 必须满足：
+
+- 正文有且只有一行 `Closes #<n>`；其他关闭关键字（`Fixes`、`Resolves`、小写变体）与第二条关闭引用被拒绝；代码围栏内的示例不计入。目标必须是 open 的 issue、不是 PR、不是 #71，且正文含真实 `**Ticket:** <id>`；
+- `Spec-Version` 等于 `docs/spec/VERSION`；
+- `Spec-Impact` ∈ {none, patch, minor, major}；改了 `docs/spec/` 或 `docs/contracts/` 时不得为 `none`；
+- `REQ` 为 `none`，或 `REQ-*` / 合同锚点列表（允许范围写法与常见分隔符）；值必须在 `**REQ:**` 同一行，只有分隔符会被拒绝。
+
+`dependabot/*`、`probe/*` 全免；`spec-delta/*` 仅免 `Closes`/issue 校验，仍要求 `Spec-Version`、`Spec-Impact`、`REQ`。计划阶段的票 PR 从创建起就带 `Closes #N`，没有单独的 plan-only 例外。规则来源见 [ADR-0010](../adr/0010-guard-ticket-metadata.md)。
 
 ## 路径策略（流程规则）
 
@@ -56,7 +67,7 @@ CI 本身全量；下面两条是流程规则，不是 CI 门控：
 | `lint` | Go 代码 | golangci-lint action 缓存 |
 | `check-spec` | spec、contracts、traceability、docs 与根 `*.md` 链接、`.scratch`、`Covers: REQ-*` | 无 |
 | `gitleaks` | 完整 git 历史 | gitleaks action 缓存 |
-| `guard` | PR 标签、diff、body、comments | 无 |
+| `guard` | PR 标签、diff、body、comments、目标 issue、`docs/spec/VERSION` | 无 |
 
 `check-spec` 的 contracts/covers 读 Go 代码，但只用 shell 工具，不依赖 Go 工具链；它在同一个 `ci` job 里全量运行。
 
@@ -76,9 +87,9 @@ CI 本身全量；下面两条是流程规则，不是 CI 门控：
 1. 本地 `make ci` = `check-go + lint + check-spec`；CI 另加 `guard` 与 `gitleaks`。
 2. 新增 Go 检查：加到 `make check-go` 或 `ci` job；不要新增路径过滤。
 3. 新增 spec 检查：加到 `make check-spec`。
-4. 修改流程规则：plan-review 与 plan approval 改 `ci.yml` 的 `guard` step；spec-delta 改 `spec-status.sh`；同步本表。
+4. 修改流程规则：plan-review、plan approval 与 ticket 元数据改 `ci.yml` 的 `guard` step；spec-delta 改 `spec-status.sh`；同步本表。
 5. `ci.yml` 的改动会改变门禁，必须人工 review。
-6. 标签/PR body/评论变更不触发 run；需要时 Re-run all jobs。
+6. 标签/PR body/评论/issue 变更不触发 run；需要时 Re-run all jobs。
 
 ## 移植
 

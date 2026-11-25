@@ -12,9 +12,10 @@
 | [0004](0004-idempotent-service-invocation.md) | 至多一次受理 + 幂等去重 + 分级确认，状态走 bbolt | Accepted + Amendment 2026-11-22 |
 | [0005](0005-downlink-queue-governance.md) | 下行队列用 `GetQueue` + 精确撤销，不用 `FlushQueue` 合并 | Accepted + Amendment 2026-11-22 |
 | [0006](0006-doc-authority-and-spec-change-policy.md) | 文档按事实类型分权，规范包版本化并独立变更 | Accepted |
-| [0007](0007-main-protection-minimum-gate.md) | main 采用最小门禁：`guard` 硬门禁，agent 直推约束暂缓 | Accepted（计划记录见 ADR-0009） |
+| [0007](0007-main-protection-minimum-gate.md) | main 采用最小门禁：`guard` 硬门禁，agent 直推约束暂缓 | Accepted + Amendment 2026-11-25（计划记录见 ADR-0009；票元数据见 ADR-0010） |
 | [0008](0008-ci-full-gate-single-workflow.md) | CI 采用全量门禁：单 workflow、三 job、无路径过滤 | Accepted |
 | [0009](0009-plan-approval-record.md) | 计划通过用 `/plan-approved <sha>` 评论记录，`guard` 校验祖先与记录点范围 | Accepted |
+| [0010](0010-guard-ticket-metadata.md) | `guard` 覆盖所有非豁免 PR 的 `Closes` 与 `Spec-*`/`REQ` 元数据 | Accepted |
 
 ## D 决策索引
 
