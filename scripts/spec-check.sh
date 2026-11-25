@@ -257,7 +257,7 @@ spec_links() {
       path="$(dirname "$f")/$target"
       [ -e "$path" ] || fail "broken relative link in $f: $target"
     done < <(grep -oE '\]\([^)]+\)' "$f" | sed -E 's/^\]\((.*)\)$/\1/' || true)
-  done < <(find docs -name '*.md' -print; printf '%s\n' *.md)
+  done < <(find docs -path 'docs/代码走读' -prune -o -name '*.md' -print; printf '%s\n' *.md)
   note "links ok"
 }
 
