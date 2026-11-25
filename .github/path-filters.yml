@@ -1,0 +1,23 @@
+# Path filters for the ci job. The Go checks run when a Go build input changed
+# or when the change is not provably docs-only (fail-safe). The spec checks
+# always run. See docs/agents/ci.md.
+go:
+  - '**/*.go'
+  - 'go.mod'
+  - 'go.sum'
+  - 'go.work*'
+  - '.golangci.*'
+  - 'Makefile'
+  - 'configs/**'
+  - 'scripts/check-*'
+  - 'scripts/verify-static.sh'
+
+# True when at least one changed file is not in the docs set. The positive
+# `**` plus the negations expresses "not all changed files are docs": an
+# unknown path therefore runs the Go checks instead of silently skipping them.
+non_docs:
+  - '**'
+  - '!docs/**'
+  - '!**/*.md'
+  - '!.scratch/**'
+  - '!scripts/spec-*.sh'
