@@ -73,8 +73,9 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 - PR body 分两节：**Plan**（目标/改动清单/Non-goals/风险点）+ **实现记录**（留空）。
 - 计划前先核实事实，再写断言。Plan 必含 **已核实事实** 表，每行 `事实 | 核实方式 | 结论`。至少覆盖：相关 Accepted ADR 的约束；每个检查实际读取什么（例如 `check-spec` 的 contracts/covers 会读 Go）；第三方 action/工具在固定版本下的关键语义；脚本处理路径的编码与非 ASCII 测试矩阵。无法核实的事实不能作为断言写入 Plan：先核实，或把待决问题提到 issue 并停下。格式、示例与要求理由见 [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md#plan)。
 - 计划前读 [docs/agents/ci.md](docs/agents/ci.md)：CI 全量运行，标签变更不触发；需要重新评估时 Re-run all jobs。
-- 打 `plan-review` 标签后停下等评审。标签未移除前，禁止推送任何代码 commit。
-- **通过信号 = `plan-review` 标签被移除**。恢复工作时先重读 PR 的 label、body、comments；若 reviewer 只留了评论、没有移除 label，先处理意见，不得开工。
+- 打 `plan-review` 标签后停下等评审。标签未移除、或没有有效的 `/plan-approved <sha>` 记录前，禁止推送任何代码 commit。
+- **通过信号 = reviewer 在 PR 会话评论或 review 正文中留 `/plan-approved <sha>`，并移除 `plan-review` 标签**。`<sha>` 是计划阶段的 commit；`guard` 校验它是 PR head 的祖先、由本 PR 引入，且该点只含计划文件。agent 不得自己写这条记录。恢复工作时先重读 PR 的 label、body、comments；若 reviewer 只留了评论、没有移除 label，先处理意见，不得开工。
+- 记录与标签规则豁免 `spec-delta/*`、`dependabot/*`、`probe/*`；`probe/*` 是临时 CI 验证分支，用完关闭，不合并。
 - 收到评审意见：更新 body + 评论说明改动原因。
   意见涉及 ticket 验收标准本身 → 不改 plan，去 issue 评论提案，人工裁决。
 

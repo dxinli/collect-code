@@ -7,7 +7,7 @@
 | job | 运行 | 内容 |
 |---|---|---|
 | `ci` | PR、push main、手动 dispatch | checkout、setup-go、golangci-lint、`make check-go`、`make check-spec` |
-| `guard` | PR only | plan-review 文件范围、`Closes #<issue>` |
+| `guard` | PR only | plan-review 文件范围、`/plan-approved` 记录、`Closes #<issue>` |
 | `gitleaks` | 始终（PR、push main、手动 dispatch） | 完整历史密钥扫描 |
 
 required checks：`ci`、`guard`、`gitleaks`。
@@ -20,7 +20,19 @@ required checks：`ci`、`guard`、`gitleaks`。
 - 增删标签不会起新 run。`guard` 在运行时用 `gh pr view` 读取当前标签，所以需要重新评估时用 Re-run all jobs。
 - 把 `plan-review` 加到一个已经包含代码的 PR 时，标签变更不会触发 run；必须 Re-run all jobs 才会用当前标签检查该 diff。这是移除标签触发的代价，ADR-0008 记录该取舍。
 - `Closes` 检查在 PR 事件读取当前 body；改 body 后同样需要 Re-run。
+- `/plan-approved` 是 PR 评论，不是标签；评论同样不会触发 run。记录后需 Re-run all jobs，或由下一次代码 push 触发。
 - `on.pull_request` 只有默认的 opened/synchronize/reopened；没有 labeled/unlabeled。
+
+## 计划通过记录
+
+代码文件变更需要 reviewer 在 PR 会话评论或 review 正文中留 `/plan-approved <sha>`。`guard` 用 `gh api --paginate` 读取 issue comments 与 review bodies（comments 需要 `issues: read`），并校验：
+
+- 评论作者是 `github.repository_owner`；
+- SHA 能在 checkout 中解析，且是 PR head 的祖先；
+- SHA 不由 base 历史引入（必须是本 PR 的提交）；
+- `git diff <base>...<sha>` 只含 plan allowlist（`docs/`、`.scratch/`、`AGENTS.md`、`CLAUDE.md`、`GLOSSARY.md`）。
+
+记录点含代码、属于 base 历史、或被 force-push/rebase 移出历史时无效。评论时间不与提交时间比较：记录指向旧计划 SHA 时，事后评论仍会被接受；门禁只证明计划阶段提交被批准。新的计划-only commit 也不会自动使旧记录失效，material change 需 reviewer 重新评论。豁免 `spec-delta/*`、`dependabot/*`、`probe/*`。格式、查询命令与人工步骤见 [issue-tracker 的 Plan 节](issue-tracker.md#plan)。
 
 ## 路径策略（流程规则）
 
@@ -44,7 +56,7 @@ CI 本身全量；下面两条是流程规则，不是 CI 门控：
 | `lint` | Go 代码 | golangci-lint action 缓存 |
 | `check-spec` | spec、contracts、traceability、docs 与根 `*.md` 链接、`.scratch`、`Covers: REQ-*` | 无 |
 | `gitleaks` | 完整 git 历史 | gitleaks action 缓存 |
-| `guard` | PR 标签、diff、body | 无 |
+| `guard` | PR 标签、diff、body、comments | 无 |
 
 `check-spec` 的 contracts/covers 读 Go 代码，但只用 shell 工具，不依赖 Go 工具链；它在同一个 `ci` job 里全量运行。
 
@@ -64,9 +76,9 @@ CI 本身全量；下面两条是流程规则，不是 CI 门控：
 1. 本地 `make ci` = `check-go + lint + check-spec`；CI 另加 `guard` 与 `gitleaks`。
 2. 新增 Go 检查：加到 `make check-go` 或 `ci` job；不要新增路径过滤。
 3. 新增 spec 检查：加到 `make check-spec`。
-4. 修改流程规则：plan-review 改 `ci.yml` 的 `guard` step；spec-delta 改 `spec-status.sh`；同步本表。
+4. 修改流程规则：plan-review 与 plan approval 改 `ci.yml` 的 `guard` step；spec-delta 改 `spec-status.sh`；同步本表。
 5. `ci.yml` 的改动会改变门禁，必须人工 review。
-6. 标签/PR body 变更不触发 run；需要时 Re-run all jobs。
+6. 标签/PR body/评论变更不触发 run；需要时 Re-run all jobs。
 
 ## 移植
 
