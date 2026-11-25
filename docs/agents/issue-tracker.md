@@ -170,6 +170,52 @@ scripts/claim.sh 76     # a specific issue
 Without an argument it skips candidates that are no longer startable; with a
 number it exits non-zero instead of writing.
 
+### Bootstrap a ticket PR
+
+After claiming, use this order. An empty branch cannot open a pull request
+(#79), and local ignored artifacts generated before their `.gitignore` entry
+leave the tree dirty (#81).
+
+```bash
+scripts/claim.sh <n>
+
+git switch main
+git pull --ff-only
+git switch -c chore/<slug>
+
+# A PR needs a commit ahead of the base; this empty marker is squashed away.
+git commit --allow-empty -m "plan: <n> <title>"
+git push -u origin chore/<slug>
+
+# Generate local ignored artifacts only after the directory is ignored.
+git check-ignore -q docs/代码走读 || {
+  echo "update scripts/path-policy.sh and .gitignore first" >&2
+  exit 1
+}
+# produce docs/代码走读/... here
+
+# No uncommitted or untracked files before opening the PR.
+test -z "$(git status --porcelain)" || {
+  git status --short
+  echo "commit intended changes or remove local artifacts" >&2
+  exit 1
+}
+
+gh pr create --draft --base main --title "<title>" --body-file /tmp/plan-<n>.md
+gh pr edit <pr> --add-label plan-review
+```
+
+- The PR body's first line is `Closes #<n>`; the plan follows the format in
+  [Plan](#plan).
+- If the plan includes docs changes, commit them before the `git status`
+  check.
+- Adding a local-only directory means updating `LOCAL_ONLY_DIRS` in
+  `scripts/path-policy.sh` and `.gitignore`; the policy self-test checks they
+  agree.
+- A draft ticket PR's `guard` is red because the code review gate is not active
+  yet; plan approval is `/plan-approved <sha>` plus removing `plan-review`
+  ([ci.md](ci.md)).
+
 ## Dependencies (blocked)
 
 Use GitHub's native issue dependencies. An issue is startable when every

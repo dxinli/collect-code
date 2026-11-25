@@ -67,7 +67,7 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 - 第一笔写：`gh api -X PATCH repos/{owner}/{repo}/issues/<n> -f status="In progress"`，并在 issue 评论认领。
   重读发现已是 `In progress` = 被抢，跳过换下一张。
 - 带 `human` label 或存在未关闭 blocker 的 issue 不得认领。
-- 立即开分支 + **draft PR**，body 首行含 `Closes #N`。
+- 按 [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md#bootstrap-a-ticket-pr) 的 Bootstrap 顺序：切分支 → 空 plan commit → push → 确认本地产物目录已 ignore、`git status --porcelain` 为空 → draft PR（body 首行 `Closes #N`）→ `plan-review`。
 
 ### Plan
 
