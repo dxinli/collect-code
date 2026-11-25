@@ -274,12 +274,16 @@ Inspect the current records:
 
 ## Pull requests
 
-Every non-exempt PR must contain exactly one closing keyword so GitHub closes
+Every non-exempt PR must contain exactly one `Closes #N` line so GitHub closes
 the issue when the PR merges:
 
 ```md
 Closes #31
 ```
+
+Other closing keywords (`Fixes`, `Resolves`, lowercase variants) and a second
+closing reference are rejected. Closing lines inside fenced code blocks are
+ignored.
 
 The linked issue must be open, must not be #71 or a PR, and its body must carry
 a real `**Ticket:** <id>`.
@@ -290,10 +294,13 @@ The PR body must also satisfy:
 - `Spec-Impact` is `none`, `patch`, `minor`, or `major`, and is not `none` when
   the PR changes `docs/spec/` or `docs/contracts/`;
 - `REQ` is `none` or a list of `REQ-*` / contract anchors (ranges allowed).
+  The value must be on the same line as `**REQ:**`; a separator-only value is
+  rejected.
 
-Exempt branches: `spec-delta/*`, `dependabot/*`, `probe/*`. Plan-only ticket
-PRs carry `Closes #N` from creation, so there is no separate plan-only
-exception.
+Exempt: `dependabot/*` and `probe/*` skip all checks; `spec-delta/*` skips the
+`Closes`/issue checks but still requires `Spec-Version`, `Spec-Impact`, and
+`REQ`. Plan-only ticket PRs carry `Closes #N` from creation, so there is no
+separate plan-only exception.
 
 That is the whole post-merge workflow. There is no ticket-sync bot and no
 `Merged:` field; the issue timeline and its `closed` state are the record.

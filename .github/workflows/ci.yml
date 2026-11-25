@@ -162,10 +162,15 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha }}
           BRANCH: ${{ github.head_ref }}
         run: |
+          SKIP_CLOSES=0
           case "$BRANCH" in
-            spec-delta/*|dependabot/*|probe/*)
+            dependabot/*|probe/*)
               echo "✅ 豁免分支：$BRANCH"
               exit 0
+              ;;
+            spec-delta/*)
+              SKIP_CLOSES=1
+              echo "spec-delta：跳过 Closes/issue 校验，仍校验 Spec-* 与 REQ"
               ;;
           esac
 
@@ -174,51 +179,61 @@ jobs:
             exit 1
           fi
           BODY=$(printf '%s' "$BODY" | tr -d '\r')
+          BODY_CLEAN=$(printf '%s\n' "$BODY" | awk '
+            /^[[:space:]]*(```|~~~)/ { fence = !fence; next }
+            !fence { print }
+          ')
 
           field() {
-            printf '%s\n' "$BODY" \
+            printf '%s\n' "$BODY_CLEAN" \
               | sed -nE "s/^[[:space:]]*[-*]?[[:space:]]*\*\*$1:\*\*[[:space:]]*(.*)$/\1/p" \
               | head -n1 \
               | sed -E 's/[[:space:]]+$//'
           }
 
-          CLOSES=$(printf '%s\n' "$BODY" \
-            | grep -cE '^[[:space:]]*Closes[[:space:]]+#[0-9]+[[:space:]]*$' || true)
-          if [ "$CLOSES" -ne 1 ]; then
-            echo "::error::PR 正文必须有且只有一行 'Closes #<issue>'；当前 $CLOSES 行"
-            exit 1
-          fi
-          ISSUE=$(printf '%s\n' "$BODY" \
-            | sed -nE 's/^[[:space:]]*Closes[[:space:]]+#([0-9]+)[[:space:]]*$/\1/p' \
-            | head -n1)
-          if [ "$ISSUE" = "71" ]; then
-            echo "::error::不能把 spec anchor #71 作为 Closes 目标"
-            exit 1
-          fi
+          if [ "$SKIP_CLOSES" -eq 0 ]; then
+            CLOSES_ANY=$(printf '%s\n' "$BODY_CLEAN" \
+              | grep -icE '^[[:space:]]*(close[sd]?|fix(es|ed)?|resolve[sd]?)[[:space:]]+#[0-9]+[[:space:]]*$' || true)
+            CLOSES=$(printf '%s\n' "$BODY_CLEAN" \
+              | grep -cE '^[[:space:]]*Closes[[:space:]]+#[0-9]+[[:space:]]*$' || true)
+            if [ "$CLOSES_ANY" -ne 1 ] || [ "$CLOSES" -ne 1 ]; then
+              echo "::error::PR 正文必须有且只有一行 'Closes #<issue>'；其他关闭关键字（Fixes/Resolves 等）或第二条关闭引用会被拒绝"
+              exit 1
+            fi
+            ISSUE=$(printf '%s\n' "$BODY_CLEAN" \
+              | sed -nE 's/^[[:space:]]*Closes[[:space:]]+#([0-9]+)[[:space:]]*$/\1/p' \
+              | head -n1)
+            ISSUE=$(printf '%s' "$ISSUE" | sed -E 's/^0+//')
+            [ -n "$ISSUE" ] || ISSUE=0
+            if [ "$ISSUE" = "71" ]; then
+              echo "::error::不能把 spec anchor #71 作为 Closes 目标"
+              exit 1
+            fi
 
-          if ! ISSUE_STATE=$(gh api "repos/$REPO/issues/$ISSUE" --jq .state) \
-            || ! ISSUE_IS_PR=$(gh api "repos/$REPO/issues/$ISSUE" --jq 'if .pull_request then "yes" else "no" end') \
-            || ! ISSUE_BODY=$(gh api "repos/$REPO/issues/$ISSUE" --jq '.body // ""'); then
-            echo "::error::cannot read issue #$ISSUE"
-            exit 1
-          fi
-          ISSUE_BODY=$(printf '%s' "$ISSUE_BODY" | tr -d '\r')
-          if [ "$ISSUE_STATE" != "open" ]; then
-            echo "::error::Closes #$ISSUE 指向的 issue 不是 open"
-            exit 1
-          fi
-          if [ "$ISSUE_IS_PR" = "yes" ]; then
-            echo "::error::Closes #$ISSUE 指向的是 PR，不是 ticket issue"
-            exit 1
-          fi
-          if ! printf '%s\n' "$ISSUE_BODY" \
-            | grep -qE '^\*\*Ticket:\*\*[[:space:]]+[^<[:space:]]'; then
-            echo "::error::issue #$ISSUE 缺少真实的 **Ticket:** 行"
-            exit 1
+            if ! ISSUE_STATE=$(gh api "repos/$REPO/issues/$ISSUE" --jq .state) \
+              || ! ISSUE_IS_PR=$(gh api "repos/$REPO/issues/$ISSUE" --jq 'if .pull_request then "yes" else "no" end') \
+              || ! ISSUE_BODY=$(gh api "repos/$REPO/issues/$ISSUE" --jq '.body // ""'); then
+              echo "::error::cannot read issue #$ISSUE"
+              exit 1
+            fi
+            ISSUE_BODY=$(printf '%s' "$ISSUE_BODY" | tr -d '\r')
+            if [ "$ISSUE_STATE" != "open" ]; then
+              echo "::error::Closes #$ISSUE 指向的 issue 不是 open"
+              exit 1
+            fi
+            if [ "$ISSUE_IS_PR" = "yes" ]; then
+              echo "::error::Closes #$ISSUE 指向的是 PR，不是 ticket issue"
+              exit 1
+            fi
+            if ! printf '%s\n' "$ISSUE_BODY" \
+              | grep -qE '^\*\*Ticket:\*\*[[:space:]]+[^<[:space:]]'; then
+              echo "::error::issue #$ISSUE 缺少真实的 **Ticket:** 行"
+              exit 1
+            fi
           fi
 
           SPEC_VERSION=$(field 'Spec-Version' | sed -E 's/[`[:space:]]//g')
-          SPEC_IMPACT=$(field 'Spec-Impact' | tr '[:upper:]' '[:lower:]')
+          SPEC_IMPACT=$(field 'Spec-Impact' | sed -E 's/[`[:space:]]//g' | tr '[:upper:]' '[:lower:]')
           REQ=$(field 'REQ')
           [ -n "$SPEC_VERSION" ] || { echo "::error::PR 正文缺少 **Spec-Version:**"; exit 1; }
           [ -n "$SPEC_IMPACT" ] || { echo "::error::PR 正文缺少 **Spec-Impact:**"; exit 1; }
@@ -248,12 +263,18 @@ jobs:
             exit 1
           fi
 
-          REQ_LC=$(printf '%s' "$REQ" | tr '[:upper:]' '[:lower:]')
+          REQ_CLEAN=$(printf '%s' "$REQ" | sed -E 's/`//g' | tr -s '[:space:]' ' ' | sed -E 's/^ +| +$//g')
+          REQ_LC=$(printf '%s' "$REQ_CLEAN" | tr '[:upper:]' '[:lower:]')
           if [ "$REQ_LC" != "none" ]; then
-            BAD_REQ=$(printf '%s\n' "$REQ" \
-              | sed -E 's/`//g; s/[，,；;、。]+/\n/g' \
-              | tr ' ' '\n' \
-              | sed '/^$/d' \
+            REQ_TOKENS=$(printf '%s\n' "$REQ_CLEAN" \
+              | sed -E 's/[，,；;、。]+/\n/g' \
+              | tr -s '[:space:]' '\n' \
+              | sed '/^$/d')
+            if [ -z "$REQ_TOKENS" ]; then
+              echo "::error::REQ 不能为空或只有分隔符"
+              exit 1
+            fi
+            BAD_REQ=$(printf '%s\n' "$REQ_TOKENS" \
               | grep -vE '^(REQ-[A-Z]+-[0-9]{2}(\.\.|/)[0-9]{2}|REQ-[A-Z]+-[0-9]{2}|(EXT|STORE|SIM)-[A-Z0-9]+-[0-9]{2}|CFG-[A-Z0-9]+(-[0-9]{2})?)$' || true)
             if [ -n "$BAD_REQ" ]; then
               echo "::error::REQ 含无法识别的锚点："
@@ -262,7 +283,11 @@ jobs:
             fi
           fi
 
-          echo "✅ ticket #$ISSUE、Spec-Version、Spec-Impact、REQ 校验通过"
+          if [ "$SKIP_CLOSES" -eq 1 ]; then
+            echo "✅ spec-delta：Spec-Version、Spec-Impact、REQ 校验通过"
+          else
+            echo "✅ ticket #$ISSUE、Spec-Version、Spec-Impact、REQ 校验通过"
+          fi
 
   gitleaks:
     name: gitleaks

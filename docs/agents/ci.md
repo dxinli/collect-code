@@ -38,12 +38,12 @@ required checks：`ci`、`guard`、`gitleaks`。
 
 所有非豁免 PR 必须满足：
 
-- 正文有且只有一行 `Closes #<n>`；目标必须是 open 的 issue、不是 PR、不是 #71，且正文含真实 `**Ticket:** <id>`；
+- 正文有且只有一行 `Closes #<n>`；其他关闭关键字（`Fixes`、`Resolves`、小写变体）与第二条关闭引用被拒绝；代码围栏内的示例不计入。目标必须是 open 的 issue、不是 PR、不是 #71，且正文含真实 `**Ticket:** <id>`；
 - `Spec-Version` 等于 `docs/spec/VERSION`；
 - `Spec-Impact` ∈ {none, patch, minor, major}；改了 `docs/spec/` 或 `docs/contracts/` 时不得为 `none`；
-- `REQ` 为 `none`，或 `REQ-*` / 合同锚点列表（允许范围写法与常见分隔符）。
+- `REQ` 为 `none`，或 `REQ-*` / 合同锚点列表（允许范围写法与常见分隔符）；值必须在 `**REQ:**` 同一行，只有分隔符会被拒绝。
 
-豁免 `spec-delta/*`、`dependabot/*`、`probe/*`。计划阶段的票 PR 从创建起就带 `Closes #N`，没有单独的 plan-only 例外。规则来源见 [ADR-0010](../adr/0010-guard-ticket-metadata.md)。
+`dependabot/*`、`probe/*` 全免；`spec-delta/*` 仅免 `Closes`/issue 校验，仍要求 `Spec-Version`、`Spec-Impact`、`REQ`。计划阶段的票 PR 从创建起就带 `Closes #N`，没有单独的 plan-only 例外。规则来源见 [ADR-0010](../adr/0010-guard-ticket-metadata.md)。
 
 ## 路径策略（流程规则）
 

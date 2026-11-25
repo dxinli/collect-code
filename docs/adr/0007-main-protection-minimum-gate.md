@@ -24,3 +24,8 @@
 - 计划评审门禁与 ticket 链接成为合并的硬条件，不再依赖人肉 review。
 - `feat/*` / `hotfix/*` PR 必须先有对应 issue；纯文档或规范变更使用 `chore/*` 或 `spec-delta/*`。
 - agent 直推 main 仍未被平台强制阻止，现阶段依赖用户本人恢复 `enforce_admins`。
+
+## Amendment（2026-11-25）
+
+- 决策 3 的 `Closes` 覆盖范围由 ADR-0010 扩展：所有非豁免 PR 都需要恰好一行 `Closes`，并校验票元数据；`spec-delta/*` 仅免 `Closes`/issue 校验。
+- 决策 2 的 plan-review 文件范围不变；计划通过记录见 ADR-0009。

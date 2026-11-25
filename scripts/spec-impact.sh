@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Local impact scan. Not used by CI; CI only does merge-base/version checks.
+# Local impact scan. Not used by CI.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
