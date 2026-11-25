@@ -7,7 +7,7 @@
 ## Ticket
 
 <!-- Ticket PRs: replace the line below with the issue number, e.g. "Closes #31".
-     Non-ticket changes: delete this section. -->
+     Only spec-delta/*, dependabot/*, and probe/* branches omit this section. -->
 
 Closes #
 

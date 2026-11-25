@@ -274,12 +274,26 @@ Inspect the current records:
 
 ## Pull requests
 
-Ticket PRs must contain the closing keyword so GitHub closes the issue when
-the PR merges:
+Every non-exempt PR must contain exactly one closing keyword so GitHub closes
+the issue when the PR merges:
 
 ```md
 Closes #31
 ```
+
+The linked issue must be open, must not be #71 or a PR, and its body must carry
+a real `**Ticket:** <id>`.
+
+The PR body must also satisfy:
+
+- `Spec-Version` equals `docs/spec/VERSION`;
+- `Spec-Impact` is `none`, `patch`, `minor`, or `major`, and is not `none` when
+  the PR changes `docs/spec/` or `docs/contracts/`;
+- `REQ` is `none` or a list of `REQ-*` / contract anchors (ranges allowed).
+
+Exempt branches: `spec-delta/*`, `dependabot/*`, `probe/*`. Plan-only ticket
+PRs carry `Closes #N` from creation, so there is no separate plan-only
+exception.
 
 That is the whole post-merge workflow. There is no ticket-sync bot and no
 `Merged:` field; the issue timeline and its `closed` state are the record.
@@ -295,14 +309,12 @@ After implementation:
 If the PR is closed without merging, set the issue status back to `Todo` (still
 ready) or `Backlog`, and comment why.
 
-The required `guard` check enforces `Closes #N` on `feat/*` and `hotfix/*` PRs.
+The required `guard` check enforces the metadata above on every non-exempt PR.
 When a PR carries the `plan-review` label, it rejects code-file changes on the
 next workflow run. Code-file changes also require a valid `/plan-approved
 <sha>` record (see [Plan](#plan)). Label and comment changes do not trigger a
 run, so re-run the workflow after adding the label or recording approval if
 you need the current diff checked.
-
-Plan-only PRs do not need a `Closes` line.
 
 ## When a skill says "publish to the issue tracker"
 
