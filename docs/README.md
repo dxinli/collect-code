@@ -13,7 +13,7 @@
 5. [GLOSSARY.md](../GLOSSARY.md)：术语。
 6. 当前 ticket：GitHub Issues；实施计划：ticket PR body；历史计划与 diff 说明：`.scratch/README.md`（归档索引）。
 
-**默认不读**：历史 tag、已实现 ticket 的计划正文、`docs/代码走读/`。它们用于追溯，不是当前行为权威。
+**默认不读**：历史 tag、已实现 ticket 的计划正文。它们用于追溯，不是当前行为权威。
 
 ## 权威位置
 
@@ -63,6 +63,5 @@ docs/
 │   ├── store.md             # 持久化语义
 │   └── simulator.md         # 模拟器契约
 ├── adr/                     # 决策记录与索引
-├── agents/                  # agent 的仓库约定
-└── 代码走读/                # 历史走读，不作为当前权威
+└── agents/                  # agent 的仓库约定
 ```
