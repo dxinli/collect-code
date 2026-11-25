@@ -25,7 +25,7 @@ required checks：`ci`、`guard`、`gitleaks`。
 
 ## 计划通过记录
 
-代码文件变更需要 reviewer 在 PR 评论 `/plan-approved <sha>`。`guard` 用 `gh api --paginate` 读取 PR 评论（需要 `issues: read`），并校验：
+代码文件变更需要 reviewer 在 PR 会话评论或 review 正文中留 `/plan-approved <sha>`。`guard` 用 `gh api --paginate` 读取 issue comments 与 review bodies（comments 需要 `issues: read`），并校验：
 
 - 评论作者是 `github.repository_owner`；
 - SHA 能在 checkout 中解析，且是 PR head 的祖先；

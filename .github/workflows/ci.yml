@@ -113,7 +113,12 @@ jobs:
             echo "::error::cannot read PR comments"
             exit 1
           fi
-          RECORDS=$(printf '%s\n' "$COMMENTS" | tr -d '\r' \
+          if ! REVIEWS=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+            --jq ".[] | select(.user.login == \"$OWNER\") | .body"); then
+            echo "::error::cannot read PR reviews"
+            exit 1
+          fi
+          RECORDS=$(printf '%s\n%s\n' "$COMMENTS" "$REVIEWS" | tr -d '\r' \
             | grep -oE '^/plan-approved [0-9a-f]{7,40}[[:space:]]*$' \
             | awk '{print $2}' || true)
           if [ -z "$RECORDS" ]; then

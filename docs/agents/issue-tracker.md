@@ -229,8 +229,9 @@ facts: #83 (`check-spec` reads Go), #87 (git C-quotes non-ASCII paths), #89
 
 ### Approval record
 
-A code-file change needs a plan approval record: a PR comment by
-`github.repository_owner` whose body contains the single line
+A code-file change needs a plan approval record: a PR conversation comment or a
+submitted PR review by `github.repository_owner` whose body contains the single
+line
 
 ```text
 /plan-approved <sha>
@@ -263,9 +264,12 @@ branches: `spec-delta/*`, `dependabot/*`, `probe/*`.
 Inspect the current records:
 
 ```bash
-gh api --paginate "repos/<owner>/<repo>/issues/<n>/comments" \
-  --jq '.[] | select(.user.login == "<owner>") | .body' \
-  | grep '^/plan-approved '
+{
+  gh api --paginate "repos/<owner>/<repo>/issues/<n>/comments" \
+    --jq '.[] | select(.user.login == "<owner>") | .body'
+  gh api --paginate "repos/<owner>/<repo>/pulls/<n>/reviews" \
+    --jq '.[] | select(.user.login == "<owner>") | .body'
+} | grep '^/plan-approved '
 ```
 
 ## Pull requests
