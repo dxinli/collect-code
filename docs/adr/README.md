@@ -14,6 +14,7 @@
 | [0006](0006-doc-authority-and-spec-change-policy.md) | 文档按事实类型分权，规范包版本化并独立变更 | Accepted |
 | [0007](0007-main-protection-minimum-gate.md) | main 采用最小门禁：`guard` 硬门禁，agent 直推约束暂缓 | Accepted |
 | [0008](0008-ci-full-gate-single-workflow.md) | CI 采用全量门禁：单 workflow、三 job、无路径过滤 | Accepted |
+| [0009](0009-plan-approval-record.md) | 计划通过用 `/plan-approved <sha>` 评论记录，`guard` 校验祖先与记录点范围 | Accepted |
 
 ## D 决策索引
 
