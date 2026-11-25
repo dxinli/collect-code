@@ -86,7 +86,7 @@ check: check-go
 
 # Local full gate. CI selects check-go / check-spec by changed paths and runs
 # lint through golangci-lint-action.
-ci: check-go lint check-spec
+ci: ci-scope-test ci-scope-guard check-go lint check-spec
 
 # CI path classification mirrors. CI calls scripts/ci-scope.sh directly.
 ci-scope-test:

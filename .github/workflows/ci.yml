@@ -46,10 +46,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check CI scope rules and coverage
-        run: |
-          ./scripts/ci-scope.sh --self-test
-          ./scripts/ci-scope.sh --check-top-level
+      - name: Run CI scope self-test
+        run: ./scripts/ci-scope.sh --self-test
+
+      - name: Check CI path coverage
+        run: ./scripts/ci-scope.sh --check-top-level
 
       - name: Detect changed areas
         id: scope

@@ -24,7 +24,7 @@ Path groups:
   Both   Makefile, .github/workflows/ci.yml
   Go     cmd/, internal/, configs/, *.go, go.mod, go.sum, go.work*,
          .golangci.*, scripts/check-*, scripts/verify-static.sh
-  Spec   docs/, GLOSSARY.md, scripts/spec-*.sh, .scratch/
+  Spec   docs/, GLOSSARY.md, AGENTS.md, CLAUDE.md, scripts/spec-*.sh, .scratch/
 EOF
 }
 
@@ -50,7 +50,7 @@ classify_path() {
 		cmd/*|internal/*|configs/*|*.go|go.mod|go.sum|go.work*|.golangci.*|scripts/check-*|scripts/verify-static.sh)
 			GO=true
 			;;
-		docs/*|GLOSSARY.md|scripts/spec-*.sh|.scratch/*)
+		docs/*|GLOSSARY.md|AGENTS.md|CLAUDE.md|scripts/spec-*.sh|.scratch/*)
 			SPEC=true
 			;;
 	esac
@@ -97,7 +97,7 @@ scope_for_event() {
 	else
 		range="$base..$head"
 	fi
-	if ! files=$(git diff --name-only "$range" 2>/dev/null); then
+	if ! files=$(git -c core.quotePath=false diff --name-only "$range" 2>/dev/null); then
 		printf '::warning::ci-scope: cannot compute changed files; running all checks\n'
 		GO_ANY=true
 		SPEC_ANY=true
@@ -137,9 +137,9 @@ classify_top_level() {
 	TOP_LEVEL_OK=true
 	case "$entry" in
 		cmd|internal|configs|go.mod|go.sum|go.work*|.golangci.*) ;;
-		docs|.scratch|GLOSSARY.md) ;;
+		docs|.scratch|GLOSSARY.md|AGENTS.md|CLAUDE.md) ;;
 		scripts|.github|Makefile) ;;
-		AGENTS.md|CLAUDE.md|.gitignore|.gitattributes|.git|.claude|dist|bin) ;;
+		.gitignore|.gitattributes) ;;
 		*) TOP_LEVEL_OK=false ;;
 	esac
 }
@@ -159,12 +159,15 @@ check_top_level() {
 }
 
 self_test() (
-	local tmp summary failures=0 total=0 old_summary
+	local tmp summary repo failures=0 total=0 old_summary noop_out
 	tmp=$(mktemp)
 	summary=$(mktemp)
+	repo=$(mktemp -d)
 	old_summary="${GITHUB_STEP_SUMMARY:-}"
-	trap 'rm -f "$tmp" "$summary"' EXIT
+	trap 'rm -f "$tmp" "$summary"; rm -rf "$repo"' EXIT
 
+	# Assertions count failures and return 0 so the whole matrix runs;
+	# self_test exits 1 after all cases when anything failed.
 	assert_scope() {
 		local desc="$1" want_go="$2" want_spec="$3"
 		shift 3
@@ -203,7 +206,11 @@ self_test() (
 	assert_scope "docs-only" false true docs/agents/ci.md
 	assert_scope "go-only" true false internal/core/state/state.go
 	assert_scope "both" true true Makefile
-	assert_scope "none" false false AGENTS.md
+	assert_scope "workflow both" true true .github/workflows/ci.yml
+	assert_scope "none" false false .gitignore
+	assert_scope "agents doc" false true AGENTS.md
+	assert_scope "claude doc" false true CLAUDE.md
+	assert_scope "non-ascii docs" false true docs/需求文档_1.md
 	assert_scope "go.work glob" true false go.work.foo
 	assert_scope "golangci glob" true false .golangci.toml
 	assert_scope "spec script" false true scripts/spec-check.sh
@@ -214,19 +221,45 @@ self_test() (
 	assert_top "go dir" cmd true
 	assert_top "spec dir" docs true
 	assert_top "mixed file" Makefile true
-	assert_top "ignored file" AGENTS.md true
-	assert_top "ignored dir" dist true
+	assert_top "spec file" AGENTS.md true
+	assert_top "ignored file" .gitignore true
+	assert_top "ignored file" .gitattributes true
 	assert_top "unknown dir" tools false
 
 	assert_event "workflow_dispatch" workflow_dispatch "" "" true true
 	assert_event "zero base" push 0000000000000000000000000000000000000000 HEAD true true
 	assert_event "diff failure" push does-not-exist HEAD true true
 
+	# Git C-quotes non-ASCII paths unless quotePath=false; the temp repo makes
+	# sure a docs-only change with a Chinese filename still selects spec.
+	git -C "$repo" init -q
+	mkdir -p "$repo/docs"
+	: >"$repo/docs/需求文档_1.md"
+	git -C "$repo" -c user.email=ci@example.invalid -c user.name=ci \
+		add docs/需求文档_1.md
+	git -C "$repo" -c user.email=ci@example.invalid -c user.name=ci \
+		commit -qm probe
+	empty_tree=$(git -C "$repo" hash-object -t tree /dev/null)
+	total=$((total + 1))
+	if ! (
+		cd "$repo"
+		scope_for_event push "$empty_tree" HEAD >/dev/null 2>&1
+		[ "$GO_ANY" = false ] && [ "$SPEC_ANY" = true ]
+	); then
+		printf 'ci-scope: FAIL non-ascii docs event range\n' >&2
+		failures=$((failures + 1))
+	fi
+
 	total=$((total + 1))
 	GO_ANY=false
 	SPEC_ANY=false
 	: >"$summary"
-	GITHUB_STEP_SUMMARY="$summary" emit_scope >/dev/null
+	noop_out=$(GITHUB_STEP_SUMMARY="$summary" emit_scope)
+	if ! printf '%s\n' "$noop_out" | grep -q '::notice::No Go/spec checks apply'; then
+		printf 'ci-scope: FAIL no-op notice was not printed\n' >&2
+		failures=$((failures + 1))
+	fi
+	total=$((total + 1))
 	if ! grep -q 'No Go/spec checks apply' "$summary"; then
 		printf 'ci-scope: FAIL no-op summary was not written\n' >&2
 		failures=$((failures + 1))
@@ -298,6 +331,10 @@ while [ $# -gt 0 ]; do
 		*) usage_error "unknown argument: $1" ;;
 	esac
 done
+
+case "$MODE" in
+	event|top|self) cd "$(git rev-parse --show-toplevel)" ;;
+esac
 
 case "$MODE" in
 	event)
