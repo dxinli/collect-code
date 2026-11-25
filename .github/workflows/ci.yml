@@ -71,15 +71,22 @@ jobs:
               spec=true
               files=""
             fi
+            # Paths outside both groups have no applicable Go/spec check:
+            # ci reports success by design for those rare non-code,
+            # non-doc changes.
             while IFS= read -r f; do
               [ -n "$f" ] || continue
               case "$f" in
-                cmd/*|internal/*|configs/*|*.go|go.mod|go.sum|go.work|go.work.sum|Makefile|.golangci.yml|.golangci.yaml|scripts/check-*|scripts/verify-static.sh|.github/workflows/ci.yml)
-                  go=true ;;
-              esac
-              case "$f" in
-                docs/*|GLOSSARY.md|scripts/spec-*.sh|.scratch/*|Makefile|.github/workflows/ci.yml)
-                  spec=true ;;
+                Makefile|.github/workflows/ci.yml)
+                  go=true
+                  spec=true
+                  ;;
+                cmd/*|internal/*|configs/*|*.go|go.mod|go.sum|go.work*|.golangci.*|scripts/check-*|scripts/verify-static.sh)
+                  go=true
+                  ;;
+                docs/*|GLOSSARY.md|scripts/spec-*.sh|.scratch/*)
+                  spec=true
+                  ;;
               esac
             done <<< "$files"
           fi

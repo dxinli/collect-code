@@ -14,7 +14,7 @@ LDFLAGS := -s -w \
 
 GOBUILD := GOFLAGS= CGO_ENABLED=0 go build -trimpath -buildvcs=false -buildmode=exe -ldflags "$(LDFLAGS)"
 
-.PHONY: build build-linux-amd64 build-linux-arm64 build-all verify-static build-linux-packages test test-race vet fmt-check print-check deps-check time-check go-fix-check lint check check-go check-spec ci spec-check spec-status spec-impact spec-archive clean
+.PHONY: build build-linux-amd64 build-linux-arm64 build-all verify-static build-linux-packages test test-race vet fmt-check print-check deps-check time-check go-fix-check lint check check-go check-spec check-spec-code ci spec-check spec-status spec-impact spec-archive clean
 
 build:
 	@mkdir -p $(DIST)
@@ -71,8 +71,13 @@ lint:
 
 # Go checks shared by local `make ci` and CI. Lint runs separately (the
 # golangci-lint action in CI, `make lint` locally); non-race tests are covered
-# by test-race, and golangci-lint's govet covers `make vet`.
-check-go: fmt-check print-check deps-check time-check go-fix-check test-race build-all verify-static build-linux-packages
+# by test-race. check-spec-code holds the spec checks that read Go code
+# (contracts and Covers annotations), so a Go-only change still enforces them.
+check-spec-code:
+	./scripts/spec-check.sh contracts
+	./scripts/spec-check.sh covers
+
+check-go: fmt-check print-check deps-check time-check go-fix-check vet check-spec-code test-race build-all verify-static build-linux-packages
 	GOFLAGS= go run ./cmd/collect-code config-check --config configs/example
 
 check-spec: spec-check spec-status
