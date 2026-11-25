@@ -71,7 +71,7 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 ### Plan
 
 - PR body 分两节：**Plan**（目标/改动清单/Non-goals/风险点）+ **实现记录**（留空）。
-- 计划前读 [docs/agents/ci.md](docs/agents/ci.md)，确认改动会触发哪些检查；路径过滤规则在 `.github/path-filters.yml`，维护步骤以该文档为准。
+- 计划前读 [docs/agents/ci.md](docs/agents/ci.md)：CI 全量运行，标签变更不触发；需要重新评估时 Re-run all jobs。
 - 打 `plan-review` 标签后停下等评审。标签未移除前，禁止推送任何代码 commit。
 - **通过信号 = `plan-review` 标签被移除**。恢复工作时先重读 PR 的 label、body、comments；若 reviewer 只留了评论、没有移除 label，先处理意见，不得开工。
 - 收到评审意见：更新 body + 评论说明改动原因。

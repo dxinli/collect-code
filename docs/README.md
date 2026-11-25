@@ -12,7 +12,7 @@
 4. [docs/adr/](adr/)：只读与当前变更相关的决策与理由。
 5. [GLOSSARY.md](../GLOSSARY.md)：术语。
 6. 当前 ticket：GitHub Issues；实施计划：ticket PR body；历史计划与 diff 说明：`.scratch/README.md`（归档索引）。
-7. [docs/agents/ci.md](agents/ci.md)：CI 检查读什么、哪些常开或按路径门控、缓存层。
+7. [docs/agents/ci.md](agents/ci.md)：CI 门禁、三个 job 与缓存层。
 
 **默认不读**：历史 tag、已实现 ticket 的计划正文。它们用于追溯，不是当前行为权威。
 
@@ -31,7 +31,7 @@
 | 产品意图 | [docs/产品定型.md](产品定型.md) | 行为细节链接规范 |
 | 架构与包布局 | [docs/architecture.md](architecture.md) | 依赖方向与包职责 |
 | 测试分层与判据 | [docs/testing.md](testing.md) | L1–L4、假时钟、崩溃恢复 |
-| CI 检查归属 | [docs/agents/ci.md](agents/ci.md) | 检查 → 输入 → 常开/门控 → 缓存 |
+| CI 门禁 | [docs/agents/ci.md](agents/ci.md) | 一个 workflow、三个 job、缓存 |
 | 追踪状态 | [docs/traceability.md](traceability.md) | `REQ/锚点 → test/ticket` |
 | Tracker 根 | GitHub issue `Spec: 采集引擎行为契约`（`spec-parent`） | 所有 spec ticket 的 sub-issue 父级（sub-issue 列表即票列表）；普通票与 chore/hotfix 独立；执行状态用原生 issue status |
 | 单票验收 | GitHub Issues | 合并即关闭；执行状态用原生 issue status；历史状态用评论追溯 |
