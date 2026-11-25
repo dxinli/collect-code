@@ -8,16 +8,17 @@
 |---|---|---|
 | `ci` | PR、push main、手动 dispatch | checkout、setup-go、golangci-lint、`make check-go`、`make check-spec` |
 | `guard` | PR only | plan-review 文件范围、`Closes #<issue>` |
-| `gitleaks` | PR、push main | 完整历史密钥扫描 |
+| `gitleaks` | 始终（PR、push main、手动 dispatch） | 完整历史密钥扫描 |
 
 required checks：`ci`、`guard`、`gitleaks`。
 
-没有路径过滤文件、没有 changed-path action、没有按路径跳过的检查。热缓存全量约 36s；路径过滤只能省 docs-only 约 30s，却需要 CI/plan-review/spec-delta 三套集合、额外 action 与标签触发，收益不抵维护成本。
+没有路径过滤文件、没有 changed-path action、没有按路径跳过的检查。本 PR 实测 `ci` 约 28s（热缓存）；docs-only 也跑全量。路径过滤只能省 docs-only 约 30s，却需要 CI/plan-review/spec-delta 三套集合、额外 action 与标签触发，收益不抵维护成本。
 
 ## 标签只读
 
 - `plan-review`、`code-review` 是流程标签，不是 workflow 触发器。
 - 增删标签不会起新 run。`guard` 在运行时用 `gh pr view` 读取当前标签，所以需要重新评估时用 Re-run all jobs。
+- 把 `plan-review` 加到一个已经包含代码的 PR 时，标签变更不会触发 run；必须 Re-run all jobs 才会用当前标签检查该 diff。这是移除标签触发的代价，ADR-0008 记录该取舍。
 - `Closes` 检查在 PR 事件读取当前 body；改 body 后同样需要 Re-run。
 - `on.pull_request` 只有默认的 opened/synchronize/reopened；没有 labeled/unlabeled。
 
@@ -27,12 +28,12 @@ CI 本身全量；下面两条是流程规则，不是 CI 门控：
 
 | 策略 | 用途 | 定义位置 | 集合 |
 |---|---|---|---|
-| plan-review 范围 | 计划评审期间允许的文件 | `ci.yml` 的 `guard` step | `docs/`、`.scratch/`、根 `*.md` |
+| plan-review 范围 | 计划评审期间允许的文件 | `ci.yml` 的 `guard` step | `docs/`、`.scratch/`、`AGENTS.md`、`CLAUDE.md`、`GLOSSARY.md` |
 | spec-delta 范围 | 规范变更 PR 允许的文件 | `scripts/spec-status.sh` | `docs/spec/`、`docs/contracts/` |
 | 检查内部读取 | 各检查读取的固定路径 | `scripts/spec-check.sh` 等 | spec 包、链接、covers |
 
-- plan-review 拒绝 `scripts/spec-*.sh`、`configs/`、`internal/`、`.github/*.md`：工具脚本、配置与代码属于实现阶段。
-- spec-delta 的任何其他路径（含额外文档、`.scratch`）都失败；需要说明时写 `docs/spec/CHANGELOG.md`。
+- plan-review 只允许 `docs/`、`.scratch/`、`AGENTS.md`、`CLAUDE.md`、`GLOSSARY.md`；其余全部拒绝（包括 `scripts/spec-*.sh`、`configs/`、`internal/`、`.github/`、其他根 md）：工具脚本、配置与代码属于实现阶段。
+- spec-delta 的任何其他路径（含额外文档、`.scratch`）都失败；bootstrap（base 无 spec 包）同样只允许 spec 包路径。需要说明时写 `docs/spec/CHANGELOG.md`。
 - 两条规则各自只有一个定义位置；不要为它们新增 CI 路径过滤。
 
 ## 检查与输入

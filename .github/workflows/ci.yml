@@ -57,6 +57,10 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      REPO: ${{ github.repository }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -65,9 +69,6 @@ jobs:
 
       - name: Enforce plan-review file scope
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
@@ -83,9 +84,9 @@ jobs:
             exit 1
           fi
           BAD=$(printf '%s\n' "$FILES" | grep -vE \
-            '^(docs/|\.scratch/|[^/]+\.md$)' || true)
+            '^(docs/|\.scratch/|AGENTS\.md$|CLAUDE\.md$|GLOSSARY\.md$)' || true)
           if [ -n "$BAD" ]; then
-            echo "::error::plan-review 期间只允许 docs/、.scratch/、根 *.md；发现："
+            echo "::error::plan-review 期间只允许 docs/、.scratch/、AGENTS.md、CLAUDE.md、GLOSSARY.md；发现："
             printf '%s\n' "$BAD"
             exit 1
           fi
@@ -93,10 +94,6 @@ jobs:
 
       - name: Require a closing issue on ticket PRs
         if: startsWith(github.head_ref, 'feat/') || startsWith(github.head_ref, 'hotfix/')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
         run: |
           BODY=$(gh pr view "$PR_NUMBER" -R "$REPO" --json body --jq .body)
           if ! printf '%s\n' "$BODY" | grep -qE 'Closes[[:space:]]+#[0-9]+'; then
