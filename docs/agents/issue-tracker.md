@@ -203,38 +203,29 @@ the absence of a state label as an error.
 ## Plan
 
 A ticket PR's body carries the plan. Before writing it, verify every fact the
-plan depends on and record the verification: the plan must not rest on
-unchecked assertions. The Plan section includes a **已核实事实** table whose
-rows read `事实 | 核实方式 | 结论`:
-
-```md
-| 事实 | 核实方式 | 结论 |
-|---|---|---|
-| ADR-0007 已接受，plan-review 期间只允许 docs/、.scratch/、AGENTS.md、CLAUDE.md、GLOSSARY.md | 读 docs/adr/0007-*.md 并对照 guard step | 本计划只改 docs/ 与 AGENTS.md |
-```
-
-Cover these categories when they apply:
-
-- constraints from **Accepted** ADRs that touch the change;
-- what each check actually reads (for example, `check-spec`'s contracts and
-  covers checks read `internal/**`, not only docs);
-- pinned third-party action/tool semantics the plan relies on;
-- path encoding and non-ASCII behavior for scripts that diff paths.
-
-Each row names the command, ADR, or document used to verify the fact. A fact
-that cannot be verified is marked `ASSUMED` and listed under the plan's risks.
-Keep the table to facts this change depends on (typically 3–5 rows). When the
-plan changes, re-verify and update the table, and say why in a PR comment. The
-table is reviewed with the plan before the `plan-review` label is removed.
-
-Example (from historical rework):
+plan depends on and record the verification; an unverified assertion must not
+enter the plan. The Plan section includes a **已核实事实** table whose rows
+read `事实 | 核实方式 | 结论`:
 
 | 事实 | 核实方式 | 结论 |
 |---|---|---|
-| `check-spec` 的 contracts/covers 读取 `internal/**` | 读 `scripts/spec-check.sh` 的 `spec_contracts` 与 `spec_covers` | 只改 Go 也必须跑 `check-spec`（#83） |
-| 非 ASCII 路径会被 git C-quote | 在临时仓库执行 `git diff --name-only` | 脚本必须使用 `-c core.quotePath=false`（#87） |
-| dorny/paths-filter 默认 `some` 忽略 `!` 排除 | 读 pin 版本 README 与源码 | 需要 `some-with-excludes`（#89） |
-| ADR-0007 已 Accepted 限定 plan-review 白名单 | 读 `docs/adr/0007-main-protection-minimum-gate.md` 与 `guard` step | 计划中的任意根 `*.md` 不可用（#93） |
+| `check-spec` 的 contracts/covers 读取 `internal/**` | 读 `scripts/spec-check.sh` 的 `spec_contracts` 与 `spec_covers` | 只改 Go 也必须跑 `check-spec` |
+| 非 ASCII 路径会被 git C-quote | 在临时仓库执行 `git diff --name-only` | 脚本必须使用 `-c core.quotePath=false` |
+| `actions/checkout` 默认 `fetch-depth: 1`，没有完整历史 | 读 action README 的 `fetch-depth` 默认值，并核对 `ci.yml` | 需要 merge-base/diff 的 job 必须 `fetch-depth: 0` |
+| ADR-0007 已 Accepted，plan-review 期间只允许 `docs/`、`.scratch/`、`AGENTS.md`、`CLAUDE.md`、`GLOSSARY.md` | 读 `docs/adr/0007-main-protection-minimum-gate.md` 并对照 `guard` step | 白名单之外的根 `*.md`（如 `README.md`）不可用 |
+
+The four required categories are defined in [AGENTS.md](../../AGENTS.md#plan);
+this section defines the table format and shows one filled example. Each row
+names the command, ADR, or document used to verify the fact. A fact that
+cannot be verified is not written as an assertion: resolve it before plan
+review, or stop and raise the open question on the issue. A real plan lists
+every fact it depends on; the example above stays at four rows to show the
+shape. The table is reviewed with the plan before the `plan-review` label is
+removed.
+
+The rule exists because four approved plans were invalidated by unverified
+facts: #83 (`check-spec` reads Go), #87 (git C-quotes non-ASCII paths), #89
+(third-party predicate semantics), #93 (an Accepted ADR's allowlist).
 
 ## Pull requests
 
