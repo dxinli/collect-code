@@ -14,7 +14,7 @@ LDFLAGS := -s -w \
 
 GOBUILD := GOFLAGS= CGO_ENABLED=0 go build -trimpath -buildvcs=false -buildmode=exe -ldflags "$(LDFLAGS)"
 
-.PHONY: build build-linux-amd64 build-linux-arm64 build-all verify-static build-linux-packages test test-race vet fmt-check print-check deps-check time-check go-fix-check lint check check-go check-spec check-spec-code ci spec-check spec-status spec-impact spec-archive clean
+.PHONY: build build-linux-amd64 build-linux-arm64 build-all verify-static build-linux-packages test test-race vet fmt-check print-check deps-check time-check go-fix-check lint check check-go check-spec check-spec-code ci ci-scope-test ci-scope-guard spec-check spec-status spec-impact spec-archive clean
 
 build:
 	@mkdir -p $(DIST)
@@ -87,6 +87,13 @@ check: check-go
 # Local full gate. CI selects check-go / check-spec by changed paths and runs
 # lint through golangci-lint-action.
 ci: check-go lint check-spec
+
+# CI path classification mirrors. CI calls scripts/ci-scope.sh directly.
+ci-scope-test:
+	./scripts/ci-scope.sh --self-test
+
+ci-scope-guard:
+	./scripts/ci-scope.sh --check-top-level
 
 spec-check:
 	./scripts/spec-check.sh all
