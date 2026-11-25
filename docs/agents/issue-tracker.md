@@ -66,7 +66,7 @@ Labels are classification and routing, never execution state:
 | `human` | routing: the issue must be done by a human |
 | `spec-parent` | the single spec anchor; not a work item |
 | `plan-review` | PR-only: the plan is waiting for review |
-| `code-review` | PR-only: the implementation review is pending; remove before auto-merge |
+| `code-review` | PR-only: implementation review is pending; the reviewer records `/code-approved <head-sha>` and removes it |
 
 Do not add execution labels such as `in-progress` or `done`; status covers them.
 
@@ -310,18 +310,50 @@ After implementation:
 1. Run the `code-review` skill (self-review) and fix findings.
 2. Set the issue status to `In review`, run `gh pr ready`, and add the
    `code-review` label.
-3. A human reviews the diff and removes `code-review`.
-4. Only then run `gh pr merge --auto --squash`.
+3. The reviewer records code approval (see below) and removes `code-review`.
+4. Re-run the workflow; once `guard` passes, run `gh pr merge --auto --squash`.
+
+### Code review approval record
+
+A non-draft, non-exempt PR needs a code review record: a PR conversation
+comment or a `COMMENTED`/`APPROVED` review by `github.repository_owner` with the
+single line
+
+```text
+/code-approved <head-sha>
+```
+
+`<head-sha>` must resolve to the head of the workflow run, and that head must
+equal the live PR head. Any new commit, amend, rebase, or force-push
+invalidates the record; the reviewer records the new head. `guard` also fails
+while the `code-review` label is present. Draft PRs fail rather than skip: a
+green draft check would leave a false-green window before the
+`ready_for_review` run registers. Comments, reviews, and labels do not trigger a
+run: after recording approval and removing the label, re-run the workflow.
+Re-adding the label after a green run does not automatically invalidate it;
+re-run if you do. Exempt: `dependabot/*`, `probe/*`.
+
+Inspect the head and records:
+
+```bash
+gh pr view <n> --json headRefOid --jq .headRefOid
+{
+  gh api --paginate "repos/<owner>/<repo>/issues/<n>/comments" \
+    --jq '.[] | select(.user.login == "<owner>") | .body'
+  gh api --paginate "repos/<owner>/<repo>/pulls/<n>/reviews" \
+    --jq '.[] | select(.user.login == "<owner>") | select(.state == "COMMENTED" or .state == "APPROVED") | .body'
+} | grep '^/code-approved '
+```
 
 If the PR is closed without merging, set the issue status back to `Todo` (still
 ready) or `Backlog`, and comment why.
 
-The required `guard` check enforces the metadata above on every non-exempt PR.
+The required `guard` check enforces the metadata and plan approval on every
+non-exempt PR, and the code review record on every non-draft, non-exempt PR.
 When a PR carries the `plan-review` label, it rejects code-file changes on the
-next workflow run. Code-file changes also require a valid `/plan-approved
-<sha>` record (see [Plan](#plan)). Label and comment changes do not trigger a
-run, so re-run the workflow after adding the label or recording approval if
-you need the current diff checked.
+next workflow run. Code-file changes also require a valid `/plan-approved <sha>`
+record (see [Plan](#plan)). Label, comment, and review changes do not trigger a
+run, so re-run the workflow after adding a label or recording approval.
 
 ## When a skill says "publish to the issue tracker"
 

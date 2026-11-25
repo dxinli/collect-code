@@ -24,3 +24,8 @@
 - 把 `plan-review` 加到一个已经包含代码的 PR 时，`guard` 不会自动重跑；必须 Re-run all jobs 才能用当前标签检查该 diff。ADR-0007 的「不再依赖人肉 review」在本场景下减弱为：push 时自动，标签添加时需要一次手动重跑。
 - required checks、allowlist、Closes 规则不变；`claude.yml` 的 review 触发不变。
 - 不再需要路径分类器、dorny 或 `path-filters.yml`；新增检查直接加到对应 job。
+
+## Amendment（2026-11-25）
+
+- `pull_request.types` 加入 `ready_for_review`（ADR-0011），用于 draft→ready 时重新评估 code review 记录。
+- 其他触发决策不变：仍无 `labeled`/`unlabeled`，也没有 `pull_request_review` 触发。

@@ -76,6 +76,7 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 - 打 `plan-review` 标签后停下等评审。标签未移除、或没有有效的 `/plan-approved <sha>` 记录前，禁止推送任何代码 commit。
 - **通过信号 = reviewer 在 PR 会话评论或 review 正文中留 `/plan-approved <sha>`，并移除 `plan-review` 标签**。`<sha>` 是计划阶段的 commit；`guard` 校验它是 PR head 的祖先、由本 PR 引入，且该点只含计划文件。agent 不得自己写这条记录。恢复工作时先重读 PR 的 label、body、comments；若 reviewer 只留了评论、没有移除 label，先处理意见，不得开工。
 - 记录与标签规则豁免 `spec-delta/*`、`dependabot/*`、`probe/*`；`probe/*` 是临时 CI 验证分支，用完关闭，不合并。
+- draft PR 的 `guard` 会因 code review 门禁为红，这是预期；计划通过看 `/plan-approved` 与标签移除，不看 `guard` 颜色。
 - 收到评审意见：更新 body + 评论说明改动原因。
   意见涉及 ticket 验收标准本身 → 不改 plan，去 issue 评论提案，人工裁决。
 
@@ -87,8 +88,9 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 ### 收尾
 
 - 全部完成后：跑测试 → 自审 `/code-review`（修复发现的问题）→ 把 issue status 设为 `In review` → `gh pr ready` → 给 PR 加 `code-review` 标签。
-- **`code-review` 标签未移除前，不得开 auto-merge**。人工 review 通过后由 reviewer 移除该标签。
-- 标签移除后：使用 `gh pr merge --auto --squash` 预约合并，**不要判断 CI 状态、
+- 人工 review 通过后，reviewer 在 PR 会话评论或 review 正文留 `/code-approved <head-sha>` 并移除 `code-review` 标签；记录必须对应当前 head。agent 不得自写这条记录。
+- 记录后 Re-run all jobs，确认 `guard` 通过；**没有有效记录、或 `code-review` 标签仍在，不得开 auto-merge**。批准后的任何新 commit 都会使记录失效，需要重新评审。
+- `guard` 通过后：使用 `gh pr merge --auto --squash` 预约合并，**不要判断 CI 状态、
   不要手动合并**——合并时机由 GitHub 决定。
 - 合并后确认 issue status 为 `Done`；若原生自动化未设，手动补。
 - PR 关闭但未合并：把 issue status 设回 `Todo`（仍 ready）或 `Backlog`，评论原因。

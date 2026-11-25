@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
@@ -74,7 +75,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
           BRANCH: ${{ github.head_ref }}
-          OWNER: ${{ github.repository_owner }}
+          APPROVER: ${{ github.repository_owner }}
         run: |
           LABELS=$(gh pr view "$PR_NUMBER" -R "$REPO" --json labels \
             --jq '[.labels[].name] | join(",")')
@@ -109,12 +110,12 @@ jobs:
           esac
 
           if ! COMMENTS=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
-            --jq ".[] | select(.user.login == \"$OWNER\") | .body"); then
+            --jq ".[] | select(.user.login == \"$APPROVER\") | .body"); then
             echo "::error::cannot read PR comments"
             exit 1
           fi
           if ! REVIEWS=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" \
-            --jq ".[] | select(.user.login == \"$OWNER\") | .body"); then
+            --jq ".[] | select(.user.login == \"$APPROVER\") | select(.state == \"COMMENTED\" or .state == \"APPROVED\") | .body"); then
             echo "::error::cannot read PR reviews"
             exit 1
           fi
@@ -288,6 +289,84 @@ jobs:
           else
             echo "✅ ticket #$ISSUE、Spec-Version、Spec-Impact、REQ 校验通过"
           fi
+
+      - name: Require code review approval
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BRANCH: ${{ github.head_ref }}
+          APPROVER: ${{ github.repository_owner }}
+        run: |
+          case "$BRANCH" in
+            dependabot/*|probe/*)
+              echo "✅ 豁免分支：$BRANCH"
+              exit 0
+              ;;
+          esac
+
+          if ! IS_DRAFT=$(gh pr view "$PR_NUMBER" -R "$REPO" --json isDraft --jq .isDraft); then
+            echo "::error::cannot read PR draft state"
+            exit 1
+          fi
+          if [ "$IS_DRAFT" = "true" ]; then
+            echo "::error::draft PR：code review 门禁在 ready 后生效；不要对 draft 开 auto-merge"
+            exit 1
+          fi
+
+          if ! LIVE_HEAD=$(gh pr view "$PR_NUMBER" -R "$REPO" --json headRefOid --jq .headRefOid); then
+            echo "::error::cannot read PR head"
+            exit 1
+          fi
+          if [ "$HEAD" != "$LIVE_HEAD" ]; then
+            echo "::error::本次 run 的 head 是 $HEAD，当前 PR head 是 $LIVE_HEAD；请在最新 head 上重新运行"
+            exit 1
+          fi
+
+          if ! LABELS=$(gh pr view "$PR_NUMBER" -R "$REPO" --json labels \
+            --jq '[.labels[].name] | join(",")'); then
+            echo "::error::cannot read PR labels"
+            exit 1
+          fi
+          case ",$LABELS," in
+            *,code-review,*)
+              echo "::error::code-review 标签仍在，评审尚未结束"
+              exit 1
+              ;;
+          esac
+
+          if ! COMMENTS=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.user.login == \"$APPROVER\") | .body"); then
+            echo "::error::cannot read PR comments"
+            exit 1
+          fi
+          if ! REVIEWS=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+            --jq ".[] | select(.user.login == \"$APPROVER\") | select(.state == \"COMMENTED\" or .state == \"APPROVED\") | .body"); then
+            echo "::error::cannot read PR reviews"
+            exit 1
+          fi
+          RECORDS=$(printf '%s\n%s\n' "$COMMENTS" "$REVIEWS" | tr -d '\r' \
+            | grep -oE '^/code-approved [0-9a-f]{7,40}[[:space:]]*$' \
+            | awk '{print $2}' || true)
+          if [ -z "$RECORDS" ]; then
+            echo "::error::非 draft PR 需要当前 head 的 code review 记录：reviewer 评论 '/code-approved <head-sha>'（会话评论或 COMMENTED/APPROVED review 正文），确认 code-review 标签已移除，然后 Re-run all jobs"
+            exit 1
+          fi
+
+          while IFS= read -r sha; do
+            [ -n "$sha" ] || continue
+            if ! resolved=$(git rev-parse --verify "$sha^{commit}" 2>/dev/null); then
+              echo "… $sha：无法解析为 commit，跳过"
+              continue
+            fi
+            if [ "$resolved" != "$HEAD" ]; then
+              echo "… $sha：不是当前 head（$HEAD），跳过"
+              continue
+            fi
+            echo "✅ code review 记录有效：$resolved"
+            exit 0
+          done <<< "$RECORDS"
+
+          echo "::error::没有当前 head（$HEAD）的 code review 记录；reviewer 需评论 '/code-approved $HEAD'，确认 code-review 标签已移除，然后 Re-run all jobs"
+          exit 1
 
   gitleaks:
     name: gitleaks
