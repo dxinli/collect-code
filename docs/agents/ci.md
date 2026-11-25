@@ -1,55 +1,52 @@
-# CI 检查与路径过滤
+# CI 门禁与检查归属
 
-本文件是 CI 检查归属的权威：哪些检查常开、哪些按路径门控、缓存层是什么。路径规则的唯一来源是 `.github/path-filters.yml`；workflow 只消费过滤结果。修改规则时同步更新本文件。
+本文件是 CI 门禁的权威：一个 workflow、三个 job、每个检查读什么、缓存层是什么。CI 不做路径过滤；每次 PR/push 全量运行。
 
-## 模式
+## 门禁结构
 
-- **常开**：`check-spec`（纯 shell 工具：git/grep/find/awk，不依赖 Go 工具链）与 `gitleaks`。
-- **门控**：`check-go`、lint、`setup-go`——由 `go || has_non_docs` 决定（见下），不只看 Go 文件。
-- **未知路径 fail-safe**：`has_non_docs` 为真表示「变更不全是文档」，因此任何未分类路径都会跑 Go，而不是静默跳过。
-- required check 名称始终是 `ci`；job 级 `if` 跳过在 GitHub 上报告 success，不会阻塞合并。
-
-## 路径过滤
-
-`.github/path-filters.yml` 只有两组：
-
-| 过滤 | 语义 | 触发 |
+| job | 运行 | 内容 |
 |---|---|---|
-| `go` | Go 源码与构建输入 | Go 检查 |
-| `has_non_docs` | `**` 排除文档集合：`docs/`、任意 `*.md`、`.scratch/`、`scripts/spec-*.sh` | Go 检查（fail-safe） |
+| `ci` | PR、push main、手动 dispatch | checkout、setup-go、golangci-lint、`make check-go`、`make check-spec` |
+| `guard` | PR only | plan-review 文件范围、`Closes #<issue>` |
+| `gitleaks` | 始终（PR、push main、手动 dispatch） | 完整历史密钥扫描 |
 
-Go 条件：`go == true || has_non_docs == true || event == workflow_dispatch`。workflow 用 `Decide Go checks` 把它算成 `steps.go.outputs.run`，三个 Go 步骤复用该输出。
+required checks：`ci`、`guard`、`gitleaks`。
 
-推论：
+没有路径过滤文件、没有 changed-path action、没有按路径跳过的检查。本 PR 实测 `ci` 约 28s（热缓存）；docs-only 也跑全量。路径过滤只能省 docs-only 约 30s，却需要 CI/plan-review/spec-delta 三套集合、额外 action 与标签触发，收益不抵维护成本。
 
-- 纯 docs：两条都假 → 只跑 `check-spec`。
-- 纯 Go、Go+docs、未知路径：Go 与 spec 都跑。
-- 工具脚本、workflow 变更会跑 Go；这是有意的安全默认，不为它们维护第三类规则。
-- 新增文档类路径：只改 `has_non_docs` 的负向列表。
-- 新增 Go 源码或构建输入：加入 `go`；`has_non_docs` 已覆盖。
+## 标签只读
 
-`has_non_docs` 同时使用正向 `**` 与负向排除，workflow 必须设置 `predicate-quantifier: 'some-with-excludes'`；默认的 `some` 会忽略排除规则，使 `has_non_docs` 永远为真。
+- `plan-review`、`code-review` 是流程标签，不是 workflow 触发器。
+- 增删标签不会起新 run。`guard` 在运行时用 `gh pr view` 读取当前标签，所以需要重新评估时用 Re-run all jobs。
+- 把 `plan-review` 加到一个已经包含代码的 PR 时，标签变更不会触发 run；必须 Re-run all jobs 才会用当前标签检查该 diff。这是移除标签触发的代价，ADR-0008 记录该取舍。
+- `Closes` 检查在 PR 事件读取当前 body；改 body 后同样需要 Re-run。
+- `on.pull_request` 只有默认的 opened/synchronize/reopened；没有 labeled/unlabeled。
 
-过滤器名用下划线（`has_non_docs`），因为带连字符的输出名在 GitHub 表达式里会被解析为减法。
+## 路径策略（流程规则）
+
+CI 本身全量；下面两条是流程规则，不是 CI 门控：
+
+| 策略 | 用途 | 定义位置 | 集合 |
+|---|---|---|---|
+| plan-review 范围 | 计划评审期间允许的文件 | `ci.yml` 的 `guard` step | `docs/`、`.scratch/`、`AGENTS.md`、`CLAUDE.md`、`GLOSSARY.md` |
+| spec-delta 范围 | 规范变更 PR 允许的文件 | `scripts/spec-status.sh` | `docs/spec/`、`docs/contracts/` |
+| 检查内部读取 | 各检查读取的固定路径 | `scripts/spec-check.sh` 等 | spec 包、链接、covers |
+
+- plan-review 只允许 `docs/`、`.scratch/`、`AGENTS.md`、`CLAUDE.md`、`GLOSSARY.md`；其余全部拒绝（包括 `scripts/spec-*.sh`、`configs/`、`internal/`、`.github/`、其他根 md）：工具脚本、配置与代码属于实现阶段。
+- spec-delta 的任何其他路径（含额外文档、`.scratch`）都失败；bootstrap（base 无 spec 包）同样只允许 spec 包路径。需要说明时写 `docs/spec/CHANGELOG.md`。
+- 两条规则各自只有一个定义位置；不要为它们新增 CI 路径过滤。
 
 ## 检查与输入
 
-| 检查 | 读什么 | 运行条件 | 缓存 |
-|---|---|---|---|
-| `check-spec` | spec、contracts、traceability、docs 与根 `*.md` 的链接、`.scratch`、Go 测试的 `Covers: REQ-*` | 总是 | 无 |
-| `check-go` | Go 代码、配置、双架构静态构建 | `go || has_non_docs` | setup-go 模块/构建缓存 |
-| `lint` | Go 代码 | `go || has_non_docs` | golangci-lint action 缓存 |
-| `gitleaks` | 完整 git 历史 | 总是 | gitleaks action 缓存 |
-| `guard` | PR 元数据与 diff | 总是 | 无 |
+| 检查 | 读什么 | 缓存 |
+|---|---|---|
+| `check-go` | Go 代码、配置、双架构静态构建 | setup-go 模块/构建缓存 |
+| `lint` | Go 代码 | golangci-lint action 缓存 |
+| `check-spec` | spec、contracts、traceability、docs 与根 `*.md` 链接、`.scratch`、`Covers: REQ-*` | 无 |
+| `gitleaks` | 完整 git 历史 | gitleaks action 缓存 |
+| `guard` | PR 标签、diff、body | 无 |
 
-`check-spec` 的 contracts/covers 读 Go 代码，但只用 grep/sed，不依赖 Go 工具链；因此 Go-only PR 也跑完整 spec 检查，不再需要 `check-spec-code` 桥接。
-
-## 依赖
-
-- `dorny/paths-filter` v4.0.3，固定完整 SHA，同行版本注释；Dependabot 的 `github-actions` 配置负责更新。
-- PR 事件走 GitHub REST，需要 `pull-requests: read`；push 与其他事件走本地 git（checkout 已存在）。
-- action 取不到 diff 会让 job 失败（fail-closed）；不要加 `continue-on-error` 吞掉。
-- 第三方 action（如 `dorny/paths-filter`）固定完整 SHA；`tj-actions` 的 CVE-2025-30066 证明 tag 可被移动。官方 action 保持现有 tag pin，统一改 SHA 另开供应链票。
+`check-spec` 的 contracts/covers 读 Go 代码，但只用 shell 工具，不依赖 Go 工具链；它在同一个 `ci` job 里全量运行。
 
 ## 缓存层
 
@@ -60,34 +57,17 @@ Go 条件：`go == true || has_non_docs == true || event == workflow_dispatch`�
 | 构建/测试 | `GOCACHE`（content-addressed） | setup-go | Go 版本 + `go.sum`；源码变化只让对应包失效 |
 | Linter | 二进制 + 分析缓存 | golangci-lint-action（版本见 `ci.yml`） | linter 版本；分析缓存按源码增量 |
 
-docs-only 不触碰任何 Go 层；Go 变更只失效构建/测试与 linter 分析。
+每次 PR 都跑 Go 层；缓存命中约 36s，冷启动约 150s。
 
-## 修改与维护
+## 本地与维护
 
-1. 路径规则：只改 `.github/path-filters.yml`。文档路径加到 `has_non_docs` 负向列表；Go 输入加到 `go`。
-2. 新检查：读 Go 的复用 Go 条件；廉价且通用的直接常开；不新增分类脚本。
-3. action 更新：Dependabot 提交 SHA 与同行版本注释；核对 release notes 后合并。
-4. 本地：`make ci` 是完整 gate；`make check` 是纯 Go 快速检查；`make check-spec` 单独跑规范检查。
-5. `.github/workflows/**` 与 `.github/path-filters.yml` 的改动会改变门禁本身，必须人工 review。
+1. 本地 `make ci` = `check-go + lint + check-spec`；CI 另加 `guard` 与 `gitleaks`。
+2. 新增 Go 检查：加到 `make check-go` 或 `ci` job；不要新增路径过滤。
+3. 新增 spec 检查：加到 `make check-spec`。
+4. 修改流程规则：plan-review 改 `ci.yml` 的 `guard` step；spec-delta 改 `spec-status.sh`；同步本表。
+5. `ci.yml` 的改动会改变门禁，必须人工 review。
+6. 标签/PR body 变更不触发 run；需要时 Re-run all jobs。
 
-## 可复制模板
+## 移植
 
-```yaml
-- uses: actions/checkout@v7
-  with:
-    fetch-depth: 0
-- id: changes
-  uses: dorny/paths-filter@<sha> # v4.0.3
-  with:
-    filters: .github/path-filters.yml
-    predicate-quantifier: 'some-with-excludes'
-- name: Decide Go checks
-  id: go
-  if: steps.changes.outputs.go == 'true' || steps.changes.outputs.has_non_docs == 'true' || github.event_name == 'workflow_dispatch'
-  run: echo "run=true" >> "$GITHUB_OUTPUT"
-- if: steps.go.outputs.run == 'true'
-  run: make check-go
-- run: make check-spec
-```
-
-换语言：把 `go` 过滤改成该语言的源码与构建输入，`has_non_docs` 的负向列表保持「文档集合」。required check 仍放在这个始终运行的 job 上。
+模式是「一个 workflow + 全量语言/规范检查 + 流程检查 job」：换语言只换 `make` 目标与 setup 步骤；required check 名称保持不变。不要为单语言仓库加入 changed-path 分类器。

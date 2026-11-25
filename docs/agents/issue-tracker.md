@@ -224,7 +224,9 @@ If the PR is closed without merging, set the issue status back to `Todo` (still
 ready) or `Backlog`, and comment why.
 
 The required `guard` check enforces `Closes #N` on `feat/*` and `hotfix/*` PRs.
-It also rejects code-file changes while a PR carries the `plan-review` label.
+When a PR carries the `plan-review` label, it rejects code-file changes on the
+next workflow run. Label changes do not trigger a run, so re-run the workflow
+after adding the label if you need the current diff checked.
 
 Plan-only PRs do not need a `Closes` line.
 

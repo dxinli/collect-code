@@ -71,9 +71,8 @@ lint:
 
 # Go checks shared by local `make ci` and CI. Lint runs separately (the
 # golangci-lint action in CI, `make lint` locally); non-race tests are covered
-# by test-race. CI runs check-spec unconditionally, so the spec checks that
-# read Go code (contracts and Covers annotations) still apply on Go-only
-# changes.
+# by test-race. CI runs this and check-spec on every PR; there is no path
+# filtering.
 check-go: fmt-check print-check deps-check time-check go-fix-check vet test-race build-all verify-static build-linux-packages
 	GOFLAGS= go run ./cmd/collect-code config-check --config configs/example
 
@@ -81,8 +80,8 @@ check-spec: spec-check spec-status
 
 check: check-go
 
-# Local full gate. CI runs check-spec unconditionally and gates check-go/lint
-# by changed paths; lint runs through golangci-lint-action there.
+# Local full gate. CI runs the same checks on every PR (lint through
+# golangci-lint-action) and adds guard/gitleaks.
 ci: check-go lint check-spec
 
 spec-check:
