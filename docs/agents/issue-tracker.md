@@ -179,42 +179,54 @@ leave the tree dirty (#81).
 ```bash
 scripts/claim.sh <n>
 
+# Branch from current main; a stale branch fails spec-status later.
 git switch main
 git pull --ff-only
+# Use feat/ for spec tickets, chore/ for ordinary/docs/CI; spec changes use spec-delta/.
 git switch -c chore/<slug>
 
-# A PR needs a commit ahead of the base; this empty marker is squashed away.
+# Write the plan body and any plan-stage docs changes first.
+# With nothing staged this creates the empty marker GitHub needs; with staged
+# docs it commits them. The marker is squashed away on merge.
+cat > /tmp/plan-<n>.md <<'EOF'
+Closes #<n>
+
+## Plan
+
+### 1. 目标
+...
+EOF
+# git add <plan-files>   # only if the plan includes docs changes
 git commit --allow-empty -m "plan: <n> <title>"
+
+# gh pr create needs a remote head, and the plan commit must be pushed.
+make spec-status
 git push -u origin chore/<slug>
 
-# Generate local ignored artifacts only after the directory is ignored.
-git check-ignore -q docs/代码走读 || {
-  echo "update scripts/path-policy.sh and .gitignore first" >&2
-  exit 1
-}
-# produce docs/代码走读/... here
+# Warn if a local-only dir is not ignored; the status check below is the hard gate.
+. scripts/path-policy.sh
+for d in "${LOCAL_ONLY_DIRS[@]}"; do
+  git check-ignore -q "$d" || echo "WARN: $d is not ignored; update scripts/path-policy.sh and .gitignore" >&2
+done
+# Generate local ignored artifacts (for example docs/代码走读/03-*.md) here.
 
-# No uncommitted or untracked files before opening the PR.
-test -z "$(git status --porcelain)" || {
+# Open the PR only from a clean tree; ignored artifacts do not show up here.
+if [ -n "$(git status --porcelain)" ]; then
   git status --short
-  echo "commit intended changes or remove local artifacts" >&2
-  exit 1
-}
-
-gh pr create --draft --base main --title "<title>" --body-file /tmp/plan-<n>.md
-gh pr edit <pr> --add-label plan-review
+  echo "working tree is not clean; commit intended changes or remove local artifacts" >&2
+else
+  gh pr create --draft --base main --title "<title>" --body-file /tmp/plan-<n>.md
+  gh pr edit --add-label plan-review
+fi
 ```
 
-- The PR body's first line is `Closes #<n>`; the plan follows the format in
-  [Plan](#plan).
-- If the plan includes docs changes, commit them before the `git status`
-  check.
+- The PR body's first line is `Closes #<n>`; fill the Plan sections per
+  [Plan](#plan), including the 已核实事实 table.
+- Plan-stage docs changes must be committed before the push above; otherwise the
+  remote head used by the PR lacks them.
 - Adding a local-only directory means updating `LOCAL_ONLY_DIRS` in
   `scripts/path-policy.sh` and `.gitignore`; the policy self-test checks they
   agree.
-- A draft ticket PR's `guard` is red because the code review gate is not active
-  yet; plan approval is `/plan-approved <sha>` plus removing `plan-review`
-  ([ci.md](ci.md)).
 
 ## Dependencies (blocked)
 
