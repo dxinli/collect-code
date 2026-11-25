@@ -18,7 +18,7 @@ for arg in "$@"; do
 		--apply) APPLY=true ;;
 		--yes) ASSUME_YES=true ;;
 		-h | --help)
-			sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
+			sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
 			exit 0
 			;;
 		*)
@@ -288,7 +288,7 @@ existing_subissues() {
 
 link_spec_ticket() {
 	local n="$1" title="$2" padded="$3"
-	if ! [[ "$title" =~ ^[0-9]{2}[a-z]?: ]]; then
+	if ! [[ "$title" =~ ^[0-9]{2}[a-z]?:[[:space:]]+.+ ]]; then
 		return 0
 	fi
 	case "$padded" in

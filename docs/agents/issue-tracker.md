@@ -85,14 +85,15 @@ A ticket is one of two kinds:
 
 - **Spec ticket** — a slice cut from the spec, a split-out of an existing spec
   ticket, or a fix of an implementation ticket. Its title is
-  `<NN><letter>: <标题>`, taking the next unused letter in that numeric group
-  (`01b` splits to `01c`; `06a`/`06b` add `06c`). It is a native sub-issue of
-  #71.
+  `<NN>[<letter>]: <标题>`: a chapter with a single slice omits the letter
+  (`07:`, `20:`); a split-out or fix takes the next unused letter in that
+  numeric group (`01b` splits to `01c`; `06a`/`06b` add `06c`). It is a native
+  sub-issue of #71.
 - **Ordinary ticket** — docs, tests, scripts, a non-ticket problem, or code
-  spanning several tickets. It is standalone: no parent, and its title uses a
-  type prefix (`docs:`, `test:`, `chore(...)`, `fix:`, …) rather than a spec
-  number. chore/hotfix titles are ordinary; a hotfix of a spec ticket's
-  implementation is created as a spec ticket instead.
+  spanning several tickets. It is standalone: no parent, and its title needs no
+  `NNx:` number (`docs:`, `test:`, `chore(...)`, `fix:`, … are fine).
+  chore/hotfix titles are ordinary; a hotfix of a spec ticket's implementation
+  is created as a spec ticket instead.
 
 Create a spec ticket:
 
@@ -119,7 +120,7 @@ It rejects a brief missing any required template field (`**Ticket:**` with an
 id, `**What to build:**`, `**Current behavior:**`, `**Desired behavior:**`,
 `**Key interfaces:**`, `**Acceptance criteria:**`, `**Out of scope:**`). It
 creates a standalone ticket by default; `--spec-ticket` attaches #71 and
-requires a title matching `<NN><letter>: ...`. It writes the status (`Todo` by
+requires a title matching `<NN>[<letter>]: ...`. It writes the status (`Todo` by
 default, `--status Backlog` on request) and adds `human` / native `blocked-by`
 edges. `--human` requires status `Todo`. The raw commands above are the
 equivalent.

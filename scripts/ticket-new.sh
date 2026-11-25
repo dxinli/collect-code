@@ -17,8 +17,8 @@
 #   --dry-run                Print the commands without running them
 #   -h, --help               Show this help
 #
-# A plain ticket is standalone. A spec ticket is a spec slice, a split-out of
-# an existing spec ticket, or a fix of an implementation ticket: it attaches
+# An ordinary ticket is standalone. A spec ticket is a spec slice, a split-out
+# of an existing spec ticket, or a fix of an implementation ticket: it attaches
 # #71 and must use the spec title form. chore/hotfix titles are standalone; a
 # hotfix of a spec ticket's implementation is created as a spec ticket instead.
 # Creation is not transactional: if a later step fails, the script prints the
@@ -125,15 +125,13 @@ done
 grep -Eq '^\*\*Ticket:\*\*[[:space:]]+[^<[:space:]]' "$BODY_FILE" ||
 	die "body has no ticket id on the **Ticket:** line"
 
-WANT_PARENT=false
 if $SPEC_TICKET; then
 	[[ "$TITLE" =~ ^[0-9]{2}[a-z]?:[[:space:]]+.+ ]] ||
 		usage_error "--spec-ticket requires a title like '06a: <title>' (got '$TITLE')"
-	WANT_PARENT=true
 fi
 
 create=(gh issue create --title "$TITLE" --body-file "$BODY_FILE")
-if $WANT_PARENT; then
+if $SPEC_TICKET; then
 	create+=(--parent "$SPEC_ANCHOR")
 fi
 if $HUMAN; then
@@ -147,14 +145,14 @@ if $DRY_RUN; then
 	if [ -n "$BLOCKED_BY" ]; then
 		say "+ gh issue edit <new> --add-blocked-by $BLOCKED_BY"
 	fi
-	say "parent: $($WANT_PARENT && echo "#$SPEC_ANCHOR" || echo none)"
+	say "parent: $($SPEC_TICKET && echo "#$SPEC_ANCHOR" || echo none)"
 	say "status: $STATUS"
 	say "human: $HUMAN"
 	exit 0
 fi
 
 REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
-if $WANT_PARENT; then
+if $SPEC_TICKET; then
 	gh api "repos/$REPO/issues/$SPEC_ANCHOR" --jq .number >/dev/null 2>&1 ||
 		die "spec anchor #$SPEC_ANCHOR not found in $REPO"
 fi
