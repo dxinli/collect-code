@@ -9,16 +9,20 @@
 # Options:
 #   --title <title>          Issue title (required)
 #   --body-file <file>       Ticket brief file (required)
+#   --spec-ticket            Attach to spec anchor #71; the title must be
+#                            "<NN>[<letter>]: <title>"
 #   --status Todo|Backlog    Native issue status (default: Todo)
 #   --human                  Add the human routing label
 #   --blocked-by <n[,n]>     Add native blocked-by edges
-#   --no-parent              Do not attach the issue to spec anchor #71
 #   --dry-run                Print the commands without running them
 #   -h, --help               Show this help
 #
-# A title starting with "chore(" or "hotfix(" is standalone; --no-parent is
-# explicit. Creation is not transactional: if a later step fails, the script
-# prints the created issue URL and exits non-zero.
+# An ordinary ticket is standalone. A spec ticket is a spec slice, a split-out
+# of an existing spec ticket, or a fix of an implementation ticket: it attaches
+# #71 and must use the spec title form. chore/hotfix titles are standalone; a
+# hotfix of a spec ticket's implementation is created as a spec ticket instead.
+# Creation is not transactional: if a later step fails, the script prints the
+# created issue URL and exits non-zero.
 set -euo pipefail
 
 SPEC_ANCHOR=71
@@ -28,7 +32,7 @@ TITLE=""
 BODY_FILE=""
 STATUS="Todo"
 HUMAN=false
-NO_PARENT=false
+SPEC_TICKET=false
 BLOCKED_BY=""
 DRY_RUN=false
 
@@ -48,18 +52,18 @@ Usage:
 Options:
   --title <title>          Issue title (required)
   --body-file <file>       Ticket brief file (required)
+  --spec-ticket            Attach to spec anchor #71; the title must be
+                           "<NN>[<letter>]: <title>"
   --status Todo|Backlog    Native issue status (default: Todo)
   --human                  Add the human routing label
   --blocked-by <n[,n]>     Add native blocked-by edges
-  --no-parent              Do not attach the issue to spec anchor #71
   --dry-run                Print the commands without running them
   -h, --help               Show this help
 
 The brief must contain the ticket template fields: "**Ticket:**" (with an id),
 "**What to build:**", "**Current behavior:**", "**Desired behavior:**",
 "**Key interfaces:**", "**Acceptance criteria:**", and "**Out of scope:**".
-A title starting with "chore(" or "hotfix(" is standalone; --no-parent is
-explicit. --human requires status Todo.
+Without --spec-ticket the issue is standalone. --human requires status Todo.
 EOF
 	exit 0
 }
@@ -87,7 +91,7 @@ while [ $# -gt 0 ]; do
 			shift 2
 			;;
 		--human) HUMAN=true; shift ;;
-		--no-parent) NO_PARENT=true; shift ;;
+		--spec-ticket) SPEC_TICKET=true; shift ;;
 		--dry-run) DRY_RUN=true; shift ;;
 		-h | --help) usage ;;
 		*) usage_error "unknown argument: $1" ;;
@@ -121,16 +125,13 @@ done
 grep -Eq '^\*\*Ticket:\*\*[[:space:]]+[^<[:space:]]' "$BODY_FILE" ||
 	die "body has no ticket id on the **Ticket:** line"
 
-WANT_PARENT=true
-case "$TITLE" in
-	chore\(* | hotfix\(*) WANT_PARENT=false ;;
-esac
-if $NO_PARENT; then
-	WANT_PARENT=false
+if $SPEC_TICKET; then
+	[[ "$TITLE" =~ ^[0-9]{2}[a-z]?:[[:space:]]+.+ ]] ||
+		usage_error "--spec-ticket requires a title like '06a: <title>' (got '$TITLE')"
 fi
 
 create=(gh issue create --title "$TITLE" --body-file "$BODY_FILE")
-if $WANT_PARENT; then
+if $SPEC_TICKET; then
 	create+=(--parent "$SPEC_ANCHOR")
 fi
 if $HUMAN; then
@@ -144,14 +145,14 @@ if $DRY_RUN; then
 	if [ -n "$BLOCKED_BY" ]; then
 		say "+ gh issue edit <new> --add-blocked-by $BLOCKED_BY"
 	fi
-	say "parent: $($WANT_PARENT && echo "#$SPEC_ANCHOR" || echo none)"
+	say "parent: $($SPEC_TICKET && echo "#$SPEC_ANCHOR" || echo none)"
 	say "status: $STATUS"
 	say "human: $HUMAN"
 	exit 0
 fi
 
 REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
-if $WANT_PARENT; then
+if $SPEC_TICKET; then
 	gh api "repos/$REPO/issues/$SPEC_ANCHOR" --jq .number >/dev/null 2>&1 ||
 		die "spec anchor #$SPEC_ANCHOR not found in $REPO"
 fi

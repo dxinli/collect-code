@@ -74,38 +74,60 @@ Do not add execution labels such as `in-progress` or `done`; status covers them.
 
 The spec lives only in `docs/spec/spec.md`; changes go through a
 `spec-delta/<topic>` PR. Do not create a spec issue. The single spec anchor #71
-(`spec-parent`) is the parent of every **spec ticket**; chore/hotfix tickets
-(titles starting `chore(` or `hotfix(`) are standalone and do not join the spec
-tree. The anchor points at the authoritative spec, never copying it. It carries
-`Backlog` (a status cannot be cleared once set) and is never closed or modified
-by ticket work; `spec-parent` keeps it out of the claim queue.
+(`spec-parent`) is the parent of every **spec ticket** and of nothing else. Its
+native sub-issue list is the ticket list: attaching a ticket extends it, and
+ticket work never edits the anchor's body. The anchor points at the
+authoritative spec, never copying it. It carries `Backlog` (a status cannot be
+cleared once set) and is never closed or modified by ticket work; `spec-parent`
+keeps it out of the claim queue.
+
+A ticket is one of two kinds:
+
+- **Spec ticket** — a slice cut from the spec, a split-out of an existing spec
+  ticket, or a fix of an implementation ticket. Its title is
+  `<NN>[<letter>]: <标题>`: a chapter with a single slice omits the letter
+  (`07:`, `20:`); a split-out or fix takes the next unused letter in that
+  numeric group (`01b` splits to `01c`; `06a`/`06b` add `06c`). It is a native
+  sub-issue of #71.
+- **Ordinary ticket** — docs, tests, scripts, a non-ticket problem, or code
+  spanning several tickets. It is standalone: no parent, and its title needs no
+  `NNx:` number (`docs:`, `test:`, `chore(...)`, `fix:`, … are fine).
+  chore/hotfix titles are ordinary; a hotfix of a spec ticket's implementation
+  is created as a spec ticket instead.
 
 Create a spec ticket:
 
 ```bash
 gh issue create --parent 71 --title "05a: ..." --template ticket.md
-gh issue edit 71 --add-sub-issue <n>
+```
+
+An ordinary ticket omits `--parent`:
+
+```bash
+gh issue create --title "docs: ..." --template ticket.md
 ```
 
 `scripts/ticket-new.sh` wraps creation plus the status/label/dependency writes:
 
 ```bash
-scripts/ticket-new.sh --title "05a: ..." --body-file /tmp/brief.md
+scripts/ticket-new.sh --title "05a: ..." --body-file /tmp/brief.md --spec-ticket
+scripts/ticket-new.sh --title "docs: ..." --body-file /tmp/brief.md
 scripts/ticket-new.sh --title "chore(...): ..." --body-file /tmp/brief.md
 scripts/ticket-new.sh --title "..." --body-file /tmp/brief.md --human --blocked-by 42,43 --dry-run
 ```
 
 It rejects a brief missing any required template field (`**Ticket:**` with an
 id, `**What to build:**`, `**Current behavior:**`, `**Desired behavior:**`,
-`**Key interfaces:**`, `**Acceptance criteria:**`, `**Out of scope:**`),
-attaches #71 unless the title starts with `chore(` / `hotfix(` or `--no-parent`
-is given, writes the status (`Todo` by default, `--status Backlog` on request),
-and adds `human` / native `blocked-by` edges. `--human` requires status `Todo`.
-The raw commands above are the equivalent.
+`**Key interfaces:**`, `**Acceptance criteria:**`, `**Out of scope:**`). It
+creates a standalone ticket by default; `--spec-ticket` attaches #71 and
+requires a title matching `<NN>[<letter>]: ...`. It writes the status (`Todo` by
+default, `--status Backlog` on request) and adds `human` / native `blocked-by`
+edges. `--human` requires status `Todo`. The raw commands above are the
+equivalent.
 
 Without the script, set its status (`Todo` when the brief is complete,
-otherwise `Backlog`) and add `human` when it is human-only. Chore/hotfix
-tickets omit `--parent`.
+otherwise `Backlog`) and add `human` when it is human-only. Ordinary tickets
+omit `--parent`; spec tickets add it.
 
 New requests start at `Backlog` + `needs-triage` through the template
 (`gh issue create --template ticket.md`); `ticket-new.sh` is for tickets whose
@@ -208,7 +230,9 @@ Plan-only PRs do not need a `Closes` line.
 
 ## When a skill says "publish to the issue tracker"
 
-Create a GitHub issue as a sub-issue of the spec anchor.
+Create a GitHub issue using the ticket template. Classify it by
+[Spec and tickets (A)](#spec-and-tickets-a): a spec ticket is a native
+sub-issue of #71; an ordinary ticket is standalone.
 
 ## When a skill says "fetch the relevant ticket"
 
@@ -222,8 +246,10 @@ that contains `Closes #<issue>`.
 ## Complete-ticket walkthroughs
 
 A complete ticket group (every ticket sharing a numeric prefix: `01a/01b/01c`,
-`02a/02b`, `06a/06b`) is closed once all its issues are closed. At that point a
-committed `docs/代码走读/<NN>-*.md` is expected: the link path with a diagram,
-component relationships with a dependency diagram, and timing with a sequence
-diagram where applicable. This is a review artifact, not a CI gate; check the
-tracked files with `git ls-files 'docs/代码走读/*.md'`.
+`02a/02b`, `06a/06b`) is closed once all its issues are closed. A split-out or
+implementation-fix ticket continues the same group with the next unused letter
+(`01c` from `01b`, `06c` after `06a/06b`). At that point a committed
+`docs/代码走读/<NN>-*.md` is expected: the link path with a diagram, component
+relationships with a dependency diagram, and timing with a sequence diagram
+where applicable. This is a review artifact, not a CI gate; check the tracked
+files with `git ls-files 'docs/代码走读/*.md'`.

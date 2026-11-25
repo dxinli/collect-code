@@ -36,7 +36,7 @@ Apply the role by writing status and labels together. Remove `needs-triage` and
   by an agent.
 - `spec-parent` marks the single spec anchor. It is a container with `Backlog`
   status, not a triage state, and is never claimed. Only spec tickets are its
-  sub-issues; chore/hotfix tickets are standalone.
+  sub-issues; ordinary and chore/hotfix tickets are standalone.
 - `plan-review` is PR-only; it marks a ticket PR whose plan is waiting for
   review. `code-review` is PR-only; it marks an implementation review pending,
   and the reviewer removes it before auto-merge.

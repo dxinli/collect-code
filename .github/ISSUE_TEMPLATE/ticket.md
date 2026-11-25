@@ -4,10 +4,10 @@ about: Implementation ticket for an agent or human
 labels: needs-triage
 ---
 
-**Ticket:** <!-- stable ID, e.g. 05a -->
+**Ticket:** <!-- stable ID: <NN>[<letter>] for spec tickets (e.g. 05a); a short slug for ordinary tickets -->
 
 **Parent:**
-<!-- The spec anchor for spec tickets; omit for chore/hotfix. Create with `gh issue create --parent 71`; the native sub-issue is the source of truth. -->
+<!-- Spec tickets only: the spec anchor #71. Omit for ordinary tickets and chore/hotfix. Create with `gh issue create --parent 71`; the native sub-issue is the source of truth. -->
 
 **What to build:**
 

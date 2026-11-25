@@ -6,7 +6,8 @@
 #
 # Requires an authenticated gh user with issue write access and access to the
 # native issue statuses preview. Idempotent: it only fills null statuses, only
-# adds missing sub-issue links, and only removes deprecated labels.
+# adds missing sub-issue links for spec tickets (open and closed), and only
+# removes deprecated labels.
 set -euo pipefail
 
 APPLY=false
@@ -17,7 +18,7 @@ for arg in "$@"; do
 		--apply) APPLY=true ;;
 		--yes) ASSUME_YES=true ;;
 		-h | --help)
-			sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
+			sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
 			exit 0
 			;;
 		*)
@@ -285,35 +286,46 @@ existing_subissues() {
 	gh api --paginate "repos/$REPO/issues/$anchor/sub_issues" --jq '.[].number' || true
 }
 
-link_open_tickets() {
-	local existing n id state status labels title padded
+link_spec_ticket() {
+	local n="$1" title="$2" padded="$3"
+	if ! [[ "$title" =~ ^[0-9]{2}[a-z]?:[[:space:]]+.+ ]]; then
+		return 0
+	fi
+	case "$padded" in
+		*$'\n'"$n"$'\n'*)
+			links_skipped=$((links_skipped + 1))
+			return 0
+			;;
+	esac
+	if $APPLY; then
+		if [ -z "$anchor" ]; then
+			echo "error: cannot link without a spec anchor" >&2
+			exit 1
+		fi
+		gh issue edit "$anchor" --add-sub-issue "$n" >/dev/null
+		say "  link sub-issue #$n"
+	else
+		plan "link sub-issue #$n"
+	fi
+	links_added=$((links_added + 1))
+}
+
+link_spec_tickets() {
+	local existing n id state status labels title reason padded
 	existing="$(existing_subissues)"
 	padded=$'\n'"$existing"$'\n'
 	while IFS=$'\t' read -r n id state status labels title; do
 		if [ "$n" = "$anchor" ]; then
 			continue
 		fi
-		if ! [[ "$title" =~ ^[0-9]{2}[a-z]?: ]]; then
+		link_spec_ticket "$n" "$title" "$padded"
+	done < <(fetch_open)
+	while IFS=$'\t' read -r n reason status labels title; do
+		if [ "$n" = "$anchor" ]; then
 			continue
 		fi
-		case "$padded" in
-			*$'\n'"$n"$'\n'*)
-				links_skipped=$((links_skipped + 1))
-				continue
-				;;
-		esac
-		if $APPLY; then
-			if [ -z "$anchor" ]; then
-				echo "error: cannot link without a spec anchor" >&2
-				exit 1
-			fi
-			gh issue edit "$anchor" --add-sub-issue "$n" >/dev/null
-			say "  link sub-issue #$n"
-		else
-			plan "link sub-issue #$n"
-		fi
-		links_added=$((links_added + 1))
-	done < <(fetch_open)
+		link_spec_ticket "$n" "$title" "$padded"
+	done < <(fetch_closed)
 }
 
 remove_deprecated_labels() {
@@ -413,7 +425,7 @@ main() {
 
 	backfill_open_statuses
 	backfill_closed_statuses
-	link_open_tickets
+	link_spec_tickets
 	remove_deprecated_labels
 
 	local label
