@@ -14,7 +14,7 @@ fi
 
 branch="${SPEC_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}"
 base=$(git merge-base "$BASE_REF" HEAD 2>/dev/null || echo "$BASE_REF")
-changed=$(git diff --name-only "$base"...HEAD 2>/dev/null || true)
+changed=$(git -c core.quotePath=false diff --name-only "$base"...HEAD 2>/dev/null || true)
 behind=$(git rev-list --count HEAD.."$BASE_REF" 2>/dev/null || echo 0)
 
 local_version=$(tr -d '[:space:]' < docs/spec/VERSION 2>/dev/null || true)
@@ -34,7 +34,7 @@ if [ "$behind" -gt 0 ]; then
 fi
 
 spec_changed=$(echo "$changed" | grep -E '^(docs/spec/|docs/contracts/)' || true)
-code_changed=$(echo "$changed" | grep -E '^(cmd/|internal/|go\.mod$|go\.sum$)' || true)
+outside_spec=$(echo "$changed" | grep -vE '^(docs/spec/|docs/contracts/)' || true)
 
 has_base_version=0
 if [ -n "$base_version" ]; then
@@ -51,7 +51,7 @@ fi
 
 case "$branch" in
   spec-delta/*)
-    [ -z "$code_changed" ] || { echo "spec-status: FAIL: spec-delta must not change code: $code_changed" >&2; exit 1; }
+    [ -z "$outside_spec" ] || { echo "spec-status: FAIL: spec-delta must only change docs/spec or docs/contracts:" >&2; echo "$outside_spec" >&2; exit 1; }
     [ -n "$spec_changed" ] || { echo "spec-status: FAIL: spec-delta must change docs/spec or docs/contracts" >&2; exit 1; }
     ;;
 esac
@@ -77,7 +77,7 @@ if [ -n "$spec_changed" ]; then
       fi
       # Bootstrap: the base has no spec package yet. Allow creating it,
       # but never mix code into the bootstrap change.
-      [ -z "$code_changed" ] || { echo "spec-status: FAIL: bootstrap branch must not change code: $code_changed" >&2; exit 1; }
+      [ -z "$outside_spec" ] || { echo "spec-status: FAIL: bootstrap branch must only change the spec package:" >&2; echo "$outside_spec" >&2; exit 1; }
       echo "spec-status: note: bootstrapping the spec package (base has no docs/spec/VERSION)"
       ;;
   esac

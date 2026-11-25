@@ -24,8 +24,8 @@ note() { echo "spec-check: $*"; }
 
 changed_files() {
   {
-    git diff --name-only "$BASE"...HEAD 2>/dev/null || true
-    git diff --name-only HEAD 2>/dev/null || true
+    git -c core.quotePath=false diff --name-only "$BASE"...HEAD 2>/dev/null || true
+    git -c core.quotePath=false diff --name-only HEAD 2>/dev/null || true
   } | sed '/^$/d' | sort -u
 }
 
