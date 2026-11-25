@@ -57,6 +57,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      issues: read
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -68,37 +69,38 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Enforce plan-review file scope
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          LABELS=$(gh pr view "$PR_NUMBER" -R "$REPO" --json labels \
-            --jq '[.labels[].name] | join(",")')
-          case ",$LABELS," in
-            *,plan-review,*) ;;
-            *) echo "✅ 非 plan-review 状态，跳过 plan 检查"; exit 0 ;;
-          esac
-
-          if ! FILES=$(git -c core.quotePath=false diff --name-only "$BASE...$HEAD"); then
-            echo "::error::cannot compute changed files"
-            exit 1
-          fi
-          BAD=$(printf '%s\n' "$FILES" | grep -vE "$PLAN_ALLOW_RE" || true)
-          if [ -n "$BAD" ]; then
-            echo "::error::plan-review 期间只允许 docs/、.scratch/、AGENTS.md、CLAUDE.md、GLOSSARY.md；发现："
-            printf '%s\n' "$BAD"
-            exit 1
-          fi
-          echo "✅ plan-review 期间没有代码改动"
-
-      - name: Require a plan approval record for code changes
+      - name: Enforce plan rules
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
           BRANCH: ${{ github.head_ref }}
           OWNER: ${{ github.repository_owner }}
         run: |
+          LABELS=$(gh pr view "$PR_NUMBER" -R "$REPO" --json labels \
+            --jq '[.labels[].name] | join(",")')
+
+          if ! FILES=$(git -c core.quotePath=false diff --name-only "$BASE...$HEAD"); then
+            echo "::error::cannot compute changed files"
+            exit 1
+          fi
+          CODE=$(printf '%s\n' "$FILES" | grep -vE "$PLAN_ALLOW_RE" || true)
+
+          case ",$LABELS," in
+            *,plan-review,*)
+              if [ -n "$CODE" ]; then
+                echo "::error::plan-review 期间只允许 docs/、.scratch/、AGENTS.md、CLAUDE.md、GLOSSARY.md；发现："
+                printf '%s\n' "$CODE"
+                exit 1
+              fi
+              echo "✅ plan-review 期间没有代码改动"
+              ;;
+          esac
+
+          if [ -z "$CODE" ]; then
+            echo "✅ 只有计划文件，无需 plan 通过记录"
+            exit 0
+          fi
+
           case "$BRANCH" in
             spec-delta/*|dependabot/*|probe/*)
               echo "✅ 豁免分支：$BRANCH"
@@ -106,23 +108,16 @@ jobs:
               ;;
           esac
 
-          if ! FILES=$(git -c core.quotePath=false diff --name-only "$BASE...$HEAD"); then
-            echo "::error::cannot compute changed files"
+          if ! COMMENTS=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.user.login == \"$OWNER\") | .body"); then
+            echo "::error::cannot read PR comments"
             exit 1
           fi
-          CODE=$(printf '%s\n' "$FILES" | grep -vE "$PLAN_ALLOW_RE" || true)
-          if [ -z "$CODE" ]; then
-            echo "✅ 只有计划文件，无需 plan 通过记录"
-            exit 0
-          fi
-
-          RECORDS=$(gh pr view "$PR_NUMBER" -R "$REPO" --json comments \
-            --jq ".comments[] | select(.author.login == \"$OWNER\") | .body" \
-            | tr -d '\r' \
-            | grep -oE '^/plan-approved [0-9a-f]{7,40}$' \
+          RECORDS=$(printf '%s\n' "$COMMENTS" | tr -d '\r' \
+            | grep -oE '^/plan-approved [0-9a-f]{7,40}[[:space:]]*$' \
             | awk '{print $2}' || true)
           if [ -z "$RECORDS" ]; then
-            echo "::error::代码改动需要计划通过记录：由 reviewer 在 PR 评论 '/plan-approved <sha>'，<sha> 为计划阶段的 commit"
+            echo "::error::代码改动需要计划通过记录：由 reviewer 在 PR 评论 '/plan-approved <sha>'（<sha> 为计划阶段的 commit），然后 Re-run all jobs"
             exit 1
           fi
 
@@ -136,8 +131,15 @@ jobs:
               echo "… $sha：不是 PR head 的祖先，跳过"
               continue
             fi
-            PHASE_CODE=$(git -c core.quotePath=false diff --name-only "$BASE...$sha" \
-              | grep -vE "$PLAN_ALLOW_RE" || true)
+            if git merge-base --is-ancestor "$sha" "$BASE"; then
+              echo "… $sha：属于 base 历史，不是本 PR 的计划提交，跳过"
+              continue
+            fi
+            if ! PHASE_FILES=$(git -c core.quotePath=false diff --name-only "$BASE...$sha"); then
+              echo "… $sha：无法计算记录点的 diff，跳过"
+              continue
+            fi
+            PHASE_CODE=$(printf '%s\n' "$PHASE_FILES" | grep -vE "$PLAN_ALLOW_RE" || true)
             if [ -n "$PHASE_CODE" ]; then
               echo "… $sha：记录点已包含代码文件，跳过"
               continue

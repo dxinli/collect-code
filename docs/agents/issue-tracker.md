@@ -236,19 +236,37 @@ A code-file change needs a plan approval record: a PR comment by
 /plan-approved <sha>
 ```
 
-`<sha>` is the PR head at plan approval time (the plan commit). `guard` accepts
-the record only when the SHA resolves, is an ancestor of the PR head, and
-`git diff <base>...<sha>` contains only the plan allowlist. A record added
-after code was pushed is rejected because its SHA contains code files.
+`<sha>` is a plan-stage commit on the PR branch (typically the PR head at
+approval time). `guard` accepts the record only when:
+
+- the comment author is the repository owner;
+- the SHA resolves and is an ancestor of the PR head;
+- the SHA is not part of the base history (it must be introduced by this PR);
+- `git diff <base>...<sha>` contains only the plan allowlist.
+
+The comment timestamp is not compared with commit timestamps: a record
+pointing at a plan-stage SHA is accepted even if it was written later. The gate
+proves that a plan-stage commit was approved, not that approval happened before
+code was pushed; human review remains the final gate.
+
 Force-push or rebase that drops the SHA invalidates the record; comment again.
-New code commits after a valid record do not invalidate it.
+New code commits after a valid record do not invalidate it. A new plan-only
+commit after the record also does not mechanically invalidate it; re-comment
+when a plan change is material. Editing the plan in the PR body is not
+machine-detectable for the same reason.
 
 The `plan-review` label remains the waiting marker; removing it does not
 replace the record. Label and comment changes do not trigger a workflow run, so
-re-run the workflow (or push the next commit) after recording approval.
-Editing the plan in the PR body is not machine-detectable; re-comment when a
-plan change is material. Exempt branches: `spec-delta/*`, `dependabot/*`,
-`probe/*`.
+re-run the workflow (or push the next commit) after recording approval. Exempt
+branches: `spec-delta/*`, `dependabot/*`, `probe/*`.
+
+Inspect the current records:
+
+```bash
+gh api --paginate "repos/<owner>/<repo>/issues/<n>/comments" \
+  --jq '.[] | select(.user.login == "<owner>") | .body' \
+  | grep '^/plan-approved '
+```
 
 ## Pull requests
 

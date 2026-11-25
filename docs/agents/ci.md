@@ -25,13 +25,14 @@ required checks：`ci`、`guard`、`gitleaks`。
 
 ## 计划通过记录
 
-代码文件变更需要 reviewer 在 PR 评论 `/plan-approved <sha>`。`guard` 校验：
+代码文件变更需要 reviewer 在 PR 评论 `/plan-approved <sha>`。`guard` 用 `gh api --paginate` 读取 PR 评论（需要 `issues: read`），并校验：
 
 - 评论作者是 `github.repository_owner`；
 - SHA 能在 checkout 中解析，且是 PR head 的祖先；
+- SHA 不由 base 历史引入（必须是本 PR 的提交）；
 - `git diff <base>...<sha>` 只含 plan allowlist（`docs/`、`.scratch/`、`AGENTS.md`、`CLAUDE.md`、`GLOSSARY.md`）。
 
-记录点含代码、或被 force-push/rebase 移出历史时无效。豁免 `spec-delta/*`、`dependabot/*`、`probe/*`。格式、失效规则与人工步骤见 [issue-tracker 的 Plan 节](issue-tracker.md#plan)。
+记录点含代码、属于 base 历史、或被 force-push/rebase 移出历史时无效。评论时间不与提交时间比较：记录指向旧计划 SHA 时，事后评论仍会被接受；门禁只证明计划阶段提交被批准。新的计划-only commit 也不会自动使旧记录失效，material change 需 reviewer 重新评论。豁免 `spec-delta/*`、`dependabot/*`、`probe/*`。格式、查询命令与人工步骤见 [issue-tracker 的 Plan 节](issue-tracker.md#plan)。
 
 ## 路径策略（流程规则）
 
