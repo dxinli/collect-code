@@ -46,55 +46,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check CI scope coverage
+        run: ./scripts/ci-scope.sh --check-top-level
+
       - name: Detect changed areas
         id: scope
         env:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          go=false
-          spec=false
-          if [ "$EVENT" = "workflow_dispatch" ] || [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
-            go=true
-            spec=true
-          else
-            if [ "$EVENT" = "pull_request" ]; then
-              range="$BASE...$HEAD"
-            else
-              range="$BASE..$HEAD"
-            fi
-            if ! files=$(git diff --name-only "$range"); then
-              echo "::warning::cannot compute changed files; running all checks"
-              go=true
-              spec=true
-              files=""
-            fi
-            # Paths outside both groups have no applicable Go/spec check:
-            # ci reports success by design for those rare non-code,
-            # non-doc changes.
-            while IFS= read -r f; do
-              [ -n "$f" ] || continue
-              case "$f" in
-                Makefile|.github/workflows/ci.yml)
-                  go=true
-                  spec=true
-                  ;;
-                cmd/*|internal/*|configs/*|*.go|go.mod|go.sum|go.work*|.golangci.*|scripts/check-*|scripts/verify-static.sh)
-                  go=true
-                  ;;
-                docs/*|GLOSSARY.md|scripts/spec-*.sh|.scratch/*)
-                  spec=true
-                  ;;
-              esac
-            done <<< "$files"
-          fi
-          {
-            echo "go=$go"
-            echo "spec=$spec"
-          } >> "$GITHUB_OUTPUT"
-          echo "scope: go=$go spec=$spec"
+        run: ./scripts/ci-scope.sh --event "$EVENT" --base "$BASE" --head "$HEAD" --github-output
 
       - name: Set up Go
         if: steps.scope.outputs.go == 'true'
