@@ -38,12 +38,13 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 
 1. `main` 是规范的唯一写入点；所有规范变更经 PR。
 2. 当前行为规范是 `docs/spec/spec.md`，合同在 `docs/contracts/`；`.scratch/` 只放 diff 说明与归档计划，新 ticket 的实施计划在 PR body。
-3. 普通 feature branch **不修改** `docs/spec/**`（含 `docs/spec/VERSION`、`docs/spec/CHANGELOG.md`）与 `docs/contracts/**`。
+3. 普通 feature branch **不修改**规范包（路径集合见 `scripts/path-policy.sh` 的 `SPEC_DELTA_ALLOW_RE`）。
 4. 规范变更另开 `spec-delta/<topic>` 分支；该 PR 只改规范包与版本/变更记录，代码与测试随后单独提交并引用 `REQ-*` / 合同锚点。
 5. 计划评审前、开始实现前、提交 PR 前，运行 `make spec-status`；分支落后或规范包改动未带版本时必须先处理。
 6. 所有非豁免 PR 的正文写且只写一行 `Closes #<issue>`，并填写 `Spec-Version`、`Spec-Impact`、`REQ` 三项。`guard` 校验 `Closes` 目标（open 票、非 #71/PR、正文含 `**Ticket:**`）与三项；`dependabot/*`、`probe/*` 全免，`spec-delta/*` 仅免 `Closes`/issue 校验。ticket ID 以 issue 标题前缀和正文 `**Ticket:**` 为准。
 7. 引用规范使用 `REQ-*`，引用合同使用合同锚点；不要用 `spec §N` 作为跨文档指针。历史文档中的旧引用保留并标 `(historical)`。
 8. 本文件只记录流程与硬约束，不复制规范正文；行为与格式以 spec/contracts 为准。
+9. 路径集合（plan-review、spec-delta、版本触发、本地-only 目录）的唯一 live source 是 `scripts/path-policy.sh`；路径集合只改该文件，新增 local-only 目录还要同步 `.gitignore`（self-test 检查一致），并在提交前运行 `make spec-check`。
 
 ## Ticket 交付流程（硬约束）
 

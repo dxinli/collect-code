@@ -63,7 +63,6 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
       REPO: ${{ github.repository }}
-      PLAN_ALLOW_RE: '^(docs/|\.scratch/|AGENTS\.md$|CLAUDE\.md$|GLOSSARY\.md$)'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -77,6 +76,7 @@ jobs:
           BRANCH: ${{ github.head_ref }}
           APPROVER: ${{ github.repository_owner }}
         run: |
+          . scripts/path-policy.sh
           LABELS=$(gh pr view "$PR_NUMBER" -R "$REPO" --json labels \
             --jq '[.labels[].name] | join(",")')
 
@@ -89,7 +89,7 @@ jobs:
           case ",$LABELS," in
             *,plan-review,*)
               if [ -n "$CODE" ]; then
-                echo "::error::plan-review 期间只允许 docs/、.scratch/、AGENTS.md、CLAUDE.md、GLOSSARY.md；发现："
+                echo "::error::plan-review 期间只允许计划文件（allowlist 见 scripts/path-policy.sh）；发现："
                 printf '%s\n' "$CODE"
                 exit 1
               fi
@@ -163,6 +163,7 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha }}
           BRANCH: ${{ github.head_ref }}
         run: |
+          . scripts/path-policy.sh
           SKIP_CLOSES=0
           case "$BRANCH" in
             dependabot/*|probe/*)
@@ -257,7 +258,7 @@ jobs:
             echo "::error::cannot compute changed files"
             exit 1
           fi
-          SPEC_CHANGED=$(printf '%s\n' "$FILES" | grep -E '^(docs/spec/|docs/contracts/)' || true)
+          SPEC_CHANGED=$(printf '%s\n' "$FILES" | grep -E "$SPEC_DELTA_ALLOW_RE" || true)
           if [ -n "$SPEC_CHANGED" ] && [ "$SPEC_IMPACT" = "none" ]; then
             echo "::error::改了规范包却写 Spec-Impact: none"
             printf '%s\n' "$SPEC_CHANGED"

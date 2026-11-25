@@ -2,6 +2,8 @@
 
 本文件只做导航，不是规范，也不是“旧编号 → 新锚点”的解析表。需要当前行为时直接读 `docs/spec/spec.md` 与 `docs/contracts/`。
 
+> 注：各 ADR 正文中的路径集合是当时决策；live 值以 `scripts/path-policy.sh` 为准。
+
 ## ADR 索引
 
 | ADR | 决策 | 状态 |
