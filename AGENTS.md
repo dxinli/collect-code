@@ -44,6 +44,7 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 6. 所有非豁免 PR 的正文写且只写一行 `Closes #<issue>`，并填写 `Spec-Version`、`Spec-Impact`、`REQ` 三项。`guard` 校验 `Closes` 目标（open 票、非 #71/PR、正文含 `**Ticket:**`）与三项；`dependabot/*`、`probe/*` 全免，`spec-delta/*` 仅免 `Closes`/issue 校验。ticket ID 以 issue 标题前缀和正文 `**Ticket:**` 为准。
 7. 引用规范使用 `REQ-*`，引用合同使用合同锚点；不要用 `spec §N` 作为跨文档指针。历史文档中的旧引用保留并标 `(historical)`。
 8. 本文件只记录流程与硬约束，不复制规范正文；行为与格式以 spec/contracts 为准。
+9. 路径集合（plan-review、spec-delta、本地-only 目录）的唯一 live source 是 `scripts/path-policy.sh`；修改只改该文件，并在提交前运行 `make spec-check`（含 self-test）。
 
 ## Ticket 交付流程（硬约束）
 

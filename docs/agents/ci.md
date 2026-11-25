@@ -59,17 +59,19 @@ required checks：`ci`、`guard`、`gitleaks`。
 
 ## 路径策略（流程规则）
 
-CI 本身全量；下面两条是流程规则，不是 CI 门控：
+CI 本身全量；下面是流程规则，不是 CI 门控。live 值只有一个来源：`scripts/path-policy.sh`。
 
-| 策略 | 用途 | 定义位置 | 集合 |
-|---|---|---|---|
-| plan-review 范围 | 计划评审期间允许的文件 | `ci.yml` 的 `guard` step | `docs/`、`.scratch/`、`AGENTS.md`、`CLAUDE.md`、`GLOSSARY.md` |
-| spec-delta 范围 | 规范变更 PR 允许的文件 | `scripts/spec-status.sh` | `docs/spec/`、`docs/contracts/` |
-| 检查内部读取 | 各检查读取的固定路径 | `scripts/spec-check.sh` 等 | spec 包、链接、covers |
+| 策略 | 用途 | live 值 |
+|---|---|---|
+| plan-review 范围 | 计划评审期间允许的文件 | `PLAN_ALLOW_RE` |
+| spec-delta 范围 | 规范变更 PR 允许的文件 | `SPEC_DELTA_ALLOW_RE` |
+| 本地-only 目录 | 不参与 spec links 检查 | `LOCAL_ONLY_DIRS` |
+| 检查内部读取 | 各检查读取的固定路径 | `scripts/spec-check.sh` 等 |
 
-- plan-review 只允许 `docs/`、`.scratch/`、`AGENTS.md`、`CLAUDE.md`、`GLOSSARY.md`；其余全部拒绝（包括 `scripts/spec-*.sh`、`configs/`、`internal/`、`.github/`、其他根 md）：工具脚本、配置与代码属于实现阶段。
-- spec-delta 的任何其他路径（含额外文档、`.scratch`）都失败；bootstrap（base 无 spec 包）同样只允许 spec 包路径。需要说明时写 `docs/spec/CHANGELOG.md`。
-- 两条规则各自只有一个定义位置；不要为它们新增 CI 路径过滤。
+- `ci.yml`、`spec-status.sh`、`spec-impact.sh`、`spec-check.sh` 都 source `scripts/path-policy.sh`；不要在别处复制集合或正则。
+- `make spec-check` 先跑 `path-policy.sh --self-test`：检查正则行为、消费者引用、无第二份可执行副本、local-only 目录与 `.gitignore` 一致，并动态验证 links 忽略本地目录。
+- ADR-0007/0008/0009 保留当时决策原文；这些是历史记录，live 值以 `scripts/path-policy.sh` 为准。
+- 不要为路径规则新增 CI 路径过滤。
 
 ## 检查与输入
 
@@ -99,8 +101,8 @@ CI 本身全量；下面两条是流程规则，不是 CI 门控：
 1. 本地 `make ci` = `check-go + lint + check-spec`；CI 另加 `guard` 与 `gitleaks`。
 2. 新增 Go 检查：加到 `make check-go` 或 `ci` job；不要新增路径过滤。
 3. 新增 spec 检查：加到 `make check-spec`。
-4. 修改流程规则：plan-review、plan approval、ticket 元数据与 code review 改 `ci.yml` 的 `guard` step；spec-delta 改 `spec-status.sh`；同步本表。
-5. `ci.yml` 的改动会改变门禁，必须人工 review。
+4. 路径集合只改 `scripts/path-policy.sh`；plan-review/record/元数据逻辑改 `ci.yml`；spec-delta 语义改 `spec-status.sh`；同步本表。
+5. `ci.yml` 与 `scripts/path-policy.sh` 的改动会改变门禁，必须人工 review。
 6. 标签/PR body/评论/review/issue 变更不触发 run；需要时 Re-run all jobs。
 
 ## 移植
