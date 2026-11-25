@@ -71,6 +71,7 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 ### Plan
 
 - PR body 分两节：**Plan**（目标/改动清单/Non-goals/风险点）+ **实现记录**（留空）。
+- 计划前先核实事实，再写断言。Plan 必含 **已核实事实** 表，每行 `事实 | 核实方式 | 结论`。至少覆盖：相关 Accepted ADR 的约束；每个检查实际读取什么（例如 `check-spec` 的 contracts/covers 会读 Go）；第三方 action/工具在固定版本下的关键语义；脚本处理路径的编码与非 ASCII 矩阵。无法核实的事实标 `ASSUMED` 并列入风险点。格式与示例见 [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md#plan)。
 - 计划前读 [docs/agents/ci.md](docs/agents/ci.md)：CI 全量运行，标签变更不触发；需要重新评估时 Re-run all jobs。
 - 打 `plan-review` 标签后停下等评审。标签未移除前，禁止推送任何代码 commit。
 - **通过信号 = `plan-review` 标签被移除**。恢复工作时先重读 PR 的 label、body、comments；若 reviewer 只留了评论、没有移除 label，先处理意见，不得开工。
