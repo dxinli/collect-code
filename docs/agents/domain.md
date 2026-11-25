@@ -10,7 +10,7 @@ How the engineering skills should consume this repo's domain documentation when 
 - **`GLOSSARY.md`** at the repo root
 - **`docs/adr/`**: read ADRs that touch the area you're about to work in
 
-Do not read the archived v2 spec, old plans, or `docs/代码走读/` by default. They are history, not current authority.
+Do not read the archived v2 spec or old plans by default. They are history, not current authority.
 
 If any of these files don't exist, **proceed silently**. Don't flag their absence.
 

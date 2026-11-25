@@ -242,14 +242,3 @@ that contains `Closes #<issue>`.
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** `/triage` only looks at issues in this repo.
-
-## Complete-ticket walkthroughs
-
-A complete ticket group (every ticket sharing a numeric prefix: `01a/01b/01c`,
-`02a/02b`, `06a/06b`) is closed once all its issues are closed. A split-out or
-implementation-fix ticket continues the same group with the next unused letter
-(`01c` from `01b`, `06c` after `06a/06b`). At that point a committed
-`docs/代码走读/<NN>-*.md` is expected: the link path with a diagram, component
-relationships with a dependency diagram, and timing with a sequence diagram
-where applicable. This is a review artifact, not a CI gate; check the tracked
-files with `git ls-files 'docs/代码走读/*.md'`.

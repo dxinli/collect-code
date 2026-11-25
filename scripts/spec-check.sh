@@ -203,7 +203,7 @@ spec_refs() {
       if ($0 ~ /spec[[:space:]]*§/ || $0 ~ /\.scratch\/collector\/spec\.md/) print FNR": "$0
     }' "$f" || true)
     [ -z "$bad" ] || fail "unmarked historical spec reference in $f:\n$bad"
-  done < <(git -c core.quotePath=false ls-files '.scratch' 'docs/代码走读' | grep -E '\.md$' || true)
+  done < <(git -c core.quotePath=false ls-files '.scratch' | grep -E '\.md$' || true)
 
   local defined refs id
   defined=$( {
@@ -211,7 +211,7 @@ spec_refs() {
     grep -rhoE '(EXT|STORE|SIM)-[A-Z0-9]+-[0-9]{2}|CFG-[A-Z0-9]+(-[0-9]{2})?' docs/contracts/*.md
   } | sort -u )
   refs=$(grep -rhoE 'REQ-[A-Z]+-[0-9]{2}(\.\.|/)[0-9]{2}|REQ-[A-Z]+-[0-9]{2}|(EXT|STORE|SIM)-[A-Z0-9]+-[0-9]{2}|CFG-[A-Z0-9]+(-[0-9]{2})?' \
-    .scratch docs/代码走读 2>/dev/null | expand_refs || true)
+    .scratch 2>/dev/null | expand_refs || true)
   while IFS= read -r id; do
     [ -n "$id" ] || continue
     grep -qx "$id" <<< "$defined" || fail "plan/diff references unknown anchor $id"
