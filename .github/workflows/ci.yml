@@ -15,6 +15,96 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      SPEC_BASE: origin/${{ github.base_ref || 'main' }}
+      SPEC_BRANCH: ${{ github.head_ref || github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.4"
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
+          args: ./...
+
+      - name: Run Go checks
+        run: make check-go
+
+      - name: Run spec checks
+        run: make check-spec
+
+  guard:
+    name: guard
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Enforce plan-review file scope
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          LABELS=$(gh pr view "$PR_NUMBER" -R "$REPO" --json labels \
+            --jq '[.labels[].name] | join(",")')
+          case ",$LABELS," in
+            *,plan-review,*) ;;
+            *) echo "✅ 非 plan-review 状态，跳过 plan 检查"; exit 0 ;;
+          esac
+
+          if ! FILES=$(git -c core.quotePath=false diff --name-only "$BASE...$HEAD"); then
+            echo "::error::cannot compute changed files"
+            exit 1
+          fi
+          BAD=$(printf '%s\n' "$FILES" | grep -vE \
+            '^(docs/|\.scratch/|[^/]+\.md$)' || true)
+          if [ -n "$BAD" ]; then
+            echo "::error::plan-review 期间只允许 docs/、.scratch/、根 *.md；发现："
+            printf '%s\n' "$BAD"
+            exit 1
+          fi
+          echo "✅ plan-review 期间没有代码改动"
+
+      - name: Require a closing issue on ticket PRs
+        if: startsWith(github.head_ref, 'feat/') || startsWith(github.head_ref, 'hotfix/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          BODY=$(gh pr view "$PR_NUMBER" -R "$REPO" --json body --jq .body)
+          if ! printf '%s\n' "$BODY" | grep -qE 'Closes[[:space:]]+#[0-9]+'; then
+            echo "::error::ticket PR 正文必须包含 'Closes #<issue>'"
+            exit 1
+          fi
+          echo "✅ ticket 链接存在"
+
   gitleaks:
     name: gitleaks
     runs-on: ubuntu-latest
@@ -32,55 +122,3 @@ jobs:
         uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  ci:
-    name: ci
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      pull-requests: read
-    env:
-      SPEC_BASE: origin/${{ github.base_ref || 'main' }}
-      SPEC_BRANCH: ${{ github.head_ref || github.ref_name }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Detect changed areas
-        id: changes
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        with:
-          filters: .github/path-filters.yml
-          # Required for the negations in has_non_docs: the default 'some'
-          # quantifier ignores excludes and would match every file.
-          predicate-quantifier: 'some-with-excludes'
-
-      - name: Decide Go checks
-        id: go
-        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.has_non_docs == 'true' || github.event_name == 'workflow_dispatch'
-        run: echo "run=true" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Go
-        if: steps.go.outputs.run == 'true'
-        uses: actions/setup-go@v7
-        with:
-          go-version: "1.27.4"
-          cache: true
-          cache-dependency-path: go.sum
-
-      - name: Run golangci-lint
-        if: steps.go.outputs.run == 'true'
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.15.0
-          args: ./...
-
-      - name: Run Go checks
-        if: steps.go.outputs.run == 'true'
-        run: make check-go
-
-      - name: Run spec checks
-        run: make check-spec
