@@ -227,6 +227,29 @@ The rule exists because four approved plans were invalidated by unverified
 facts: #83 (`check-spec` reads Go), #87 (git C-quotes non-ASCII paths), #89
 (third-party predicate semantics), #93 (an Accepted ADR's allowlist).
 
+### Approval record
+
+A code-file change needs a plan approval record: a PR comment by
+`github.repository_owner` whose body contains the single line
+
+```text
+/plan-approved <sha>
+```
+
+`<sha>` is the PR head at plan approval time (the plan commit). `guard` accepts
+the record only when the SHA resolves, is an ancestor of the PR head, and
+`git diff <base>...<sha>` contains only the plan allowlist. A record added
+after code was pushed is rejected because its SHA contains code files.
+Force-push or rebase that drops the SHA invalidates the record; comment again.
+New code commits after a valid record do not invalidate it.
+
+The `plan-review` label remains the waiting marker; removing it does not
+replace the record. Label and comment changes do not trigger a workflow run, so
+re-run the workflow (or push the next commit) after recording approval.
+Editing the plan in the PR body is not machine-detectable; re-comment when a
+plan change is material. Exempt branches: `spec-delta/*`, `dependabot/*`,
+`probe/*`.
+
 ## Pull requests
 
 Ticket PRs must contain the closing keyword so GitHub closes the issue when
@@ -252,8 +275,10 @@ ready) or `Backlog`, and comment why.
 
 The required `guard` check enforces `Closes #N` on `feat/*` and `hotfix/*` PRs.
 When a PR carries the `plan-review` label, it rejects code-file changes on the
-next workflow run. Label changes do not trigger a run, so re-run the workflow
-after adding the label if you need the current diff checked.
+next workflow run. Code-file changes also require a valid `/plan-approved
+<sha>` record (see [Plan](#plan)). Label and comment changes do not trigger a
+run, so re-run the workflow after adding the label or recording approval if
+you need the current diff checked.
 
 Plan-only PRs do not need a `Closes` line.
 
