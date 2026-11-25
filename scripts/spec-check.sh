@@ -109,7 +109,7 @@ spec_lint() {
 spec_version() {
   local files ver
   files=$(changed_files)
-  if echo "$files" | grep -qE '^(docs/spec/spec\.md|docs/contracts/)'; then
+  if echo "$files" | grep -qE "$SPEC_VERSION_TRIGGER_RE"; then
     echo "$files" | grep -qx 'docs/spec/VERSION' || fail "spec package changed without docs/spec/VERSION"
     echo "$files" | grep -qx 'docs/spec/CHANGELOG.md' || fail "spec package changed without docs/spec/CHANGELOG.md"
   fi

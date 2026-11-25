@@ -31,7 +31,7 @@ required checks：`ci`、`guard`、`gitleaks`。
 - 评论作者是 `github.repository_owner`；review 只采纳 `COMMENTED`/`APPROVED`，`DISMISSED`/`CHANGES_REQUESTED` 不算；
 - SHA 能在 checkout 中解析，且是 PR head 的祖先；
 - SHA 不由 base 历史引入（必须是本 PR 的提交）；
-- `git diff <base>...<sha>` 只含 plan allowlist（`docs/`、`.scratch/`、`AGENTS.md`、`CLAUDE.md`、`GLOSSARY.md`）。
+- `git diff <base>...<sha>` 只含 plan allowlist（live 值见 `scripts/path-policy.sh` 的 `PLAN_ALLOW_RE`）。
 
 记录点含代码、属于 base 历史、或被 force-push/rebase 移出历史时无效。评论时间不与提交时间比较：记录指向旧计划 SHA 时，事后评论仍会被接受；门禁只证明计划阶段提交被批准。新的计划-only commit 也不会自动使旧记录失效，material change 需 reviewer 重新评论。豁免 `spec-delta/*`、`dependabot/*`、`probe/*`。格式、查询命令与人工步骤见 [issue-tracker 的 Plan 节](issue-tracker.md#plan)。
 
@@ -65,12 +65,12 @@ CI 本身全量；下面是流程规则，不是 CI 门控。live 值只有一�
 |---|---|---|
 | plan-review 范围 | 计划评审期间允许的文件 | `PLAN_ALLOW_RE` |
 | spec-delta 范围 | 规范变更 PR 允许的文件 | `SPEC_DELTA_ALLOW_RE` |
+| 版本触发 | 需要 VERSION/CHANGELOG 的文件 | `SPEC_VERSION_TRIGGER_RE` |
 | 本地-only 目录 | 不参与 spec links 检查 | `LOCAL_ONLY_DIRS` |
-| 检查内部读取 | 各检查读取的固定路径 | `scripts/spec-check.sh` 等 |
 
 - `ci.yml`、`spec-status.sh`、`spec-impact.sh`、`spec-check.sh` 都 source `scripts/path-policy.sh`；不要在别处复制集合或正则。
 - `make spec-check` 先跑 `path-policy.sh --self-test`：检查正则行为、消费者引用、无第二份可执行副本、local-only 目录与 `.gitignore` 一致，并动态验证 links 忽略本地目录。
-- ADR-0007/0008/0009 保留当时决策原文；这些是历史记录，live 值以 `scripts/path-policy.sh` 为准。
+- ADR 正文与索引保留当时决策；live 值以 `scripts/path-policy.sh` 为准（索引已标注）。
 - 不要为路径规则新增 CI 路径过滤。
 
 ## 检查与输入
@@ -101,7 +101,7 @@ CI 本身全量；下面是流程规则，不是 CI 门控。live 值只有一�
 1. 本地 `make ci` = `check-go + lint + check-spec`；CI 另加 `guard` 与 `gitleaks`。
 2. 新增 Go 检查：加到 `make check-go` 或 `ci` job；不要新增路径过滤。
 3. 新增 spec 检查：加到 `make check-spec`。
-4. 路径集合只改 `scripts/path-policy.sh`；plan-review/record/元数据逻辑改 `ci.yml`；spec-delta 语义改 `spec-status.sh`；同步本表。
+4. 路径集合只改 `scripts/path-policy.sh`；新增 local-only 目录还要同步 `.gitignore`（self-test 检查一致）；plan-review/record/元数据逻辑改 `ci.yml`；spec-delta 语义改 `spec-status.sh`；同步本表。
 5. `ci.yml` 与 `scripts/path-policy.sh` 的改动会改变门禁，必须人工 review。
 6. 标签/PR body/评论/review/issue 变更不触发 run；需要时 Re-run all jobs。
 

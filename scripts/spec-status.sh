@@ -107,7 +107,7 @@ expand_refs() {
 }
 
 refs=$(for f in $changed; do
-  case "$f" in docs/spec/*|docs/contracts/*) continue ;; esac
+  if printf '%s\n' "$f" | grep -qE "$SPEC_DELTA_ALLOW_RE"; then continue; fi
   [ -f "$f" ] || continue
   grep -hoE 'REQ-[A-Z]+-[0-9]{2}(\.\.|/)[0-9]{2}|REQ-[A-Z]+-[0-9]{2}|(EXT|STORE|SIM)-[A-Z0-9]+-[0-9]{2}|CFG-[A-Z0-9]+(-[0-9]{2})?' "$f" 2>/dev/null || true
 done | expand_refs || true)

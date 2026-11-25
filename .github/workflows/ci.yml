@@ -89,7 +89,7 @@ jobs:
           case ",$LABELS," in
             *,plan-review,*)
               if [ -n "$CODE" ]; then
-                echo "::error::plan-review 期间只允许 docs/、.scratch/、AGENTS.md、CLAUDE.md、GLOSSARY.md；发现："
+                echo "::error::plan-review 期间只允许计划文件（allowlist 见 scripts/path-policy.sh）；发现："
                 printf '%s\n' "$CODE"
                 exit 1
               fi
