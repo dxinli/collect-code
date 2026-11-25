@@ -16,7 +16,7 @@ cmd/collect-code
 
 规则：
 
-1. `internal/core/**` 只依赖 `internal/interfaces`、`internal/logging`（共享结构化日志工具，不含具体实现）与只读配置模型；不得 import 任何具体驱动、通道、适配器或 bbolt 实现。
+1. `internal/core/**` 只依赖 `internal/interfaces`、`internal/logging`（共享结构化日志工具，不含具体实现）与只读配置模型；不得 import 任何具体驱动、通道、适配器或 bbolt 实现。`internal/core/**` 子包之间可以互相引用（如 `core/state` → `core/scheduler`），`scripts/check-deps.sh` 允许该方向。
 2. 具体实现的构造与装配只发生在 `cmd/collect-code` 与 `internal/app`。
 3. `internal/interfaces` 不依赖仓库内其他业务包。
 4. 依赖方向由 `scripts/check-deps.sh` 的传递闭包检查强制执行；时间规则由 `scripts/check-time.sh` 强制执行。
@@ -55,6 +55,7 @@ internal/interfaces/         # Driver/Channel/Adapter/Clock/Store 与通用类�
 internal/topics/             # 纯函数：Topic/client-id 模板渲染与 MQTT topic/filter 校验
 internal/core/engine/        # 最小内核接线（时钟、生命周期）
 internal/core/scheduler/     # 相位锁定 tick、链路内串行、单设备截止时间
+internal/core/state/         # 设备状态机、属性快照、质量与新鲜度统一计算
 internal/config/             # 四层 YAML 解析、校验、诊断、摘要
 internal/clock/realclock/    # 唯一直接使用运行时时间的包
 internal/logging/            # JSON 结构化日志与脱敏
@@ -67,8 +68,6 @@ internal/version/            # 版本与构建信息
 规划中的包（在对应 ticket 实现前不存在）：
 
 ```text
-internal/core/scheduler/
-internal/core/state/
 internal/core/invoker/
 internal/core/forward/
 internal/core/eventbus/
