@@ -17,7 +17,7 @@ go:
 # unknown path therefore runs the Go checks instead of silently skipping them.
 # The workflow sets predicate-quantifier: some-with-excludes; the default
 # 'some' quantifier would ignore these negations.
-non_docs:
+has_non_docs:
   - '**'
   - '!docs/**'
   - '!**/*.md'

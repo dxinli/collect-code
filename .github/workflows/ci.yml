@@ -54,12 +54,17 @@ jobs:
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
           filters: .github/path-filters.yml
-          # Required for the negations in non_docs: the default 'some'
+          # Required for the negations in has_non_docs: the default 'some'
           # quantifier ignores excludes and would match every file.
           predicate-quantifier: 'some-with-excludes'
 
+      - name: Decide Go checks
+        id: go
+        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.has_non_docs == 'true' || github.event_name == 'workflow_dispatch'
+        run: echo "run=true" >> "$GITHUB_OUTPUT"
+
       - name: Set up Go
-        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.non_docs == 'true' || github.event_name == 'workflow_dispatch'
+        if: steps.go.outputs.run == 'true'
         uses: actions/setup-go@v7
         with:
           go-version: "1.27.4"
@@ -67,14 +72,14 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Run golangci-lint
-        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.non_docs == 'true' || github.event_name == 'workflow_dispatch'
+        if: steps.go.outputs.run == 'true'
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.15.0
           args: ./...
 
       - name: Run Go checks
-        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.non_docs == 'true' || github.event_name == 'workflow_dispatch'
+        if: steps.go.outputs.run == 'true'
         run: make check-go
 
       - name: Run spec checks
