@@ -12,7 +12,7 @@
 
 required checks：`ci`、`guard`、`gitleaks`。
 
-没有 `.github/path-filters.yml`、没有 changed-path action、没有按路径跳过的检查。热缓存全量约 36s；路径过滤只能省 docs-only 约 30s，却需要 CI/plan-review/spec-delta 三套集合、额外 action 与标签触发，收益不抵维护成本。
+没有路径过滤文件、没有 changed-path action、没有按路径跳过的检查。热缓存全量约 36s；路径过滤只能省 docs-only 约 30s，却需要 CI/plan-review/spec-delta 三套集合、额外 action 与标签触发，收益不抵维护成本。
 
 ## 标签只读
 
