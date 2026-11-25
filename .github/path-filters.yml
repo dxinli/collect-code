@@ -15,6 +15,8 @@ go:
 # True when at least one changed file is not in the docs set. The positive
 # `**` plus the negations expresses "not all changed files are docs": an
 # unknown path therefore runs the Go checks instead of silently skipping them.
+# The workflow sets predicate-quantifier: some-with-excludes; the default
+# 'some' quantifier would ignore these negations.
 non_docs:
   - '**'
   - '!docs/**'

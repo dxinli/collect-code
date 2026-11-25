@@ -28,6 +28,8 @@ Go 步骤条件：`go == true || non_docs == true || event == workflow_dispatch`
 - 新增文档类路径：只改 `non_docs` 的负向列表。
 - 新增 Go 源码或构建输入：加入 `go`；`non_docs` 已覆盖。
 
+`non_docs` 同时使用正向 `**` 与负向排除，workflow 必须设置 `predicate-quantifier: 'some-with-excludes'`；默认的 `some` 会忽略排除规则，使 `non_docs` 永远为真。
+
 过滤器名用下划线（`non_docs`），因为 `steps.changes.outputs.non-docs` 在 GitHub 表达式里会被解析为减法。
 
 ## 检查与输入
@@ -78,6 +80,7 @@ docs-only 不触碰任何 Go 层；Go 变更只失效构建/测试与 linter 分
   uses: dorny/paths-filter@<sha> # v4.0.3
   with:
     filters: .github/path-filters.yml
+    predicate-quantifier: 'some-with-excludes'
 - if: steps.changes.outputs.go == 'true' || steps.changes.outputs.non_docs == 'true' || github.event_name == 'workflow_dispatch'
   run: make check-go
 - run: make check-spec

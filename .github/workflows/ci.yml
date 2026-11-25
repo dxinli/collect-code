@@ -54,6 +54,9 @@ jobs:
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
           filters: .github/path-filters.yml
+          # Required for the negations in non_docs: the default 'some'
+          # quantifier ignores excludes and would match every file.
+          predicate-quantifier: 'some-with-excludes'
 
       - name: Set up Go
         if: steps.changes.outputs.go == 'true' || steps.changes.outputs.non_docs == 'true' || github.event_name == 'workflow_dispatch'
