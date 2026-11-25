@@ -2,6 +2,7 @@
 # Local impact scan. Not used by CI.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
+. "$(git rev-parse --show-toplevel)/scripts/path-policy.sh"
 
 BASE_REF="${1:-${SPEC_BASE:-origin/main}}"
 if ! git rev-parse --verify --quiet "$BASE_REF" >/dev/null; then
@@ -28,7 +29,7 @@ echo "Local branches (ahead/behind $BASE_REF, spec changes):"
 git for-each-ref --format='%(refname:short)' refs/heads | while IFS= read -r b; do
   ahead=$(git rev-list --count "$BASE_REF".."$b" 2>/dev/null || echo 0)
   behind=$(git rev-list --count "$b".."$BASE_REF" 2>/dev/null || echo 0)
-  spec=$(git -c core.quotePath=false diff --name-only "$BASE_REF"..."$b" 2>/dev/null | grep -cE '^(docs/spec/|docs/contracts/)' || true)
+  spec=$(git -c core.quotePath=false diff --name-only "$BASE_REF"..."$b" 2>/dev/null | grep -cE "$SPEC_DELTA_ALLOW_RE" || true)
   echo "  $b: ahead=$ahead behind=$behind spec_files=$spec"
 done
 

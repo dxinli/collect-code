@@ -2,6 +2,7 @@
 # Spec package checks. Subcommands: lint | version | contracts | traceability | refs | covers | links | all
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
+. "$(git rev-parse --show-toplevel)/scripts/path-policy.sh"
 
 BASE_REF="${SPEC_BASE:-}"
 if [ -z "$BASE_REF" ]; then
@@ -243,7 +244,11 @@ spec_covers() {
 }
 
 spec_links() {
-  local f target path
+  local f target path d
+  local -a prune=()
+  for d in "${LOCAL_ONLY_DIRS[@]}"; do
+    prune+=(-path "$d" -prune -o)
+  done
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     while IFS= read -r target; do
@@ -257,7 +262,7 @@ spec_links() {
       path="$(dirname "$f")/$target"
       [ -e "$path" ] || fail "broken relative link in $f: $target"
     done < <(grep -oE '\]\([^)]+\)' "$f" | sed -E 's/^\]\((.*)\)$/\1/' || true)
-  done < <(find docs -path 'docs/代码走读' -prune -o -name '*.md' -print; printf '%s\n' *.md)
+  done < <(find docs "${prune[@]}" -name '*.md' -print; printf '%s\n' *.md)
   note "links ok"
 }
 

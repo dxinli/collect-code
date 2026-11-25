@@ -2,6 +2,7 @@
 # Cross-branch spec status. Run at: before plan review, before implementation, before opening a PR.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
+. "$(git rev-parse --show-toplevel)/scripts/path-policy.sh"
 
 BASE_REF="${SPEC_BASE:-origin/main}"
 if ! git rev-parse --verify --quiet "$BASE_REF" >/dev/null; then
@@ -33,8 +34,8 @@ if [ "$behind" -gt 0 ]; then
   exit 1
 fi
 
-spec_changed=$(echo "$changed" | grep -E '^(docs/spec/|docs/contracts/)' || true)
-outside_spec=$(echo "$changed" | grep -vE '^(docs/spec/|docs/contracts/)' || true)
+spec_changed=$(echo "$changed" | grep -E "$SPEC_DELTA_ALLOW_RE" || true)
+outside_spec=$(echo "$changed" | grep -vE "$SPEC_DELTA_ALLOW_RE" || true)
 
 has_base_version=0
 if [ -n "$base_version" ]; then

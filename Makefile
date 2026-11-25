@@ -85,6 +85,7 @@ check: check-go
 ci: check-go lint check-spec
 
 spec-check:
+	./scripts/path-policy.sh --self-test
 	./scripts/spec-check.sh all
 
 spec-status:
