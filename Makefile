@@ -14,7 +14,7 @@ LDFLAGS := -s -w \
 
 GOBUILD := GOFLAGS= CGO_ENABLED=0 go build -trimpath -buildvcs=false -buildmode=exe -ldflags "$(LDFLAGS)"
 
-.PHONY: build build-linux-amd64 build-linux-arm64 build-all verify-static build-linux-packages test test-race vet fmt-check print-check deps-check time-check go-fix-check lint check ci spec-check spec-status spec-impact spec-archive clean
+.PHONY: build build-linux-amd64 build-linux-arm64 build-all verify-static build-linux-packages test test-race vet fmt-check print-check deps-check time-check go-fix-check lint check check-go check-spec ci spec-check spec-status spec-impact spec-archive clean
 
 build:
 	@mkdir -p $(DIST)
@@ -69,8 +69,19 @@ lint:
 	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found"; exit 1; }
 	golangci-lint run ./...
 
-check: fmt-check print-check deps-check time-check go-fix-check vet test build-all verify-static build-linux-packages
+# Go checks shared by local `make ci` and CI. Lint runs separately (the
+# golangci-lint action in CI, `make lint` locally); non-race tests are covered
+# by test-race, and golangci-lint's govet covers `make vet`.
+check-go: fmt-check print-check deps-check time-check go-fix-check test-race build-all verify-static build-linux-packages
 	GOFLAGS= go run ./cmd/collect-code config-check --config configs/example
+
+check-spec: spec-check spec-status
+
+check: check-go
+
+# Local full gate. CI selects check-go / check-spec by changed paths and runs
+# lint through golangci-lint-action.
+ci: check-go lint check-spec
 
 spec-check:
 	./scripts/spec-check.sh all
@@ -83,9 +94,6 @@ spec-impact:
 
 spec-archive:
 	./scripts/spec-archive.sh
-
-# Single entry point for local and CI: same checks, no drift.
-ci: check test-race lint spec-check spec-status
 
 clean:
 	rm -rf $(DIST)
