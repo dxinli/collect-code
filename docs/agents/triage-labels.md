@@ -39,7 +39,8 @@ Apply the role by writing status and labels together. Remove `needs-triage` and
   sub-issues; ordinary and chore/hotfix tickets are standalone.
 - `plan-review` is PR-only; it marks a ticket PR whose plan is waiting for
   review. `code-review` is PR-only; it marks an implementation review pending,
-  and the reviewer removes it before auto-merge.
+  and the reviewer records `/code-approved <head-sha>` and removes it before
+  auto-merge. `guard` enforces the record; the label itself is only a marker.
 - `blocked` is not a label or status. It is read live from native issue
   dependencies; an issue may be `Todo` with an open blocker, and the claim query
   filters it out with `-is:blocked`.

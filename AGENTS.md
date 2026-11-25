@@ -87,8 +87,9 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 ### 收尾
 
 - 全部完成后：跑测试 → 自审 `/code-review`（修复发现的问题）→ 把 issue status 设为 `In review` → `gh pr ready` → 给 PR 加 `code-review` 标签。
-- **`code-review` 标签未移除前，不得开 auto-merge**。人工 review 通过后由 reviewer 移除该标签。
-- 标签移除后：使用 `gh pr merge --auto --squash` 预约合并，**不要判断 CI 状态、
+- 人工 review 通过后，reviewer 在 PR 会话评论或 review 正文留 `/code-approved <head-sha>` 并移除 `code-review` 标签；记录必须对应当前 head。agent 不得自写这条记录。
+- 记录后 Re-run all jobs，确认 `guard` 通过；**没有有效记录、或 `code-review` 标签仍在，不得开 auto-merge**。批准后的任何新 commit 都会使记录失效，需要重新评审。
+- `guard` 通过后：使用 `gh pr merge --auto --squash` 预约合并，**不要判断 CI 状态、
   不要手动合并**——合并时机由 GitHub 决定。
 - 合并后确认 issue status 为 `Done`；若原生自动化未设，手动补。
 - PR 关闭但未合并：把 issue status 设回 `Todo`（仍 ready）或 `Backlog`，评论原因。
