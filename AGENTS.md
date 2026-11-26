@@ -74,25 +74,27 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 - PR body 分两节：**Plan**（目标/改动清单/Non-goals/风险点）+ **实现记录**（留空）。
 - 计划前先核实事实，再写断言。Plan 必含 **已核实事实** 表，每行 `事实 | 核实方式 | 结论`。至少覆盖：相关 Accepted ADR 的约束；每个检查实际读取什么（例如 `check-spec` 的 contracts/covers 会读 Go）；第三方 action/工具在固定版本下的关键语义；脚本处理路径的编码与非 ASCII 测试矩阵。无法核实的事实不能作为断言写入 Plan：先核实，或把待决问题提到 issue 并停下。格式、示例与要求理由见 [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md#plan)。
 - 计划前读 [docs/agents/ci.md](docs/agents/ci.md)：CI 全量运行，标签变更不触发；需要重新评估时 Re-run all jobs。
-- 打 `plan-review` 标签后停下等评审。标签未移除、或没有有效的 `/plan-approved <sha>` 记录前，禁止推送任何代码 commit。
-- **通过信号 = reviewer 在 PR 会话评论或 review 正文中留 `/plan-approved <sha>`，并移除 `plan-review` 标签**。`<sha>` 是计划阶段的 commit；`guard` 校验它是 PR head 的祖先、由本 PR 引入，且该点只含计划文件。agent 不得自己写这条记录。恢复工作时先重读 PR 的 label、body、comments；若 reviewer 只留了评论、没有移除 label，先处理意见，不得开工。
+- 打 `plan-review` 标签后停下等评审；没有有效的 `/plan-approved <sha>` 记录前，禁止推送任何代码 commit。
+- **通过信号 = 记录**：reviewer 在 PR 会话评论或 review 正文中留下一整行 `/plan-approved <sha>`。`<sha>` 是计划阶段的 commit；`guard` 校验它是 PR head 的祖先、由本 PR 引入，且该点只含计划文件。agent 不得自己写这条记录。
+- **reviewer 单动作 = 写评论**：永不移除标签、永不合并；标签增删由 agent 代管。agent 收到有效记录 → 移除 `plan-review` 标签 → 开工；其他评论一律为反馈。恢复工作时先重读 PR 的 label、body、comments，用 `scripts/pr-comments.sh`（或同口径手工判定）区分记录与反馈；无效记录不算通过，回评论说明并继续等。
+- **记录行只认裸行**（整行严格匹配，该行不得有多余文字）；agent 发布的模板与处理记录中的记录行必须用引用块或行内代码呈现，防止代发裸行被 `guard` 误判为通过。agent 每次处理完回一条处理记录评论（做了什么、为什么），作为已读游标。
 - 记录与标签规则豁免 `spec-delta/*`、`dependabot/*`、`probe/*`；`probe/*` 是临时 CI 验证分支，用完关闭，不合并。
-- draft PR 的 `guard` 会因 code review 门禁为红，这是预期；计划通过看 `/plan-approved` 与标签移除，不看 `guard` 颜色。
-- 收到评审意见：更新 body + 评论说明改动原因。
+- draft PR 的 `guard` 会因 code review 门禁为红，这是预期；计划通过看记录，不看 `guard` 颜色。
+- 收到评审意见（非记录评论）：更新 body + 评论说明改动原因。
   意见涉及 ticket 验收标准本身 → 不改 plan，去 issue 评论提案，人工裁决。
+- 计划打回重评 = 推新的计划 commit、贴新的记录模板行，等新的 `/plan-approved <sha>`；不依赖标签往返。
 
 ### Implement
 
 - plan 定稿后逐条实现，每 commit 对应清单一条并在 body 勾选。
-- 实现中发现 plan 错误：停下，PR 评论说明，打回 `plan-review`。
+- 实现中发现 plan 错误：停下，PR 评论说明，打回计划评审（新计划 commit + 新模板行）。
 
 ### 收尾
 
-- 全部完成后：跑测试 → 自审 `/code-review`（修复发现的问题）→ 把 issue status 设为 `In review` → `gh pr ready` → 给 PR 加 `code-review` 标签。
-- 人工 review 通过后，reviewer 在 PR 会话评论或 review 正文留 `/code-approved <head-sha>` 并移除 `code-review` 标签；记录必须对应当前 head。agent 不得自写这条记录。
-- 记录后 Re-run all jobs，确认 `guard` 通过；**没有有效记录、或 `code-review` 标签仍在，不得开 auto-merge**。批准后的任何新 commit 都会使记录失效，需要重新评审。
-- `guard` 通过后：使用 `gh pr merge --auto --squash` 预约合并，**不要判断 CI 状态、
-  不要手动合并**——合并时机由 GitHub 决定。
+- 全部完成后：跑测试 → 自审 `/code-review`（修复发现的问题）→ 把 issue status 设为 `In review` → `gh pr ready` → 给 PR 加 `code-review` 标签并贴 `/code-approved <head-sha>` 模板行（引用块）。
+- 人工 review 通过 = reviewer 留下一整行 `/code-approved <head-sha>` 记录（会话评论或 COMMENTED/APPROVED review 正文），记录必须对应当前 head。agent 不得自写这条记录。
+- agent 收到有效记录 → 移除 `code-review` 标签 → Re-run all jobs，确认 `guard` 通过；**没有有效记录、或 `code-review` 标签仍在，不得开 auto-merge**。批准后的任何新 commit 都会使记录失效，需要重新评审。
+- `guard` 通过后：使用 `gh pr merge --auto --squash` **预约**合并——预约 ≠ 合并，**不要判断 CI 状态、不要手动合并**，时机由 GitHub 决定。若 watch 载体（`/steward`）因 never-merge 约束拒绝预约，退化为请用户一键开启 auto-merge，agent 只负责让 check 通过。
 - 合并后确认 issue status 为 `Done`；若原生自动化未设，手动补。
 - PR 关闭但未合并：把 issue status 设回 `Todo`（仍 ready）或 `Backlog`，评论原因。
 - 如果 auto-merge 长时间未合并（CI 红/冲突），留评论说明卡点后停止，
