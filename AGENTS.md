@@ -50,6 +50,14 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 
 认领 `status:todo` 且无未关闭 blocker 的 issue 时，遵循以下流程。
 
+**角色/动作**（PR 推进期间）：
+
+| 角色 | 唯一动作 | 绝不做 |
+|---|---|---|
+| reviewer | 写 PR 评论：通过记录（裸行）或反馈 | 移除标签、合并 |
+| agent | 读评论 → 分类 → 代管标签 → 执行 → 回处理记录评论 | 写通过记录 |
+| `guard` | 校验记录与标签锁定（最终门禁） | — |
+
 ### 元指令（每张工单必做）
 
 完成一张工单的收尾后，在该 issue 留评论：

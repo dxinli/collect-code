@@ -31,6 +31,12 @@ RECORD_CODE_RE='^/code-approved [0-9a-f]{7,40}[[:space:]]*$'
 
 die() { printf 'error: %s\n' "$*" >&2; exit 2; }
 
+# Strict ISO8601 shape; the narrow charset also keeps the value safe to
+# interpolate into the gh --jq program string below.
+is_iso_time() {
+  [[ $1 =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|[+-][0-9]{2}:?[0-9]{2})?$ ]]
+}
+
 usage() {
   cat <<'EOF'
 Usage:
@@ -240,6 +246,23 @@ feedback owner" "$got" "mixed comment: record + prose"
   got=$(classify_body owner "$(printf '> /plan-approved %s\n有意见：见上' "$bogus")")
   expect "feedback owner" "$got" "quoted template is feedback"
 
+  # D. --since validation (strict charset, fully anchored).
+  expect "yes" "$(is_iso_time '2026-11-26T00:00:00Z' && echo yes || echo no)" "iso zulu accepted"
+  expect "yes" "$(is_iso_time '2026-11-26T00:00:00.123+08:00' && echo yes || echo no)" "iso offset accepted"
+  expect "no" "$(is_iso_time '2026-01-01T00:00:00Z") || ("' && echo yes || echo no)" "injection tail rejected"
+  expect "no" "$(is_iso_time 'garbage' && echo yes || echo no)" "garbage rejected"
+
+  # E. Guard parity: the record regexes must equal ci.yml's literal patterns,
+  # so a one-sided edit cannot pass silently.
+  local repo_root ci_plan ci_code
+  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || repo_root=""
+  if [ -n "$repo_root" ] && [ -f "$repo_root/.github/workflows/ci.yml" ]; then
+    ci_plan=$(grep -oE "'\^/plan-approved [^']*'" "$repo_root/.github/workflows/ci.yml" | head -1 | tr -d "'" || true)
+    ci_code=$(grep -oE "'\^/code-approved [^']*'" "$repo_root/.github/workflows/ci.yml" | head -1 | tr -d "'" || true)
+    expect "$RECORD_PLAN_RE" "$ci_plan" "plan record regex parity with ci.yml"
+    expect "$RECORD_CODE_RE" "$ci_code" "code record regex parity with ci.yml"
+  fi
+
   if [ "$st_fail" -ne 0 ]; then
     echo "pr-comments: self-test FAILED" >&2
     exit 1
@@ -263,7 +286,7 @@ case "${1:-}" in
         *) die "unknown option: $1" ;;
       esac
     done
-    [[ "$SINCE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2} ]] \
+    is_iso_time "$SINCE" \
       || die "--since must be an ISO8601 timestamp (e.g. 2026-11-26T00:00:00Z)"
     fetch_and_classify "$PR" "$SINCE"
     ;;
