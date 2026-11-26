@@ -329,7 +329,7 @@ jobs:
           fi
           case ",$LABELS," in
             *,code-review,*)
-              echo "::error::code-review 标签仍在，评审尚未结束"
+              echo "::error::code-review 标签仍在：等待 agent 据记录移除，或评审尚未结束"
               exit 1
               ;;
           esac
@@ -348,7 +348,7 @@ jobs:
             | grep -oE '^/code-approved [0-9a-f]{7,40}[[:space:]]*$' \
             | awk '{print $2}' || true)
           if [ -z "$RECORDS" ]; then
-            echo "::error::非 draft PR 需要当前 head 的 code review 记录：reviewer 评论 '/code-approved <head-sha>'（会话评论或 COMMENTED/APPROVED review 正文），确认 code-review 标签已移除，然后 Re-run all jobs"
+            echo "::error::非 draft PR 需要当前 head 的 code review 记录：reviewer 评论 '/code-approved <head-sha>'（会话评论或 COMMENTED/APPROVED review 正文）；agent 据记录移除 code-review 标签后 Re-run all jobs"
             exit 1
           fi
 
@@ -366,7 +366,7 @@ jobs:
             exit 0
           done <<< "$RECORDS"
 
-          echo "::error::没有当前 head（$HEAD）的 code review 记录；reviewer 需评论 '/code-approved $HEAD'，确认 code-review 标签已移除，然后 Re-run all jobs"
+          echo "::error::没有当前 head（$HEAD）的 code review 记录；reviewer 需评论 '/code-approved $HEAD'，agent 据记录移除 code-review 标签后 Re-run all jobs"
           exit 1
 
   gitleaks:
