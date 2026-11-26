@@ -324,12 +324,11 @@ commit after the record also does not mechanically invalidate it; re-comment
 when a plan change is material. Editing the plan in the PR body is not
 machine-detectable for the same reason.
 
-The `plan-review` label remains the waiting marker; removing it does not
-replace the record. The reviewer never touches labels: upon a valid record the
-agent removes `plan-review`, starts implementation, and posts a processing
-note on the PR. Label and comment changes do not trigger a workflow run, so
-re-run the workflow (or push the next commit) after recording approval. Exempt
-branches: `spec-delta/*`, `dependabot/*`, `probe/*`.
+Labels are bookkeeping only; `guard` does not read them (ADR-0013). The
+reviewer never touches labels: upon a valid record the agent removes
+`plan-review`, starts implementation, and posts a processing note on the PR.
+A plan record does not trigger a run; it wakes the agent, and the next code
+push runs CI. Exempt branches: `spec-delta/*`, `dependabot/*`, `probe/*`.
 
 Inspect the current records (`scripts/pr-comments.sh <n>` classifies comments
 into approved/invalid/feedback with the same semantics):
@@ -379,13 +378,16 @@ That is the whole post-merge workflow. There is no ticket-sync bot and no
 After implementation:
 
 1. Run the `code-review` skill (self-review) and fix findings.
-2. Set the issue status to `In review`, run `gh pr ready`, and add the
-   `code-review` label together with a quoted `/code-approved <head-sha>`
-   template line.
-3. The reviewer records code approval (see below); upon the record the agent
-   removes `code-review`.
-4. The agent re-runs the workflow; once `guard` passes, run
-   `gh pr merge --auto --squash` — a reservation, not a merge.
+2. Set the issue status to `In review`, run `gh pr ready`, then immediately
+   schedule the merge with `gh pr merge --auto --squash` — a reservation, not
+   a merge — and add the `code-review` label together with a quoted
+   `/code-approved <head-sha>` template line.
+3. The reviewer records code approval (see below); the record comment
+   automatically dispatches the gate run (record-dispatch), `guard` passes on
+   the record, and GitHub completes the merge.
+4. The agent removes the `code-review` label and posts a processing note as
+   bookkeeping; if the dispatch chain is not live yet, re-run the workflow
+   (`gh run rerun`) instead.
 
 ### Code review approval record
 
@@ -399,13 +401,13 @@ single line
 
 `<head-sha>` must resolve to the head of the workflow run, and that head must
 equal the live PR head. Any new commit, amend, rebase, or force-push
-invalidates the record; the reviewer records the new head. `guard` also fails
-while the `code-review` label is present, so upon a valid record the agent
-removes the label and re-runs the workflow. Draft PRs fail rather than skip: a
-green draft check would leave a false-green window before the
-`ready_for_review` run registers. Comments, reviews, and labels do not trigger a
-run. Re-adding the label after a green run does not automatically invalidate it;
-re-run if you do. Exempt: `dependabot/*`, `probe/*`.
+invalidates the record; the reviewer records the new head. Labels do not
+participate: no record means failure, a valid record means pass (ADR-0013).
+Draft PRs fail rather than skip: a green draft check would leave a false-green
+window before the `ready_for_review` run registers. A record comment triggers
+`record-dispatch.yml`, which dispatches the gate run on the PR head; if that
+chain is not live, re-run the workflow (`gh run rerun`) or push. Exempt:
+`dependabot/*`, `probe/*`.
 
 Inspect the head and records:
 
@@ -424,10 +426,10 @@ ready) or `Backlog`, and comment why.
 
 The required `guard` check enforces the metadata and plan approval on every
 non-exempt PR, and the code review record on every non-draft, non-exempt PR.
-When a PR carries the `plan-review` label, it rejects code-file changes on the
-next workflow run. Code-file changes also require a valid `/plan-approved <sha>`
-record (see [Plan](#plan)). Label, comment, and review changes do not trigger a
-run, so re-run the workflow after adding a label or recording approval.
+Code-file changes require a valid `/plan-approved <sha>` record (see
+[Plan](#plan)); labels are not read. A `/code-approved` record comment
+triggers the gate run via `record-dispatch.yml`; plan records wake the agent
+and the next code push runs CI.
 
 ## When a skill says "publish to the issue tracker"
 

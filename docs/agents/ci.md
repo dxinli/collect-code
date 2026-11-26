@@ -7,22 +7,21 @@
 | job | 运行 | 内容 |
 |---|---|---|
 | `ci` | PR、push main、手动 dispatch | checkout、setup-go、golangci-lint、`make check-go`、`make check-spec` |
-| `guard` | PR only | plan-review 文件范围、`/plan-approved` 记录、ticket 元数据（`Closes`/`Spec-*`/`REQ`）、`/code-approved` 记录 |
+| `guard` | PR、dispatch（record-dispatch 转发） | 记录门禁（`/plan-approved` 记录、ticket 元数据（`Closes`/`Spec-*`/`REQ`）、`/code-approved` 记录）；不读标签 |
 | `gitleaks` | 始终（PR、push main、手动 dispatch） | 完整历史密钥扫描 |
 
 required checks：`ci`、`guard`、`gitleaks`。
 
 没有路径过滤文件、没有 changed-path action、没有按路径跳过的检查。本 PR 实测 `ci` 约 28s（热缓存）；docs-only 也跑全量。路径过滤只能省 docs-only 约 30s，却需要 CI/plan-review/spec-delta 三套集合、额外 action 与标签触发，收益不抵维护成本。
 
-## 标签只读
+## 标签纯记账
 
-- `plan-review`、`code-review` 是流程标签，不是 workflow 触发器。
-- 增删标签不会起新 run。`guard` 在运行时用 `gh pr view` 读取当前标签，所以需要重新评估时用 Re-run all jobs。
-- 把 `plan-review` 加到一个已经包含代码的 PR 时，标签变更不会触发 run；必须 Re-run all jobs 才会用当前标签检查该 diff。这是移除标签触发的代价，ADR-0008 记录该取舍。
-- 元数据检查在运行时读取当前 PR body、目标 issue 与 `docs/spec/VERSION`；改 body/issue 后同样需要 Re-run。
-- `/plan-approved` 是 PR 评论，不是标签；评论同样不会触发 run。记录后需 Re-run all jobs，或由下一次代码 push 触发。
-- `/code-approved` 同样不触发 run；`code-review` 标签存在时 `guard` 失败，agent 据记录移除标签后需 Re-run。记录是唯一通过信号：reviewer 只写评论，标签增删由 agent 代管。
-- `on.pull_request` 的类型是 opened/synchronize/reopened/ready_for_review；没有 labeled/unlabeled，也没有 `pull_request_review` 触发。`ready_for_review` 由 ADR-0011 加入。
+- `plan-review`、`code-review` 是记账标签：agent 增删、人看进度；`guard` 不读标签（ADR-0013 起标签检查退役），增删标签不会起新 run。
+- 记录是唯一通过信号：reviewer 只写评论，无有效记录时 `guard` 失败。
+- `/plan-approved` 评论不触发 run；它驱动 agent 开工，代码 push 会起 run。
+- `/code-approved` 记录评论会触发 `record-dispatch.yml`（辅助转发 workflow）：经 PAT 在 PR 分支起 `workflow_dispatch` run，check 落 head sha。转发件取自默认分支，合并后生效；失效时退 `gh run rerun`。
+- `on.pull_request` 的类型是 opened/synchronize/reopened/ready_for_review；没有 labeled/unlabeled，也没有 `pull_request_review` 触发。`ready_for_review` 由 ADR-0011 加入；`issue_comment` 转发与 `workflow_dispatch`（`pr` 输入）由 ADR-0013 加入。
+- 元数据检查在运行时读取当前 PR body、目标 issue 与 `docs/spec/VERSION`；改 body/issue 后需要新 run（dispatch 或 push）。
 
 ## 计划通过记录
 
@@ -52,10 +51,10 @@ required checks：`ci`、`guard`、`gitleaks`。
 
 - 评论作者是 `github.repository_owner`；review 只采纳 `COMMENTED`/`APPROVED`，`DISMISSED`/`CHANGES_REQUESTED` 不算；
 - SHA 必须解析为本次 run 的 head，且与当前 PR head 相同；新 commit、amend、rebase、force-push 都会使记录失效；run 落后于当前 head 时失败；
-- `code-review` 标签仍在时 `guard` 失败；标签是等待标记，不是通过信号，记录到达后由 agent 移除；
+- `code-review` 标签不参与判定（ADR-0013）；无记录即失败，有记录即放行；
 - draft PR **失败**，不跳过：draft 上的绿色 check 会在 `ready_for_review` 新 run 注册前形成 false-green 窗口。`ready_for_review` 会触发一次新 run，保证 draft→ready 被重新评估。
 
-评论、review、标签变更都不触发 run；agent 据记录移除标签后需 Re-run all jobs。批准后再加回 `code-review` 不会自动使绿色 check 变红；需要时手动 Re-run。`dependabot/*`、`probe/*` 豁免；`spec-delta/*` 仍需要记录。规则来源见 [ADR-0011](../adr/0011-code-review-approval-record.md)。
+记录评论经 `record-dispatch.yml` 自动触发放行 run；转发失效时 `gh run rerun` 或下一次 push。`dependabot/*`、`probe/*` 豁免；`spec-delta/*` 仍需要记录。规则来源见 [ADR-0011](../adr/0011-code-review-approval-record.md)，门禁演进见 [ADR-0013](../adr/0013-record-gate-auto-dispatch.md)。
 
 ## 路径策略（流程规则）
 
@@ -81,7 +80,7 @@ CI 本身全量；下面是流程规则，不是 CI 门控。live 值只有一�
 | `lint` | Go 代码 | golangci-lint action 缓存 |
 | `check-spec` | spec、contracts、traceability、docs 与根 `*.md` 链接、`.scratch`、`Covers: REQ-*` | 无 |
 | `gitleaks` | 完整 git 历史 | gitleaks action 缓存 |
-| `guard` | PR 标签、diff、body、comments、目标 issue、`docs/spec/VERSION`、`isDraft`、head SHA | 无 |
+| `guard` | diff、body、comments、目标 issue、`docs/spec/VERSION`、`isDraft`、head SHA | 无 |
 
 `check-spec` 的 contracts/covers 读 Go 代码，但只用 shell 工具，不依赖 Go 工具链；它在同一个 `ci` job 里全量运行。
 
