@@ -25,3 +25,7 @@ GitHub 的 PR review approval 需要 reviewer 与作者不同；本仓库的 age
 - 代码改动在无记录时被 `guard` 拒绝；记录点含代码时同样拒绝，避免事后批准。
 - 多一个操作步骤：reviewer 评论记录并 Re-run；忘记 Re-run 不会 false-green，只会看到旧的失败状态。
 - 同账号限制仍未解决；需要身份隔离时应另开 issue 引入独立 reviewer 账号或 GitHub App。
+
+## Amendment（2026-11-26，ADR-0012）
+
+标签移除动作改由 agent 代管（见 ADR-0012 决策 2）：reviewer 只留记录评论，agent 据记录移除 `plan-review` 并开工。本文背景与决策 6 中“reviewer 移除标签”的表述按历史语境保留 (historical)；记录机制与 `guard` 校验不变。
