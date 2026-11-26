@@ -94,15 +94,16 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 
 ### Implement
 
-- plan 定稿后逐条实现，每 commit 对应清单一条并在 body 勾选。
+- plan 定稿后逐条实现；body 清单**按阶段勾选**（实现 / 自审修复 / 交付各批一次），每条括注 commit sha，保持清单↔提交可追溯。
 - 实现中发现 plan 错误：停下，PR 评论说明，打回计划评审（新计划 commit + 新模板行）。
 
 ### 收尾
 
-- 全部完成后：跑测试 → 自审 `/code-review`（修复发现的问题）→ 把 issue status 设为 `In review` → `gh pr ready` → 给 PR 加 `code-review` 标签并贴 `/code-approved <head-sha>` 模板行（引用块）。
+- 全部完成后：跑测试 → 自审 `/code-review`（修复发现的问题）→ 把 issue status 设为 `In review` → `gh pr ready` → **立即用 `gh pr merge --auto --squash` 预约合并** → 给 PR 加 `code-review` 标签并贴 `/code-approved <head-sha>` 模板行（引用块）→ 停。
 - 人工 review 通过 = reviewer 留下一整行 `/code-approved <head-sha>` 记录（会话评论或 COMMENTED/APPROVED review 正文），记录必须对应当前 head。agent 不得自写这条记录。
-- agent 收到有效记录 → 移除 `code-review` 标签 → Re-run all jobs，确认 `guard` 通过；**没有有效记录、或 `code-review` 标签仍在，不得开 auto-merge**。批准后的任何新 commit 都会使记录失效，需要重新评审。
-- `guard` 通过后：使用 `gh pr merge --auto --squash` **预约**合并——预约 ≠ 合并，**不要判断 CI 状态、不要手动合并**，时机由 GitHub 决定。若 watch 载体（`/steward`）因 never-merge 约束拒绝预约，退化为请用户一键开启 auto-merge，agent 只负责让 check 通过。
+- **记录评论自动触发放行**：`record-dispatch.yml` 在记录到达时用 PAT 在 PR 分支起 CI run，check 落 head；`guard` 由记录门禁放行后 GitHub 自动完成合并。预约可以提前——放行由 guard 保证，无有效记录时 guard 红、合并不会发生。批准后的任何新 commit 都会使记录失效，需要重新评审。
+- agent 收到有效记录后只做记账：移除 `code-review` 标签、回处理记录评论。若转发链未生效（PAT 缺失 / `record-dispatch.yml` 尚未在默认分支），agent 或 watch 用 `gh run rerun` 补一次放行 run。
+- **预约 ≠ 合并**：`gh pr merge --auto --squash` 只是预约，**不要判断 CI 状态、不要手动合并**，时机由 GitHub 决定。若 watch 载体（`/steward`）因 never-merge 约束拒绝预约，退化为请用户一键开启 auto-merge，agent 只负责让 check 通过。
 - 合并后确认 issue status 为 `Done`；若原生自动化未设，手动补。
 - PR 关闭但未合并：把 issue status 设回 `Todo`（仍 ready）或 `Backlog`，评论原因。
 - 如果 auto-merge 长时间未合并（CI 红/冲突），留评论说明卡点后停止，
