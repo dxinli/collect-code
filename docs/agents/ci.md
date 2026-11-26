@@ -102,7 +102,7 @@ CI 本身全量；下面是流程规则，不是 CI 门控。live 值只有一�
 3. 新增 spec 检查：加到 `make check-spec`。
 4. 路径集合只改 `scripts/path-policy.sh`；新增 local-only 目录还要同步 `.gitignore`（self-test 检查一致）；plan-review/record/元数据逻辑改 `ci.yml`；spec-delta 语义改 `spec-status.sh`；同步本表。
 5. `ci.yml` 与 `scripts/path-policy.sh` 的改动会改变门禁，必须人工 review。
-6. 标签/PR body/评论/review/issue 变更不触发 run；需要时 Re-run all jobs。
+6. 标签/PR body/评论/review/issue 变更不触发 run，唯一例外是 `/code-approved` 记录评论（触发 `record-dispatch.yml` 转发）；需要时 `gh run rerun`。
 
 ## 移植
 

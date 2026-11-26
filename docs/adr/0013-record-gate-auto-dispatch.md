@@ -11,7 +11,7 @@ ADR-0012 确立评论驱动推进后，流程反馈（#110）指出两处摩擦�
 ## 决策
 
 1. **guard 标签检查退役，记录检查完整接管**。删除「`plan-review` 在 → 只许计划文件」与「`code-review` 在 → 红」两分支：无有效 `/plan-approved` 记录时代码文件被拒、无当前 head 的 `/code-approved` 记录时非 draft 失败，保护不减。记录检查本体（行正则、owner、plan 祖先/计划点范围、code = head）零改动。标签退为纯记账（agent 增删、人看进度），`guard` 不读标签。
-2. **放行记录自动触发放行 CI**。新增辅助 workflow `record-dispatch.yml`（非门禁，如 `claude.yml` 同类）：`issue_comment` 粗过滤（PR 评论且含 `/code-approved`）+ step 内裸行严判（与 guard 同正则）后，用 PAT 执行 `gh workflow run "CI" --ref <PR head branch> -f pr=<n>`。`ci.yml` 的 guard 扩展 `workflow_dispatch` 路径（`pr` 输入，`gh pr view` 解析 head/base，与事件路径汇合同一校验段）。
+2. **放行记录自动触发放行 CI**。新增辅助 workflow `record-dispatch.yml`（非门禁，如 `claude.yml` 同类）：`issue_comment` 粗过滤（PR 评论且含 `/code-approved`）+ step 内裸行严判（与 guard 同正则）后，用 PAT 执行 `gh workflow run "CI" --ref <PR head branch> -f pr=<n>`。`ci.yml` 的 guard 扩展 `workflow_dispatch` 路径（`pr` 输入；base/branch 经 `gh pr view` 解析，head 取 run checkout 即分支当时 head，保留「run head = live head」的过期检查；与事件路径汇合同一校验段）。
 3. **收尾次序反转**：`gh pr ready` 后立即 `gh pr merge --auto --squash` 预约；记录到达 → 转发 → run 落 head → guard 绿 → GitHub 自动合并。「没有有效记录不得开 auto-merge」反转为「预约可提前，放行由 guard 记录门禁保证；无记录时 guard 红、合并不会发生」。
 4. **计划记录不触发 run**：`/plan-approved` 驱动 agent 开工，代码 push 会起 run；触发过滤只认 `/code-approved`（放行记录触发 CI）。
 5. agent 收到有效记录后只做记账（清标签、回处理记录）；转发链未生效（PAT 缺失 / `record-dispatch.yml` 不在默认分支）时退 `gh run rerun`，机制与 ADR-0012 的退路一致。

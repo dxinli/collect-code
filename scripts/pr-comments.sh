@@ -252,15 +252,20 @@ feedback owner" "$got" "mixed comment: record + prose"
   expect "no" "$(is_iso_time '2026-01-01T00:00:00Z") || ("' && echo yes || echo no)" "injection tail rejected"
   expect "no" "$(is_iso_time 'garbage' && echo yes || echo no)" "garbage rejected"
 
-  # E. Guard parity: the record regexes must equal ci.yml's literal patterns,
-  # so a one-sided edit cannot pass silently.
-  local repo_root ci_plan ci_code
+  # E. Guard parity: the record regexes must equal ci.yml's and
+  # record-dispatch.yml's literal patterns, so a one-sided edit cannot pass
+  # silently.
+  local repo_root ci_plan ci_code rd_code
   repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || repo_root=""
   if [ -n "$repo_root" ] && [ -f "$repo_root/.github/workflows/ci.yml" ]; then
     ci_plan=$(grep -oE "'\^/plan-approved [^']*'" "$repo_root/.github/workflows/ci.yml" | head -1 | tr -d "'" || true)
     ci_code=$(grep -oE "'\^/code-approved [^']*'" "$repo_root/.github/workflows/ci.yml" | head -1 | tr -d "'" || true)
     expect "$RECORD_PLAN_RE" "$ci_plan" "plan record regex parity with ci.yml"
     expect "$RECORD_CODE_RE" "$ci_code" "code record regex parity with ci.yml"
+    if [ -f "$repo_root/.github/workflows/record-dispatch.yml" ]; then
+      rd_code=$(grep -oE "'\^/code-approved [^']*'" "$repo_root/.github/workflows/record-dispatch.yml" | head -1 | tr -d "'" || true)
+      expect "$RECORD_CODE_RE" "$rd_code" "code record regex parity with record-dispatch.yml"
+    fi
   fi
 
   if [ "$st_fail" -ne 0 ]; then
