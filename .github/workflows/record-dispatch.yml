@@ -31,6 +31,7 @@ jobs:
     name: dispatch
     if: |
       github.event.issue.pull_request != null &&
+      github.event.comment.user.login == github.repository_owner &&
       contains(github.event.comment.body || '', '/code-approved')
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -48,6 +49,6 @@ jobs:
             exit 0
           fi
           pr=${PR_URL##*/}
-          head=$(gh api "repos/${{ github.repository }}/pulls/$pr" --jq .head.ref)
+          head=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$pr" --jq .head.ref)
           gh workflow run "CI" --ref "$head" -f "pr=$pr"
           echo "dispatched CI on $head for PR #$pr"

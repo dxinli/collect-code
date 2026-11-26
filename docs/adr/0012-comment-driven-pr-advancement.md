@@ -33,3 +33,7 @@ ADR-0009 与 ADR-0011 已确立“记录是审计证据，标签只是等待标�
 - 评论、标签变更仍不触发 run；agent 删标签后仍需 Re-run all jobs（或由下一次 push 触发）。
 - never-merge 与预约合并的张力有明确退路（用户一键 auto-merge）；实测载体拒绝预约时按退路执行。
 - `guard` 结构零改动；`AGENTS.md` 与 `docs/agents/*` 措辞与本 ADR 对齐。ADR-0009/0011 中“reviewer 移除标签”的表述按历史语境保留 (historical)，决策正文不改写。
+
+## Amendment（2026-11-26，ADR-0013）
+
+决策 2 中「`guard` 的两处标签检查不改」被 ADR-0013 更新：标签检查退役，标签降为纯记账，记录检查完整接管。删标签随之降为记账动作；「Re-run all jobs」演进为记录评论自动触发放行（转发失效时仍可 `gh run rerun`）。记录信号、引用块纪律与模板流程不变。

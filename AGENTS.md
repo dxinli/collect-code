@@ -56,7 +56,7 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 |---|---|---|
 | reviewer | 写 PR 评论：通过记录（裸行）或反馈 | 移除标签、合并 |
 | agent | 读评论 → 分类 → 代管标签 → 执行 → 回处理记录评论 | 写通过记录 |
-| `guard` | 校验记录与标签锁定（最终门禁） | — |
+| `guard` | 只校验记录（最终门禁），不读标签 | — |
 
 ### 元指令（每张工单必做）
 
@@ -81,7 +81,7 @@ Read `docs/README.md`, `docs/spec/spec.md`, the relevant files under `docs/contr
 
 - PR body 分两节：**Plan**（目标/改动清单/Non-goals/风险点）+ **实现记录**（留空）。
 - 计划前先核实事实，再写断言。Plan 必含 **已核实事实** 表，每行 `事实 | 核实方式 | 结论`。至少覆盖：相关 Accepted ADR 的约束；每个检查实际读取什么（例如 `check-spec` 的 contracts/covers 会读 Go）；第三方 action/工具在固定版本下的关键语义；脚本处理路径的编码与非 ASCII 测试矩阵。无法核实的事实不能作为断言写入 Plan：先核实，或把待决问题提到 issue 并停下。格式、示例与要求理由见 [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md#plan)。
-- 计划前读 [docs/agents/ci.md](docs/agents/ci.md)：CI 全量运行，标签变更不触发；需要重新评估时 Re-run all jobs。
+- 计划前读 [docs/agents/ci.md](docs/agents/ci.md)：CI 全量运行；`/code-approved` 记录评论自动触发放行 run，其余评论/标签变更不触发，需要时 `gh run rerun`。
 - 打 `plan-review` 标签后停下等评审；没有有效的 `/plan-approved <sha>` 记录前，禁止推送任何代码 commit。
 - **通过信号 = 记录**：reviewer 在 PR 会话评论或 review 正文中留下一整行 `/plan-approved <sha>`。`<sha>` 是计划阶段的 commit；`guard` 校验它是 PR head 的祖先、由本 PR 引入，且该点只含计划文件。agent 不得自己写这条记录。
 - **reviewer 单动作 = 写评论**：永不移除标签、永不合并；标签增删由 agent 代管。agent 收到有效记录 → 移除 `plan-review` 标签 → 开工；其他评论一律为反馈。恢复工作时先重读 PR 的 label、body、comments，用 `scripts/pr-comments.sh`（或同口径手工判定）区分记录与反馈；无效记录不算通过，回评论说明并继续等。

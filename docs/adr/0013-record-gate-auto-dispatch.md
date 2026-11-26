@@ -30,6 +30,6 @@ ADR-0012 确立评论驱动推进后，流程反馈（#110）指出两处摩擦�
 - 记录评论成为唯一放行动作：reviewer 一行评论 → CI 自动 → guard 绿 → 自动合并，零人工步骤、agent 可不在场。
 - guard 语义变化（标签检查退役）属门禁变更，`ci.yml` 改动须人工评审（CI 维护规则）。
 - 转发链依赖 PAT（`CLAUDE_GITHUB_TOKEN`）与「转发件在默认分支」两个条件；失效时退 `gh run rerun`，流程不破。
-- 非 owner 评论含 `/code-approved` 会起一次转发 job（严判拦下、不 dispatch）；代价数秒，guard 兜底真实性。
+- 转发只对 repo owner 的评论行动（job 级过滤作者 + 裸行严判）；guard 的 owner 校验仍是真实性兜底。
 - 模板/处理记录的引用块行命中粗过滤但被严判拦下——引用块纪律（ADR-0012 决策 3）继续有效。
 - 合并前无法实测 `issue_comment` 转发链（workflow 文件取自默认分支）；dispatch 路径（`gh workflow run`）可在 PR 分支实测。
