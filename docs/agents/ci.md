@@ -21,7 +21,7 @@ required checks：`ci`、`guard`、`gitleaks`。
 - 把 `plan-review` 加到一个已经包含代码的 PR 时，标签变更不会触发 run；必须 Re-run all jobs 才会用当前标签检查该 diff。这是移除标签触发的代价，ADR-0008 记录该取舍。
 - 元数据检查在运行时读取当前 PR body、目标 issue 与 `docs/spec/VERSION`；改 body/issue 后同样需要 Re-run。
 - `/plan-approved` 是 PR 评论，不是标签；评论同样不会触发 run。记录后需 Re-run all jobs，或由下一次代码 push 触发。
-- `/code-approved` 同样不触发 run；`code-review` 标签存在时 `guard` 失败，记录并移除标签后需 Re-run。
+- `/code-approved` 同样不触发 run；`code-review` 标签存在时 `guard` 失败，agent 据记录移除标签后需 Re-run。记录是唯一通过信号：reviewer 只写评论，标签增删由 agent 代管。
 - `on.pull_request` 的类型是 opened/synchronize/reopened/ready_for_review；没有 labeled/unlabeled，也没有 `pull_request_review` 触发。`ready_for_review` 由 ADR-0011 加入。
 
 ## 计划通过记录
@@ -52,10 +52,10 @@ required checks：`ci`、`guard`、`gitleaks`。
 
 - 评论作者是 `github.repository_owner`；review 只采纳 `COMMENTED`/`APPROVED`，`DISMISSED`/`CHANGES_REQUESTED` 不算；
 - SHA 必须解析为本次 run 的 head，且与当前 PR head 相同；新 commit、amend、rebase、force-push 都会使记录失效；run 落后于当前 head 时失败；
-- `code-review` 标签仍在时 `guard` 失败；标签是等待标记，不是通过信号；
+- `code-review` 标签仍在时 `guard` 失败；标签是等待标记，不是通过信号，记录到达后由 agent 移除；
 - draft PR **失败**，不跳过：draft 上的绿色 check 会在 `ready_for_review` 新 run 注册前形成 false-green 窗口。`ready_for_review` 会触发一次新 run，保证 draft→ready 被重新评估。
 
-评论、review、标签变更都不触发 run；记录并移除标签后需 Re-run all jobs。批准后再加回 `code-review` 不会自动使绿色 check 变红；需要时手动 Re-run。`dependabot/*`、`probe/*` 豁免；`spec-delta/*` 仍需要记录。规则来源见 [ADR-0011](../adr/0011-code-review-approval-record.md)。
+评论、review、标签变更都不触发 run；agent 据记录移除标签后需 Re-run all jobs。批准后再加回 `code-review` 不会自动使绿色 check 变红；需要时手动 Re-run。`dependabot/*`、`probe/*` 豁免；`spec-delta/*` 仍需要记录。规则来源见 [ADR-0011](../adr/0011-code-review-approval-record.md)。
 
 ## 路径策略（流程规则）
 
