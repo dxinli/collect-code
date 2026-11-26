@@ -65,8 +65,8 @@ Labels are classification and routing, never execution state:
 | `needs-info` | Backlog: waiting on the reporter |
 | `human` | routing: the issue must be done by a human |
 | `spec-parent` | the single spec anchor; not a work item |
-| `plan-review` | PR-only: the plan is waiting for review |
-| `code-review` | PR-only: implementation review is pending; the reviewer records `/code-approved <head-sha>` and removes it |
+| `plan-review` | PR-only: the plan is waiting for review; the agent removes it upon the `/plan-approved <sha>` record |
+| `code-review` | PR-only: implementation review is pending; the agent removes it upon the `/code-approved <head-sha>` record |
 
 Do not add execution labels such as `in-progress` or `done`; status covers them.
 
@@ -227,6 +227,10 @@ fi
 - Adding a local-only directory means updating `LOCAL_ONLY_DIRS` in
   `scripts/path-policy.sh` and `.gitignore`; the policy self-test checks they
   agree.
+- After `gh pr edit --add-label plan-review`, post a review-template comment
+  whose record line is quoted (`> /plan-approved <sha>`); a bare line posted
+  from the owner account would be read as a record. The same applies to the
+  `/code-approved <head-sha>` template at `gh pr ready` time.
 
 ## Dependencies (blocked)
 
@@ -278,8 +282,8 @@ names the command, ADR, or document used to verify the fact. A fact that
 cannot be verified is not written as an assertion: resolve it before plan
 review, or stop and raise the open question on the issue. A real plan lists
 every fact it depends on; the example above stays at four rows to show the
-shape. The table is reviewed with the plan before the `plan-review` label is
-removed.
+shape. The table is reviewed with the plan before approval lands: a valid
+record lets the agent remove the `plan-review` label.
 
 The rule exists because four approved plans were invalidated by unverified
 facts: #83 (`check-spec` reads Go), #87 (git C-quotes non-ASCII paths), #89
@@ -294,6 +298,12 @@ line
 ```text
 /plan-approved <sha>
 ```
+
+The record line must be bare on its own line; prose elsewhere in the same
+comment does not invalidate it but is read as feedback. The reviewer's only
+action is commenting: never remove labels, never merge. When posting the
+review template, quote the record line (`>` or inline code): an agent posting
+a bare line from the owner account would be accepted as a record.
 
 `<sha>` is a plan-stage commit on the PR branch (typically the PR head at
 approval time). `guard` accepts the record only when:
@@ -315,11 +325,14 @@ when a plan change is material. Editing the plan in the PR body is not
 machine-detectable for the same reason.
 
 The `plan-review` label remains the waiting marker; removing it does not
-replace the record. Label and comment changes do not trigger a workflow run, so
+replace the record. The reviewer never touches labels: upon a valid record the
+agent removes `plan-review`, starts implementation, and posts a processing
+note on the PR. Label and comment changes do not trigger a workflow run, so
 re-run the workflow (or push the next commit) after recording approval. Exempt
 branches: `spec-delta/*`, `dependabot/*`, `probe/*`.
 
-Inspect the current records:
+Inspect the current records (`scripts/pr-comments.sh <n>` classifies comments
+into approved/invalid/feedback with the same semantics):
 
 ```bash
 {
@@ -367,9 +380,12 @@ After implementation:
 
 1. Run the `code-review` skill (self-review) and fix findings.
 2. Set the issue status to `In review`, run `gh pr ready`, and add the
-   `code-review` label.
-3. The reviewer records code approval (see below) and removes `code-review`.
-4. Re-run the workflow; once `guard` passes, run `gh pr merge --auto --squash`.
+   `code-review` label together with a quoted `/code-approved <head-sha>`
+   template line.
+3. The reviewer records code approval (see below); upon the record the agent
+   removes `code-review`.
+4. The agent re-runs the workflow; once `guard` passes, run
+   `gh pr merge --auto --squash` — a reservation, not a merge.
 
 ### Code review approval record
 
@@ -384,11 +400,11 @@ single line
 `<head-sha>` must resolve to the head of the workflow run, and that head must
 equal the live PR head. Any new commit, amend, rebase, or force-push
 invalidates the record; the reviewer records the new head. `guard` also fails
-while the `code-review` label is present. Draft PRs fail rather than skip: a
+while the `code-review` label is present, so upon a valid record the agent
+removes the label and re-runs the workflow. Draft PRs fail rather than skip: a
 green draft check would leave a false-green window before the
 `ready_for_review` run registers. Comments, reviews, and labels do not trigger a
-run: after recording approval and removing the label, re-run the workflow.
-Re-adding the label after a green run does not automatically invalidate it;
+run. Re-adding the label after a green run does not automatically invalidate it;
 re-run if you do. Exempt: `dependabot/*`, `probe/*`.
 
 Inspect the head and records:

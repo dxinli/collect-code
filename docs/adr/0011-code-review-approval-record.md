@@ -35,3 +35,7 @@
 - 批准后加回 `code-review` 标签不会自动使绿色 check 变红；需要时手动 Re-run。
 - draft→ready 会多跑一次全量 `ci`/`gitleaks`；每张票一次，可接受。
 - 同账号限制仍在；需要身份隔离时应另开 issue 引入独立 reviewer 账号或 GitHub App。
+
+## Amendment（2026-11-26，ADR-0012）
+
+标签移除动作改由 agent 代管（见 ADR-0012 决策 2）：reviewer 只留 `/code-approved <head-sha>` 记录，agent 据记录移除 `code-review` 并 Re-run。本文背景与决策 6 中“reviewer 移除标签”的表述按历史语境保留 (historical)；head 绑定语义与 `guard` 校验不变。

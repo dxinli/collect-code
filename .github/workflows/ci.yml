@@ -119,11 +119,12 @@ jobs:
             echo "::error::cannot read PR reviews"
             exit 1
           fi
+          # 记录正则与 scripts/pr-comments.sh 保持同步（ADR-0012 决策 7）。
           RECORDS=$(printf '%s\n%s\n' "$COMMENTS" "$REVIEWS" | tr -d '\r' \
             | grep -oE '^/plan-approved [0-9a-f]{7,40}[[:space:]]*$' \
             | awk '{print $2}' || true)
           if [ -z "$RECORDS" ]; then
-            echo "::error::代码改动需要计划通过记录：由 reviewer 在 PR 评论 '/plan-approved <sha>'（<sha> 为计划阶段的 commit），然后 Re-run all jobs"
+            echo "::error::代码改动需要计划通过记录：由 reviewer 在 PR 评论 '/plan-approved <sha>'（<sha> 为计划阶段的 commit）；agent 据记录移除 plan-review 标签后 Re-run all jobs"
             exit 1
           fi
 
@@ -154,7 +155,7 @@ jobs:
             exit 0
           done <<< "$RECORDS"
 
-          echo "::error::没有有效的计划通过记录；reviewer 需在计划 commit 上评论 '/plan-approved <sha>'，然后 Re-run all jobs"
+          echo "::error::没有有效的计划通过记录；reviewer 需在计划 commit 上评论 '/plan-approved <sha>'，agent 据记录移除 plan-review 标签后 Re-run all jobs"
           exit 1
 
       - name: Require ticket metadata
@@ -329,7 +330,7 @@ jobs:
           fi
           case ",$LABELS," in
             *,code-review,*)
-              echo "::error::code-review 标签仍在，评审尚未结束"
+              echo "::error::code-review 标签仍在：等待 agent 据记录移除，或评审尚未结束"
               exit 1
               ;;
           esac
@@ -344,11 +345,12 @@ jobs:
             echo "::error::cannot read PR reviews"
             exit 1
           fi
+          # 记录正则与 scripts/pr-comments.sh 保持同步（ADR-0012 决策 7）。
           RECORDS=$(printf '%s\n%s\n' "$COMMENTS" "$REVIEWS" | tr -d '\r' \
             | grep -oE '^/code-approved [0-9a-f]{7,40}[[:space:]]*$' \
             | awk '{print $2}' || true)
           if [ -z "$RECORDS" ]; then
-            echo "::error::非 draft PR 需要当前 head 的 code review 记录：reviewer 评论 '/code-approved <head-sha>'（会话评论或 COMMENTED/APPROVED review 正文），确认 code-review 标签已移除，然后 Re-run all jobs"
+            echo "::error::非 draft PR 需要当前 head 的 code review 记录：reviewer 评论 '/code-approved <head-sha>'（会话评论或 COMMENTED/APPROVED review 正文）；agent 据记录移除 code-review 标签后 Re-run all jobs"
             exit 1
           fi
 
@@ -366,7 +368,7 @@ jobs:
             exit 0
           done <<< "$RECORDS"
 
-          echo "::error::没有当前 head（$HEAD）的 code review 记录；reviewer 需评论 '/code-approved $HEAD'，确认 code-review 标签已移除，然后 Re-run all jobs"
+          echo "::error::没有当前 head（$HEAD）的 code review 记录；reviewer 需评论 '/code-approved $HEAD'，agent 据记录移除 code-review 标签后 Re-run all jobs"
           exit 1
 
   gitleaks:
