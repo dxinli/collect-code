@@ -29,3 +29,7 @@
 
 - `pull_request.types` 加入 `ready_for_review`（ADR-0011），用于 draft→ready 时重新评估 code review 记录。
 - 其他触发决策不变：仍无 `labeled`/`unlabeled`，也没有 `pull_request_review` 触发。
+
+## Amendment（2026-11-26，ADR-0013）
+
+触发清单演进：新增非门禁转发件 `record-dispatch.yml`（`issue_comment` 过滤转发，与 `claude.yml` 同为辅助 workflow，不改变「单 workflow 门禁」）与 guard 的 `workflow_dispatch` 路径（`pr` 输入）。labeled/unlabeled 与 `pull_request_review` 触发继续否决。标签由「只读」进一步降为「纯记账」：guard 不再读取（见 ADR-0013 决策 1）。

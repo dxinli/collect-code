@@ -15,11 +15,12 @@
 | [0005](0005-downlink-queue-governance.md) | 下行队列用 `GetQueue` + 精确撤销，不用 `FlushQueue` 合并 | Accepted + Amendment 2026-11-22 |
 | [0006](0006-doc-authority-and-spec-change-policy.md) | 文档按事实类型分权，规范包版本化并独立变更 | Accepted |
 | [0007](0007-main-protection-minimum-gate.md) | main 采用最小门禁：`guard` 硬门禁，agent 直推约束暂缓 | Accepted + Amendment 2026-11-25（计划记录见 ADR-0009；票元数据见 ADR-0010） |
-| [0008](0008-ci-full-gate-single-workflow.md) | CI 采用全量门禁：单 workflow、三 job、无路径过滤 | Accepted + Amendment 2026-11-25（`ready_for_review` 触发见 ADR-0011） |
+| [0008](0008-ci-full-gate-single-workflow.md) | CI 采用全量门禁：单 workflow、三 job、无路径过滤 | Accepted + Amendment 2026-11-25/26（`ready_for_review` 触发见 ADR-0011；转发件与 dispatch 见 ADR-0013） |
 | [0009](0009-plan-approval-record.md) | 计划通过用 `/plan-approved <sha>` 评论记录，`guard` 校验祖先与记录点范围 | Accepted + Amendment 2026-11-26（标签改由 agent 移除，见 ADR-0012） |
 | [0010](0010-guard-ticket-metadata.md) | `guard` 覆盖所有非豁免 PR 的 `Closes` 与 `Spec-*`/`REQ` 元数据 | Accepted |
-| [0011](0011-code-review-approval-record.md) | code review 用 head 绑定的 `/code-approved <sha>` 记录，`guard` 校验 | Accepted + Amendment 2026-11-26（标签改由 agent 移除，见 ADR-0012） |
+| [0011](0011-code-review-approval-record.md) | code review 用 head 绑定的 `/code-approved <sha>` 记录，`guard` 校验 | Accepted + Amendment 2026-11-26（标签改由 agent 移除，见 ADR-0012；门禁演进见 ADR-0013） |
 | [0012](0012-comment-driven-pr-advancement.md) | 评论驱动推进：记录唯一信号，agent 代管标签，收尾预约合并 | Accepted |
+| [0013](0013-record-gate-auto-dispatch.md) | 记录化门禁：标签检查退役，放行记录自动触发放行 CI，ready 即预约合并 | Accepted |
 
 ## D 决策索引
 

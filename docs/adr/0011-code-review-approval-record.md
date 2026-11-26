@@ -39,3 +39,7 @@
 ## Amendment（2026-11-26，ADR-0012）
 
 标签移除动作改由 agent 代管（见 ADR-0012 决策 2）：reviewer 只留 `/code-approved <head-sha>` 记录，agent 据记录移除 `code-review` 并 Re-run。本文背景与决策 6 中“reviewer 移除标签”的表述按历史语境保留 (historical)；head 绑定语义与 `guard` 校验不变。
+
+## Amendment（2026-11-26，ADR-0013）
+
+决策 3 的标签检查退役：guard 不再因 `code-review` 标签失败，无有效记录才失败（见 ADR-0013 决策 1）。决策 6 的「记录并移除标签后 Re-run」演进为「记录评论自动触发放行 CI（record-dispatch），失效时退 `gh run rerun`」。head 绑定语义与记录格式不变。
