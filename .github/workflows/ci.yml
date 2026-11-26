@@ -7,6 +7,11 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+    inputs:
+      pr:
+        description: "PR number（record-dispatch 转发时带上；guard 据此解析 head/base）"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -52,7 +57,7 @@ jobs:
 
   guard:
     name: guard
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -61,7 +66,7 @@ jobs:
       issues: read
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
       REPO: ${{ github.repository }}
     steps:
       - name: Checkout
@@ -69,33 +74,41 @@ jobs:
         with:
           fetch-depth: 0
 
+      # pull_request 事件用事件负载；workflow_dispatch（record-dispatch 转发）
+      # 没有 PR 上下文，用 gh 按 pr 输入解析。两路径汇合到同一校验段。
+      - name: Resolve PR refs
+        env:
+          EVENT: ${{ github.event_name }}
+          EV_BASE: ${{ github.event.pull_request.base.sha }}
+          EV_HEAD: ${{ github.event.pull_request.head.sha }}
+          EV_BRANCH: ${{ github.head_ref }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            if [ -z "$PR_NUMBER" ]; then
+              echo "::error::workflow_dispatch 需要 pr 输入（record-dispatch 转发时自动带上）"
+              exit 1
+            fi
+            EV_BASE=$(gh pr view "$PR_NUMBER" -R "$REPO" --json baseRefOid --jq .baseRefOid)
+            EV_BRANCH=$(gh pr view "$PR_NUMBER" -R "$REPO" --json headRefName --jq .headRefName)
+            EV_HEAD=$(git rev-parse HEAD)
+          fi
+          {
+            echo "BASE=$EV_BASE"
+            echo "HEAD=$EV_HEAD"
+            echo "BRANCH=$EV_BRANCH"
+          } >> "$GITHUB_ENV"
+
       - name: Enforce plan rules
         env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-          BRANCH: ${{ github.head_ref }}
           APPROVER: ${{ github.repository_owner }}
         run: |
           . scripts/path-policy.sh
-          LABELS=$(gh pr view "$PR_NUMBER" -R "$REPO" --json labels \
-            --jq '[.labels[].name] | join(",")')
 
           if ! FILES=$(git -c core.quotePath=false diff --name-only "$BASE...$HEAD"); then
             echo "::error::cannot compute changed files"
             exit 1
           fi
           CODE=$(printf '%s\n' "$FILES" | grep -vE "$PLAN_ALLOW_RE" || true)
-
-          case ",$LABELS," in
-            *,plan-review,*)
-              if [ -n "$CODE" ]; then
-                echo "::error::plan-review 期间只允许计划文件（allowlist 见 scripts/path-policy.sh）；发现："
-                printf '%s\n' "$CODE"
-                exit 1
-              fi
-              echo "✅ plan-review 期间没有代码改动"
-              ;;
-          esac
 
           if [ -z "$CODE" ]; then
             echo "✅ 只有计划文件，无需 plan 通过记录"
@@ -124,7 +137,7 @@ jobs:
             | grep -oE '^/plan-approved [0-9a-f]{7,40}[[:space:]]*$' \
             | awk '{print $2}' || true)
           if [ -z "$RECORDS" ]; then
-            echo "::error::代码改动需要计划通过记录：由 reviewer 在 PR 评论 '/plan-approved <sha>'（<sha> 为计划阶段的 commit）；agent 据记录移除 plan-review 标签后 Re-run all jobs"
+            echo "::error::代码改动需要计划通过记录：由 reviewer 在 PR 评论 '/plan-approved <sha>'（<sha> 为计划阶段的 commit）"
             exit 1
           fi
 
@@ -155,14 +168,10 @@ jobs:
             exit 0
           done <<< "$RECORDS"
 
-          echo "::error::没有有效的计划通过记录；reviewer 需在计划 commit 上评论 '/plan-approved <sha>'，agent 据记录移除 plan-review 标签后 Re-run all jobs"
+          echo "::error::没有有效的计划通过记录；reviewer 需在计划 commit 上评论 '/plan-approved <sha>'"
           exit 1
 
       - name: Require ticket metadata
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-          BRANCH: ${{ github.head_ref }}
         run: |
           . scripts/path-policy.sh
           SKIP_CLOSES=0
@@ -294,8 +303,6 @@ jobs:
 
       - name: Require code review approval
         env:
-          HEAD: ${{ github.event.pull_request.head.sha }}
-          BRANCH: ${{ github.head_ref }}
           APPROVER: ${{ github.repository_owner }}
         run: |
           case "$BRANCH" in
@@ -323,18 +330,6 @@ jobs:
             exit 1
           fi
 
-          if ! LABELS=$(gh pr view "$PR_NUMBER" -R "$REPO" --json labels \
-            --jq '[.labels[].name] | join(",")'); then
-            echo "::error::cannot read PR labels"
-            exit 1
-          fi
-          case ",$LABELS," in
-            *,code-review,*)
-              echo "::error::code-review 标签仍在：等待 agent 据记录移除，或评审尚未结束"
-              exit 1
-              ;;
-          esac
-
           if ! COMMENTS=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
             --jq ".[] | select(.user.login == \"$APPROVER\") | .body"); then
             echo "::error::cannot read PR comments"
@@ -350,7 +345,7 @@ jobs:
             | grep -oE '^/code-approved [0-9a-f]{7,40}[[:space:]]*$' \
             | awk '{print $2}' || true)
           if [ -z "$RECORDS" ]; then
-            echo "::error::非 draft PR 需要当前 head 的 code review 记录：reviewer 评论 '/code-approved <head-sha>'（会话评论或 COMMENTED/APPROVED review 正文）；agent 据记录移除 code-review 标签后 Re-run all jobs"
+            echo "::error::非 draft PR 需要当前 head 的 code review 记录：reviewer 评论 '/code-approved <head-sha>'（会话评论或 COMMENTED/APPROVED review 正文）；记录评论会自动触发放行 CI（record-dispatch）"
             exit 1
           fi
 
@@ -368,7 +363,7 @@ jobs:
             exit 0
           done <<< "$RECORDS"
 
-          echo "::error::没有当前 head（$HEAD）的 code review 记录；reviewer 需评论 '/code-approved $HEAD'，agent 据记录移除 code-review 标签后 Re-run all jobs"
+          echo "::error::没有当前 head（$HEAD）的 code review 记录；reviewer 需评论 '/code-approved $HEAD'，记录评论会自动触发放行 CI（record-dispatch）"
           exit 1
 
   gitleaks:
