@@ -1,0 +1,54 @@
+# 转发件（辅助 workflow，非门禁）：/code-approved 记录评论 → 在 PR 分支上起 CI run。
+#
+# 为什么存在（ADR-0013）：
+#   - GITHUB_TOKEN 触发的事件不会创建新 workflow run（防递归），故用 PAT
+#     （CLAUDE_GITHUB_TOKEN，repo + workflow 权限）执行 dispatch；
+#   - issue_comment 触发的 run 执行在默认分支、没有 PR head 上下文，其 check
+#     不落 PR head sha，满足不了 required checks——所以这里只做转发：
+#     `gh workflow run --ref <PR head branch>` 的 run 执行在 PR 分支，check 落
+#     head sha，由 ci.yml 的 guard（workflow_dispatch 路径）完成记录门禁。
+#   - issue_comment 的 workflow 文件取自默认分支：本转发件合并后才生效。
+#
+# 过滤：job 级只看「PR 评论 + 含 /code-approved」；严格裸行判定（与 guard、
+# scripts/pr-comments.sh 同正则）放在 step 里——模板/处理记录中的引用块行
+# 会命中粗过滤，但不会真的 dispatch。
+name: Record Dispatch
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: record-dispatch-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    name: dispatch
+    if: |
+      github.event.issue.pull_request != null &&
+      github.event.comment.user.login == github.repository_owner &&
+      contains(github.event.comment.body || '', '/code-approved')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch CI on the PR head (bare record line only)
+        env:
+          GH_TOKEN: ${{ secrets.CLAUDE_GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.issue.pull_request.url }}
+          BODY: ${{ github.event.comment.body }}
+        run: |
+          # 记录正则与 ci.yml guard、scripts/pr-comments.sh 保持同步（ADR-0012/0013）。
+          if ! printf '%s' "$BODY" | tr -d '\r' \
+            | grep -qE '^/code-approved [0-9a-f]{7,40}[[:space:]]*$'; then
+            echo "no bare record line; nothing to dispatch"
+            exit 0
+          fi
+          pr=${PR_URL##*/}
+          head=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$pr" --jq .head.ref)
+          gh workflow run "CI" --ref "$head" -f "pr=$pr"
+          echo "dispatched CI on $head for PR #$pr"

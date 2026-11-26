@@ -29,3 +29,5 @@ GitHub 的 PR review approval 需要 reviewer 与作者不同；本仓库的 age
 ## Amendment（2026-11-26，ADR-0012）
 
 标签移除动作改由 agent 代管（见 ADR-0012 决策 2）：reviewer 只留记录评论，agent 据记录移除 `plan-review` 并开工。本文背景与决策 6 中“reviewer 移除标签”的表述按历史语境保留 (historical)；记录机制与 `guard` 校验不变。
+
+（2026-11-26，ADR-0013 补注）上条 Amendment 中「`guard` 校验不变」指记录校验本体；guard 的标签检查已随 ADR-0013 退役。
