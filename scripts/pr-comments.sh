@@ -5,6 +5,8 @@
 # The record semantics mirror the ci.yml guard exactly and must stay in sync
 # with it (same line regex, owner-only records, same sha semantics). The guard
 # remains the final gate; this script only classifies for the watch agent.
+# Nuance: the code-record check pins the live head here, while the guard
+# additionally pins the workflow-run head (equal whenever the run is current).
 #
 # Usage:
 #   scripts/pr-comments.sh <pr-number> [--since <ISO8601>]
@@ -28,6 +30,21 @@ RECORD_PLAN_RE='^/plan-approved [0-9a-f]{7,40}[[:space:]]*$'
 RECORD_CODE_RE='^/code-approved [0-9a-f]{7,40}[[:space:]]*$'
 
 die() { printf 'error: %s\n' "$*" >&2; exit 2; }
+
+usage() {
+  cat <<'EOF'
+Usage:
+  scripts/pr-comments.sh <pr-number> [--since <ISO8601>]
+  scripts/pr-comments.sh --self-test
+
+Classify a ticket PR's comments under the comment-driven protocol.
+Output (one finding per line):
+  approved plan|code <sha> <author>
+  invalid  plan|code <sha> <author> <reason>
+  feedback <author>
+EOF
+  exit 0
+}
 
 # classify_line <line>: stdout "plan <sha>" | "code <sha>" | "" (no record).
 classify_line() {
@@ -107,7 +124,7 @@ classify_body() {
 
 fetch_and_classify() {
   local pr=$1 since=${2:-1970-01-01T00:00:00Z}
-  local repo author body_b64 ts body
+  local repo author body_b64 body
   repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
   OWNER=$(gh repo view --json owner --jq .owner.login)
   BASE=$(gh pr view "$pr" --json baseRefOid --jq .baseRefOid)
@@ -233,8 +250,7 @@ feedback owner" "$got" "mixed comment: record + prose"
 case "${1:-}" in
   --self-test) self_test ;;
   ''|-h|--help)
-    sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
-    exit 0
+    usage
     ;;
   *)
     [[ "$1" =~ ^[1-9][0-9]*$ ]] || die "first argument must be a PR number"
@@ -247,6 +263,8 @@ case "${1:-}" in
         *) die "unknown option: $1" ;;
       esac
     done
+    [[ "$SINCE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2} ]] \
+      || die "--since must be an ISO8601 timestamp (e.g. 2026-11-26T00:00:00Z)"
     fetch_and_classify "$PR" "$SINCE"
     ;;
 esac

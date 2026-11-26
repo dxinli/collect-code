@@ -299,11 +299,11 @@ line
 /plan-approved <sha>
 ```
 
-The line must stand alone in the comment body; surrounding prose is read as
-feedback. The reviewer's only action is commenting: never remove labels, never
-merge. When posting the review template, quote the record line (`>` or inline
-code): an agent posting a bare line from the owner account would be accepted as
-a record.
+The record line must be bare on its own line; prose elsewhere in the same
+comment does not invalidate it but is read as feedback. The reviewer's only
+action is commenting: never remove labels, never merge. When posting the
+review template, quote the record line (`>` or inline code): an agent posting
+a bare line from the owner account would be accepted as a record.
 
 `<sha>` is a plan-stage commit on the PR branch (typically the PR head at
 approval time). `guard` accepts the record only when:
