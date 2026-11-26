@@ -19,6 +19,7 @@
 | [0009](0009-plan-approval-record.md) | 计划通过用 `/plan-approved <sha>` 评论记录，`guard` 校验祖先与记录点范围 | Accepted |
 | [0010](0010-guard-ticket-metadata.md) | `guard` 覆盖所有非豁免 PR 的 `Closes` 与 `Spec-*`/`REQ` 元数据 | Accepted |
 | [0011](0011-code-review-approval-record.md) | code review 用 head 绑定的 `/code-approved <sha>` 记录，`guard` 校验 | Accepted |
+| [0012](0012-comment-driven-pr-advancement.md) | 评论驱动推进：记录唯一信号，agent 代管标签，收尾预约合并 | Accepted |
 
 ## D 决策索引
 
